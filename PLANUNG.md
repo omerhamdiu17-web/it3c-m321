@@ -336,6 +336,8 @@ it3c-m321/
 │   └── design/                 # HTML-Fassung dieses Dokuments
 ├── keycloak/
 │   └── realm-chat.json         # Realm, Clients und Testbenutzer als Import
+├── postgres/
+│   └── init/                   # Datenbanken, Benutzer und Chat-Schema beim ersten Start
 ├── web-gateway/                # Spring Boot: REST, WebSocket, Auth, Proxy
 ├── chat-service/               # Spring Boot: Routing, Fan-out, Historie
 ├── batch-writer/               # Spring Boot: einziger DB-Schreiber

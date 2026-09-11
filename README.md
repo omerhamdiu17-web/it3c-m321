@@ -25,11 +25,32 @@ Alle Aufgaben werden in **deinem Fork** gelöst. Das Original-Repository bleibt 
 
 ```bash
 mvn test                         # alle Tests, RabbitMQ kommt per Testcontainers
-docker compose up --build        # RabbitMQ und chat-service im Netz chat-net
+docker compose up --build        # RabbitMQ, Postgres, Keycloak und chat-service im Netz chat-net
 ```
 
-Der `chat-service` veröffentlicht bewusst **keinen Port** auf den Host. Der einzige offene Port
-des Gesamtsystems gehört später dem Gateway.
+Kein Container veröffentlicht einen Port auf den Host, auch Keycloak nicht. Der einzige offene
+Port des Gesamtsystems gehört später dem Gateway, das `/auth` an Keycloak durchreicht. Bis dahin
+ist Keycloak nur aus dem Docker-Netz erreichbar, zum Beispiel so:
+
+```bash
+docker run --rm --network chat-net curlimages/curl -s \
+  http://keycloak:8080/auth/realms/chat/.well-known/openid-configuration
+```
+
+### Testbenutzer im Realm `chat`
+
+| Benutzer | Passwort | Rollen |
+|---|---|---|
+| `alice` | `alice` | user |
+| `bob` | `bob` | user |
+| `admin` | `admin` | user, admin |
+
+Der Realm (`keycloak/realm-chat.json`) wird nur beim **ersten** Start importiert, genauso wie die
+Datenbank-Skripte in `postgres/init/`. Nach einer Änderung daran: `docker compose down -v`, das
+löscht die Datenbank-Dateien und löst beim nächsten Start Import und Skripte erneut aus.
+
+Der Client `web-gateway` im Realm hat ein festes Beispiel-Secret. Das ist im Unterricht in Ordnung,
+weil der Realm-Import keine Werte aus `.env` lesen kann; in einem echten System gehörte es dort hin.
 
 ## Was gebaut wird
 
@@ -38,8 +59,8 @@ des Gesamtsystems gehört später dem Gateway.
 | chat-service | Spring Boot 3, Java 21 | Nimmt Nachrichten per `POST /messages` an, legt sie auf Queue und Fanout-Exchange | vorhanden |
 | rabbitmq | RabbitMQ 3.13 | Message Queue zwischen den Services | vorhanden |
 | batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank | folgt |
-| postgres | PostgreSQL | Speichert den Chat-Verlauf | folgt |
-| keycloak | Keycloak | Login (OIDC) | folgt |
+| postgres | PostgreSQL 16 | Speichert den Chat-Verlauf; Keycloak hat eine eigene Datenbank im selben Container | vorhanden |
+| keycloak | Keycloak 26 | Login (OIDC), Realm `chat` wird beim ersten Start importiert | vorhanden |
 | web-gateway | nginx | Einziger nach aussen offener Port | folgt |
 | Web-UI | React | Browser-Client | folgt |
 
