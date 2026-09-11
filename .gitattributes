@@ -1,0 +1,6 @@
+# Skripte, die in Linux-Containern laufen, brauchen LF-Zeilenenden.
+# Mit CRLF (Windows-Standard bei core.autocrlf=true) startet Postgres
+# das Init-Skript nicht. Diese Regel gilt unabhängig von der Git-Einstellung
+# der einzelnen Person.
+*.sh  text eol=lf
+*.sql text eol=lf

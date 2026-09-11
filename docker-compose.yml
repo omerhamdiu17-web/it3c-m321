@@ -1,6 +1,5 @@
-# Ausbaustufe 1: nur der Broker und der chat-service.
-# Postgres, Keycloak, web-gateway und batch-writer kommen in den
-# folgenden Schritten dazu.
+# Ausbaustufe 2: Broker, Datenbank, Login-Dienst und der chat-service.
+# web-gateway und batch-writer kommen in den folgenden Schritten dazu.
 services:
 
   rabbitmq:
@@ -15,6 +14,68 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+
+  # Ein Postgres-Container mit zwei getrennten Datenbanken: "chat" für den
+  # Chat-Verlauf und "keycloak" für den Login-Dienst. Jede hat einen eigenen
+  # Benutzer, damit die Chat-Anwendung die Keycloak-Tabellen technisch nicht
+  # lesen kann. Angelegt werden beide von den Skripten in postgres/init.
+  postgres:
+    image: postgres:16.15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Diese beiden liest das Init-Skript 01-create-databases.sh.
+      CHAT_DB_PASSWORD: ${CHAT_DB_PASSWORD}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Die Skripte laufen nur beim ERSTEN Start mit leerem Volume.
+      # Zum Neu-Einspielen: docker compose down -v
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - chat-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # Keycloak ist der Login-Dienst (IDP). Er hat KEINEN Port nach aussen und
+  # wird später vom web-gateway unter localhost:8080/auth durchgereicht
+  # (PLANUNG.md, Abschnitt 3.2). Deshalb kennt er schon jetzt diese äussere
+  # Adresse: der Aussteller (issuer) in jedem Token muss so lauten.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.3
+    # start-dev: Entwicklungsmodus ohne TLS-Zwang.
+    # --import-realm: liest keycloak/realm-chat.json beim ersten Start ein.
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      # Keycloak liegt unter dem Pfad /auth, nicht unter der Wurzel.
+      KC_HTTP_RELATIVE_PATH: /auth
+      # Die Adresse, unter der der BROWSER Keycloak später sieht. Der Pfad
+      # /auth muss hier nochmals stehen: eine volle URL ersetzt den Pfad aus
+      # KC_HTTP_RELATIVE_PATH, sonst fehlt /auth im Aussteller (issuer).
+      KC_HOSTNAME: http://localhost:8080/auth
+      # Das Gateway schickt X-Forwarded-*-Header mit; Keycloak soll sie lesen.
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ./keycloak/realm-chat.json:/opt/keycloak/data/import/realm-chat.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - chat-net
+    # Bewusst kein healthcheck: das Image bringt kein curl mit, und ein
+    # Umweg über /dev/tcp wäre ein Trick, den man nicht in zwei Sätzen
+    # erklären kann. Das Gateway muss beim Start ohnehin warten können.
 
   chat-service:
     build:
@@ -35,3 +96,9 @@ services:
 networks:
   chat-net:
     name: chat-net
+
+# Die Datenbank-Dateien überleben "docker compose down".
+# Erst "docker compose down -v" löscht sie (und löst damit die Init-Skripte
+# und den Realm-Import beim nächsten Start erneut aus).
+volumes:
+  postgres-data:

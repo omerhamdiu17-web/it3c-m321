@@ -1,0 +1,80 @@
+{
+  "realm": "chat",
+  "enabled": true,
+  "displayName": "M321 Chat-App",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "sslRequired": "none",
+
+  "roles": {
+    "realm": [
+      { "name": "user",  "description": "Darf Raeume sehen und Nachrichten senden" },
+      { "name": "admin", "description": "Sieht zusaetzlich die Queue-Tiefe im Gateway" }
+    ]
+  },
+
+  "defaultRoles": ["user"],
+
+  "clients": [
+    {
+      "clientId": "web-gateway",
+      "name": "web-gateway (Authorization Code Flow mit PKCE)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "dev-only-gateway-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/*"
+      }
+    }
+  ],
+
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Muster",
+      "email": "alice@example.local",
+      "credentials": [
+        { "type": "password", "value": "alice", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Beispiel",
+      "email": "bob@example.local",
+      "credentials": [
+        { "type": "password", "value": "bob", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "email": "admin@example.local",
+      "credentials": [
+        { "type": "password", "value": "admin", "temporary": false }
+      ],
+      "realmRoles": ["user", "admin"]
+    }
+  ]
+}
