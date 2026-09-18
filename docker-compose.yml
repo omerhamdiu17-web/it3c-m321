@@ -4,7 +4,9 @@ services:
 
   # Der EINZIGE Container mit einem Port nach aussen. Er meldet den Benutzer
   # über Keycloak an, reicht /auth an Keycloak durch und liefert die
-  # Web-Oberfläche aus. Später kommen WebSocket und der Zustellweg dazu.
+  # Web-Oberfläche aus. Nachrichten nimmt er per WebSocket an und reicht sie
+  # per REST an den chat-service weiter (Sendeweg); zugestellte Nachrichten
+  # liest er aus RabbitMQ (Zustellweg).
   web-gateway:
     build:
       context: .
@@ -18,10 +20,20 @@ services:
       # ... und wohin das Gateway intern spricht.
       KEYCLOAK_INTERNAL_BASE_URL: http://keycloak:8080
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      # Sendeweg: der Name "chat-service" wird im Docker-Netz aufgelöst.
+      CHAT_SERVICE_BASE_URL: http://chat-service:8080
+      # Zustellweg: das Gateway liest aus dem Fanout chat.delivery.
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
     depends_on:
       keycloak:
         # Keycloak hat keinen healthcheck (siehe unten). Bis es fertig
         # hochgefahren ist (ca. 30 s), antwortet /auth mit einem Fehler.
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      chat-service:
         condition: service_started
     networks:
       - chat-net
