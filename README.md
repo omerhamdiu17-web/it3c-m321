@@ -29,9 +29,15 @@ docker compose up --build        # alle Container im Netz chat-net, Web-UI wird 
 ```
 
 Danach im Browser `http://localhost:8080` öffnen. Das Gateway leitet zur Anmeldemaske von Keycloak
-weiter (Testbenutzer siehe unten); nach dem Login zeigt die Seite den angemeldeten Benutzer und
-einen Link zum Abmelden. Beim ersten Start braucht Keycloak rund 30 Sekunden, solange antwortet
-`/auth` mit einem Fehler.
+weiter (Testbenutzer siehe unten); nach dem Login zeigt die Seite den angemeldeten Benutzer, einen
+Link zum Abmelden und den Chat. Beim ersten Start braucht Keycloak rund 30 Sekunden, solange
+antwortet `/auth` mit einem Fehler.
+
+**Chat ausprobieren:** in einem normalen Fenster als `alice` anmelden, in einem privaten Fenster
+(oder einem zweiten Browser) als `bob`. Was alice schreibt, erscheint bei bob und umgekehrt. Es gibt
+vorerst einen einzigen Raum («Lobby») und noch keinen Verlauf: wer die Seite neu lädt, sieht nur
+neue Nachrichten. Der Weg einer Nachricht: Browser → WebSocket `/ws/chat` → `web-gateway` → REST →
+`chat-service` → RabbitMQ (Fanout `chat.delivery`) → `web-gateway` → WebSocket → alle Browser.
 
 **Der einzige offene Port ist 8080 am `web-gateway`.** Keycloak selbst hat keinen Port; das
 Gateway reicht `/auth/**` intern weiter. Keycloak hat deshalb zwei Adressen: der Browser sieht
@@ -66,8 +72,8 @@ weil der Realm-Import keine Werte aus `.env` lesen kann; in einem echten System 
 | batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank | folgt |
 | postgres | PostgreSQL 16 | Speichert den Chat-Verlauf; Keycloak hat eine eigene Datenbank im selben Container | vorhanden |
 | keycloak | Keycloak 26 | Login (OIDC), Realm `chat` wird beim ersten Start importiert | vorhanden |
-| web-gateway | Spring Boot 3, Java 21 | Einziger nach aussen offener Port: Login über Keycloak, Proxy auf `/auth`, liefert die Web-UI aus | vorhanden (Login) |
-| Web-UI | React 19 + Vite | Browser-Client, wird im Docker-Build des Gateways gebaut | Rumpf: zeigt den Benutzer |
+| web-gateway | Spring Boot 3, Java 21 | Einziger nach aussen offener Port: Login über Keycloak, Proxy auf `/auth`, liefert die Web-UI aus, WebSocket `/ws/chat`, Zustellung aus RabbitMQ | vorhanden (Login, Senden, Zustellen) |
+| Web-UI | React 19 + Vite | Browser-Client, wird im Docker-Build des Gateways gebaut | zeigt den Benutzer und den Chat in einem Raum |
 
 Alles unterhalb des Gateways läuft in einem internen Docker-Netzwerk und ist von aussen nicht
 erreichbar.
