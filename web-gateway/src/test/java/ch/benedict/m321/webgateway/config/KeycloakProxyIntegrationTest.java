@@ -22,8 +22,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Der Master-Realm reicht dafür: er ist in jedem Keycloak vorhanden und
  * liefert unter .well-known seine OpenID-Konfiguration. Kommt die durch
  * das Gateway an, funktioniert der Proxy.
+ *
+ * RabbitMQ läuft hier nicht, deshalb bleibt der Listener des Zustellwegs aus.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "spring.rabbitmq.listener.simple.auto-startup=false")
 @Testcontainers
 class KeycloakProxyIntegrationTest {
 

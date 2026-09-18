@@ -12,8 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Prüft die Zugriffsregeln: ohne Anmeldung geht es zu Keycloak.
+ *
+ * RabbitMQ läuft hier nicht, deshalb bleibt der Listener des Zustellwegs aus.
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.rabbitmq.listener.simple.auto-startup=false")
 @AutoConfigureMockMvc
 class SecurityConfigTest {
 

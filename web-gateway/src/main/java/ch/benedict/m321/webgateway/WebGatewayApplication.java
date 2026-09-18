@@ -9,7 +9,9 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  *
  * Das Gateway ist der einzige Dienst mit einem Port nach aussen. Es meldet
  * den Benutzer über Keycloak an, reicht /auth an Keycloak durch und liefert
- * die Web-Oberfläche aus. Später kommen WebSocket und der Zustellweg dazu.
+ * die Web-Oberfläche aus. Nachrichten nimmt es per WebSocket an und reicht
+ * sie per REST an den chat-service weiter; zugestellte Nachrichten liest
+ * es aus RabbitMQ und schickt sie an die verbundenen Browser.
  *
  * ConfigurationPropertiesScan findet unsere KeycloakProperties.
  */

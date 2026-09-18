@@ -1,6 +1,13 @@
 spring:
   application:
     name: web-gateway
+  rabbitmq:
+    # Im Docker-Netz heisst der Broker "rabbitmq". Beim Start ausserhalb
+    # von Docker greift der Vorgabewert "localhost".
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 # Sendeweg: hierhin reicht das Gateway jede Nachricht per REST weiter.
 chat-service:

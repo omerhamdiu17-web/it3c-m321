@@ -18,8 +18,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * oidcLogin() baut einen Benutzer, wie ihn Keycloak liefern würde, ohne
  * dass ein Keycloak läuft. Wir geben nur die zwei Claims mit, die der
  * Controller liest.
+ *
+ * RabbitMQ läuft hier nicht, deshalb bleibt der Listener des Zustellwegs aus.
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.rabbitmq.listener.simple.auto-startup=false")
 @AutoConfigureMockMvc
 class CurrentUserControllerTest {
 
