@@ -24,8 +24,24 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- Weitere Dienste kommen hier dazu: batch-writer, web-gateway, load-generator. -->
+    <!-- Weitere Dienste kommen hier dazu: batch-writer, load-generator. -->
     <modules>
         <module>chat-service</module>
+        <module>web-gateway</module>
     </modules>
+
+    <!-- Spring Cloud liefert das Gateway (Proxy auf Keycloak). Die Linie
+         2025.0.x passt zu Spring Boot 3.5; der Import sorgt dafür, dass
+         alle Spring-Cloud-Teile in zueinander passenden Versionen kommen. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>2025.0.3</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

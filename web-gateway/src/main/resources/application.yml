@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: web-gateway
+
+# Keycloak hat aus Sicht des Gateways ZWEI Adressen:
+# - public-base-url:   was der Browser sieht. Das ist das Gateway selbst,
+#                      das /auth an Keycloak durchreicht.
+# - internal-base-url: wohin das Gateway im Docker-Netz spricht, um den
+#                      Code gegen ein Token zu tauschen und Schlüssel zu holen.
+# Der Aussteller (issuer) im Token trägt die öffentliche Adresse.
+keycloak:
+  public-base-url: ${KEYCLOAK_PUBLIC_BASE_URL:http://localhost:8080}
+  internal-base-url: ${KEYCLOAK_INTERNAL_BASE_URL:http://keycloak:8080}
+  realm: chat
+  client-id: web-gateway
+  # Beispielwert; muss zum Client "web-gateway" in keycloak/realm-chat.json passen.
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:dev-only-gateway-secret}
+
+server:
+  port: 8080
+
+logging:
+  level:
+    # Im Unterricht wollen wir jeden Schritt sehen.
+    ch.benedict.m321: DEBUG
