@@ -1,6 +1,30 @@
-# Ausbaustufe 2: Broker, Datenbank, Login-Dienst und der chat-service.
-# web-gateway und batch-writer kommen in den folgenden Schritten dazu.
+# Ausbaustufe 3: Broker, Datenbank, Login-Dienst, chat-service und das
+# web-gateway als einziger Port nach aussen. batch-writer folgt.
 services:
+
+  # Der EINZIGE Container mit einem Port nach aussen. Er meldet den Benutzer
+  # über Keycloak an, reicht /auth an Keycloak durch und liefert die
+  # Web-Oberfläche aus. Später kommen WebSocket und der Zustellweg dazu.
+  web-gateway:
+    build:
+      context: .
+      dockerfile: web-gateway/Dockerfile
+    ports:
+      # 127.0.0.1 davor: nur vom eigenen Rechner erreichbar, nicht aus dem LAN.
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Was der Browser sieht (das Gateway selbst) ...
+      KEYCLOAK_PUBLIC_BASE_URL: http://localhost:8080
+      # ... und wohin das Gateway intern spricht.
+      KEYCLOAK_INTERNAL_BASE_URL: http://keycloak:8080
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+    depends_on:
+      keycloak:
+        # Keycloak hat keinen healthcheck (siehe unten). Bis es fertig
+        # hochgefahren ist (ca. 30 s), antwortet /auth mit einem Fehler.
+        condition: service_started
+    networks:
+      - chat-net
 
   rabbitmq:
     image: rabbitmq:3.13-management
@@ -91,8 +115,8 @@ services:
     networks:
       - chat-net
 
-# KEIN ports:-Eintrag in dieser Datei. Der einzige offene Port des
-# Gesamtsystems gehört später dem web-gateway.
+# Genau EIN ports:-Eintrag in dieser Datei, und der gehört dem web-gateway.
+# Kein anderer Dienst bekommt einen.
 networks:
   chat-net:
     name: chat-net

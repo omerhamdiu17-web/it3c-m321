@@ -4,6 +4,8 @@ build/
 out/
 node_modules/
 dist/
+# Die gebaute Web-Oberfläche landet nur im Docker-Build hier.
+web-gateway/src/main/resources/static/
 
 # IDE
 .idea/
