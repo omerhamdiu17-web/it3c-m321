@@ -24,17 +24,22 @@ Alle Aufgaben werden in **deinem Fork** gelöst. Das Original-Repository bleibt 
 ## Bauen, testen, starten
 
 ```bash
-mvn test                         # alle Tests, RabbitMQ kommt per Testcontainers
-docker compose up --build        # RabbitMQ, Postgres, Keycloak und chat-service im Netz chat-net
+mvn test                         # alle Tests, RabbitMQ und Keycloak kommen per Testcontainers
+docker compose up --build        # alle Container im Netz chat-net, Web-UI wird im Build gebaut
 ```
 
-Kein Container veröffentlicht einen Port auf den Host, auch Keycloak nicht. Der einzige offene
-Port des Gesamtsystems gehört später dem Gateway, das `/auth` an Keycloak durchreicht. Bis dahin
-ist Keycloak nur aus dem Docker-Netz erreichbar, zum Beispiel so:
+Danach im Browser `http://localhost:8080` öffnen. Das Gateway leitet zur Anmeldemaske von Keycloak
+weiter (Testbenutzer siehe unten); nach dem Login zeigt die Seite den angemeldeten Benutzer und
+einen Link zum Abmelden. Beim ersten Start braucht Keycloak rund 30 Sekunden, solange antwortet
+`/auth` mit einem Fehler.
+
+**Der einzige offene Port ist 8080 am `web-gateway`.** Keycloak selbst hat keinen Port; das
+Gateway reicht `/auth/**` intern weiter. Keycloak hat deshalb zwei Adressen: der Browser sieht
+`http://localhost:8080/auth`, das Gateway spricht intern `http://keycloak:8080/auth` an. Der
+Aussteller (`issuer`) in jedem Token trägt die äussere Adresse, prüfbar mit:
 
 ```bash
-docker run --rm --network chat-net curlimages/curl -s \
-  http://keycloak:8080/auth/realms/chat/.well-known/openid-configuration
+curl -s http://localhost:8080/auth/realms/chat/.well-known/openid-configuration
 ```
 
 ### Testbenutzer im Realm `chat`
@@ -61,8 +66,8 @@ weil der Realm-Import keine Werte aus `.env` lesen kann; in einem echten System 
 | batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank | folgt |
 | postgres | PostgreSQL 16 | Speichert den Chat-Verlauf; Keycloak hat eine eigene Datenbank im selben Container | vorhanden |
 | keycloak | Keycloak 26 | Login (OIDC), Realm `chat` wird beim ersten Start importiert | vorhanden |
-| web-gateway | nginx | Einziger nach aussen offener Port | folgt |
-| Web-UI | React | Browser-Client | folgt |
+| web-gateway | Spring Boot 3, Java 21 | Einziger nach aussen offener Port: Login über Keycloak, Proxy auf `/auth`, liefert die Web-UI aus | vorhanden (Login) |
+| Web-UI | React 19 + Vite | Browser-Client, wird im Docker-Build des Gateways gebaut | Rumpf: zeigt den Benutzer |
 
 Alles unterhalb des Gateways läuft in einem internen Docker-Netzwerk und ist von aussen nicht
 erreichbar.
