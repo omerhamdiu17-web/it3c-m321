@@ -37,6 +37,12 @@
             <artifactId>spring-cloud-starter-gateway-server-webmvc</artifactId>
         </dependency>
 
+        <!-- Sendeweg: der Browser schickt Nachrichten über WebSocket -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Lombok erzeugt Logger und Konstruktoren beim Uebersetzen. -->
         <dependency>
             <groupId>org.projectlombok</groupId>

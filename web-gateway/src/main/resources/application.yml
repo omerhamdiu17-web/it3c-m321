@@ -2,6 +2,10 @@ spring:
   application:
     name: web-gateway
 
+# Sendeweg: hierhin reicht das Gateway jede Nachricht per REST weiter.
+chat-service:
+  base-url: ${CHAT_SERVICE_BASE_URL:http://chat-service:8080}
+
 # Keycloak hat aus Sicht des Gateways ZWEI Adressen:
 # - public-base-url:   was der Browser sieht. Das ist das Gateway selbst,
 #                      das /auth an Keycloak durchreicht.
