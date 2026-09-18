@@ -46,7 +46,10 @@ services:
     networks:
       - chat-net
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # check_port_connectivity statt ping: "ping" ist schon zufrieden, wenn
+      # der Broker-Prozess läuft. Verbindungen auf Port 5672 nimmt er dann
+      # aber noch nicht an, und das Gateway verbindet sich sofort beim Start.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 5s
       timeout: 5s
       retries: 12
