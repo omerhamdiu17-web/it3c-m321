@@ -20,3 +20,6 @@ web-gateway/src/main/resources/static/
 
 # Playwright-Prüfartefakte
 .playwright-mcp/
+
+# Ergebnisse von scripts/messreihe.sh (lokale Läufe)
+messreihe/

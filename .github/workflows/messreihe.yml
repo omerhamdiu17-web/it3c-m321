@@ -1,0 +1,61 @@
+# Die Messreihe aus Schritt 6 auf einer Maschine von GitHub.
+#
+# Startet das ganze System, lässt scripts/messreihe.sh laufen (1, 2 und 3
+# batch-writer, danach dasselbe mit 3 chat-service-Instanzen) und legt die
+# Ergebnisse als Artefakt "messreihe" ab. Die Zahlen gelten für DIESE
+# Maschine (4 Kerne, 16 GB) — auf einem Laptop kommt etwas anderes heraus,
+# und genau das ist der Punkt von offenem Punkt 7.
+#
+# Starten: im Reiter "Actions" → "messreihe" → "Run workflow", oder
+#   gh workflow run messreihe.yml
+name: messreihe
+
+on:
+  workflow_dispatch:
+    inputs:
+      messages_per_minute:
+        description: "Zielrate (Nachrichten pro Minute)"
+        default: "100000"
+      duration_seconds:
+        description: "Dauer der Last pro Lauf (Sekunden)"
+        default: "60"
+  # Läuft auch, wenn sich das Messskript selbst ändert.
+  push:
+    paths:
+      - scripts/messreihe.sh
+      - .github/workflows/messreihe.yml
+
+jobs:
+  messreihe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      LOAD_MESSAGES_PER_MINUTE: ${{ github.event.inputs.messages_per_minute || '100000' }}
+      LOAD_DURATION_SECONDS: ${{ github.event.inputs.duration_seconds || '60' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: .env aus den Beispielwerten
+        run: cp .env.example .env
+      - name: System starten
+        run: |
+          docker compose --profile load build
+          docker compose up -d --wait --wait-timeout 300 rabbitmq postgres chat-service batch-writer
+      - name: Messreihe mit 1 chat-service
+        env:
+          CHAT_SERVICE_COUNT: "1"
+          RESULT_DIR: messreihe/ein-chat-service
+        run: bash scripts/messreihe.sh
+      - name: Messreihe mit 3 chat-service
+        env:
+          CHAT_SERVICE_COUNT: "3"
+          WRITER_COUNTS: "3"
+          RESULT_DIR: messreihe/drei-chat-service
+        run: bash scripts/messreihe.sh
+      - name: Auslastung der Container am Ende
+        if: always()
+        run: docker stats --no-stream | tee messreihe/docker-stats.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: messreihe
+          path: messreihe/
