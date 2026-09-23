@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.verify;
  * chat.delivery geht, muss bei den verbundenen Browsern ankommen.
  *
  * Die Browser ersetzen wir durch eine Attrappe der ChatSessionRegistry.
+ * Geprüft wird auch, dass die Nachricht an den RICHTIGEN Raum geht.
  */
 @SpringBootTest
 @Testcontainers
@@ -65,7 +67,7 @@ class DeliveryListenerIntegrationTest {
 
         // Die Zustellung läuft in einem anderen Thread, deshalb warten wir kurz.
         ArgumentCaptor<ServerEvent> eventCaptor = ArgumentCaptor.forClass(ServerEvent.class);
-        verify(chatSessionRegistry, timeout(10000)).sendToAll(eventCaptor.capture());
+        verify(chatSessionRegistry, timeout(10000)).sendToRoom(eq(roomId), eventCaptor.capture());
 
         ServerEvent deliveredEvent = eventCaptor.getValue();
         assertEquals("message", deliveredEvent.type());

@@ -19,15 +19,18 @@ import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,7 +60,8 @@ class ChatSocketHandlerTest {
     void createHandler() {
         ObjectMapper objectMapper = new ObjectMapper();
         chatSocketHandler = new ChatSocketHandler(chatServiceClient, chatSessionRegistry, objectMapper);
-        when(session.getId()).thenReturn(SESSION_ID);
+        // lenient: nicht jeder Test fragt nach der ID der Verbindung.
+        lenient().when(session.getId()).thenReturn(SESSION_ID);
     }
 
     @Test
@@ -111,6 +115,38 @@ class ChatSocketHandlerTest {
         verify(chatServiceClient, never()).send(any());
         ServerEvent expectedEvent = ServerEvent.error("Nachricht nicht gesendet.");
         verify(chatSessionRegistry).sendTo(eq(SESSION_ID), eq(expectedEvent));
+    }
+
+    @Test
+    void registersConnectionForRoomFromAddress() throws Exception {
+        URI address = new URI("ws://localhost:8080/ws/chat?roomId=" + ROOM_ID);
+        when(session.getUri()).thenReturn(address);
+
+        chatSocketHandler.afterConnectionEstablished(session);
+
+        verify(chatSessionRegistry).register(session, ROOM_ID);
+    }
+
+    @Test
+    void closesConnectionWithoutRoomId() throws Exception {
+        URI address = new URI("ws://localhost:8080/ws/chat");
+        when(session.getUri()).thenReturn(address);
+
+        chatSocketHandler.afterConnectionEstablished(session);
+
+        verify(session).close(CloseStatus.BAD_DATA);
+        verify(chatSessionRegistry, never()).register(any(), any());
+    }
+
+    @Test
+    void closesConnectionWithBrokenRoomId() throws Exception {
+        URI address = new URI("ws://localhost:8080/ws/chat?roomId=keine-uuid");
+        when(session.getUri()).thenReturn(address);
+
+        chatSocketHandler.afterConnectionEstablished(session);
+
+        verify(session).close(CloseStatus.BAD_DATA);
+        verify(chatSessionRegistry, never()).register(any(), any());
     }
 
     /** Baut eine Anmeldung, wie sie Spring nach dem Login bei Keycloak an die Verbindung hängt. */

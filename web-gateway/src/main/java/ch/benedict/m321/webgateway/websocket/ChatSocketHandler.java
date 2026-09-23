@@ -13,13 +13,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.util.UriComponents;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.IOException;
+import java.net.URI;
 import java.security.Principal;
+import java.util.UUID;
 
 /**
  * Der WebSocket-Endpunkt /ws/chat: Übersetzer zwischen Browser und interner API.
@@ -40,10 +46,45 @@ public class ChatSocketHandler extends TextWebSocketHandler {
     private final ChatSessionRegistry chatSessionRegistry;
     private final ObjectMapper objectMapper;
 
-    /** Neue Verbindung: ab jetzt bekommt dieser Browser zugestellte Nachrichten. */
+    /**
+     * Neue Verbindung: ab jetzt bekommt dieser Browser die Nachrichten
+     * seines Raums.
+     *
+     * Den Raum schickt der Browser in der Adresse mit: /ws/chat?roomId=...
+     * Fehlt er oder ist er keine gültige ID, wird die Verbindung sofort
+     * wieder geschlossen — sonst hinge ein Browser im Nirgendwo.
+     */
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) {
-        chatSessionRegistry.register(session);
+    public void afterConnectionEstablished(WebSocketSession session) throws IOException {
+        UUID roomId = readRoomId(session);
+        if (roomId == null) {
+            log.warn("WebSocket session {} has no valid roomId, closing it", session.getId());
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+        chatSessionRegistry.register(session, roomId);
+    }
+
+    /**
+     * Liest den Parameter roomId aus der Adresse der Verbindung.
+     * Gibt null zurück, wenn er fehlt oder keine UUID ist.
+     */
+    private UUID readRoomId(WebSocketSession session) {
+        URI uri = session.getUri();
+        if (uri == null) {
+            return null;
+        }
+        UriComponents uriComponents = UriComponentsBuilder.fromUri(uri).build();
+        MultiValueMap<String, String> queryParameters = uriComponents.getQueryParams();
+        String roomIdText = queryParameters.getFirst("roomId");
+        if (roomIdText == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(roomIdText);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     /** Verbindung zu: nichts mehr an diesen Browser schicken. */

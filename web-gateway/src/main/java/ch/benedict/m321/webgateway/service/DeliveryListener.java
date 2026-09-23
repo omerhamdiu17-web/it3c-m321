@@ -27,12 +27,15 @@ public class DeliveryListener {
      * hier kein fester Text, sondern ein Verweis auf die Bean deliveryQueue.
      * Das JSON wandelt Spring anhand des Parametertyps in unsere eigene
      * Kopie von ChatMessage um.
+     *
+     * Zugestellt wird nur an die Browser, die den Raum der Nachricht offen
+     * haben. Wer in der Lobby sitzt, merkt vom Lasttest nichts.
      */
     @RabbitListener(queues = "#{deliveryQueue.name}")
     public void deliver(ChatMessage chatMessage) {
         log.debug("Delivering message {} for room {}", chatMessage.id(), chatMessage.roomId());
 
         ServerEvent messageEvent = ServerEvent.message(chatMessage);
-        chatSessionRegistry.sendToAll(messageEvent);
+        chatSessionRegistry.sendToRoom(chatMessage.roomId(), messageEvent);
     }
 }
