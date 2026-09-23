@@ -1,5 +1,5 @@
-# Ausbaustufe 3: Broker, Datenbank, Login-Dienst, chat-service und das
-# web-gateway als einziger Port nach aussen. batch-writer folgt.
+# Ausbaustufe 4: Broker, Datenbank, Login-Dienst, chat-service,
+# batch-writer und das web-gateway als einziger Port nach aussen.
 services:
 
   # Der EINZIGE Container mit einem Port nach aussen. Er meldet den Benutzer
@@ -126,6 +126,28 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
     depends_on:
       rabbitmq:
+        condition: service_healthy
+    networks:
+      - chat-net
+
+  # Der EINZIGE Schreiber in die Datenbank. Holt Nachrichten stapelweise
+  # aus chat.persist und schreibt jeden Stapel mit einem INSERT.
+  # Skalierbar mit "--scale batch-writer=N": alle Instanzen teilen sich
+  # dieselbe Queue (Competing Consumers, PLANUNG.md Abschnitt 4.2).
+  batch-writer:
+    build:
+      context: .
+      dockerfile: batch-writer/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      POSTGRES_HOST: postgres
+      CHAT_DB_PASSWORD: ${CHAT_DB_PASSWORD}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - chat-net
