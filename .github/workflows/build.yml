@@ -1,0 +1,54 @@
+# Baut und testet das ganze Projekt bei jedem Push.
+#
+# Warum überhaupt: "Läuft" sagen wir erst, wenn es wirklich gelaufen ist
+# (CLAUDE.md). Die Maschine von GitHub hat Java, Node und Docker, also
+# laufen hier dieselben Tests wie lokal mit "mvn test" — inklusive der
+# Testcontainers mit echtem RabbitMQ, Postgres und Keycloak.
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+
+  # Alle Java-Dienste: übersetzen und alle Tests laufen lassen.
+  maven:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: mvn test
+        run: mvn -B test
+
+  # Die Web-Oberfläche: Typen prüfen und bauen, wie im Dockerfile.
+  web-ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - name: Typen prüfen
+        run: npx tsc --noEmit
+      - run: npm run build
+
+  # Alle Container-Images bauen, genau wie "docker compose up --build".
+  # Findet z.B. ein vergessenes COPY im Dockerfile.
+  docker-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: .env aus den Beispielwerten
+        run: cp .env.example .env
+      - name: docker compose build
+        run: docker compose --profile load build
