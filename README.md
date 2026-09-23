@@ -28,8 +28,8 @@ mvn test                         # alle Tests, RabbitMQ, Postgres und Keycloak k
 docker compose up --build        # alle Container im Netz chat-net, Web-UI wird im Build gebaut
 ```
 
-> **Nach einem Update aus Schritt 4 oder 5 einmal `docker compose down -v`.** Die festen Räume
-> (`postgres/init/03-rooms.sql`) und die Rollen im Token (Protocol Mapper in
+> **Nach einem Update aus Schritt 4, 5 oder 7 einmal `docker compose down -v`.** Die festen Räume
+> (`postgres/init/03-rooms.sql`), die Rollen im Token und der Client `desktop-client` (beides in
 > `keycloak/realm-chat.json`) werden nur beim **ersten** Start mit leerem Volume eingespielt.
 > `down -v` löscht die Datenbank-Dateien, beim nächsten `up` kommt alles frisch.
 
@@ -150,7 +150,13 @@ Endpunkte auf wie der Browser, nur mit `Authorization: Bearer <JWT>` statt Sessi
 Gateway prüft das Token als OAuth2 Resource Server. Das Token gilt 5 Minuten, der Client holt
 sich vorher mit dem Refresh-Token selbst ein neues.
 
-Was im Desktop-Client geschrieben wird, erscheint im Browser im selben Raum und umgekehrt.
+Was im Desktop-Client geschrieben wird, soll im Browser im selben Raum erscheinen und umgekehrt.
+
+**Stand der Prüfung:** Der Login- und API-Weg des Desktop-Clients (PKCE, Rückleitung auf
+127.0.0.1, Bearer-Token für REST und WebSocket) ist im Rauchtest gegen das echte System geprüft,
+die Klassen ohne Oberfläche haben Unit-Tests. Das JavaFX-Fenster selbst wurde nur übersetzt, aber
+noch nie gestartet — das braucht einen Rechner mit Bildschirm (siehe «Prüfen von Hand» in
+[`docs/plan-schritt-7-desktop.md`](docs/plan-schritt-7-desktop.md)).
 
 ## Automatische Prüfung (GitHub Actions)
 
