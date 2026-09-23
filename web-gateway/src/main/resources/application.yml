@@ -9,6 +9,11 @@ spring:
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+# Queue-Tiefe für den Balken: die Management-API von RabbitMQ, nur im
+# Docker-Netz erreichbar. Benutzer und Passwort sind die von spring.rabbitmq.
+rabbitmq-management:
+  base-url: ${RABBITMQ_MANAGEMENT_URL:http://rabbitmq:15672}
+
 # Sendeweg: hierhin reicht das Gateway jede Nachricht per REST weiter.
 chat-service:
   base-url: ${CHAT_SERVICE_BASE_URL:http://chat-service:8080}

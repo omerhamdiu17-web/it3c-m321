@@ -26,6 +26,9 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Queue-Tiefe für den Balken (nur admin). Die Management-API hat
+      # KEINEN Port nach aussen, das Gateway fragt sie intern.
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
     depends_on:
       keycloak:
         # Keycloak hat keinen healthcheck (siehe unten). Bis es fertig
