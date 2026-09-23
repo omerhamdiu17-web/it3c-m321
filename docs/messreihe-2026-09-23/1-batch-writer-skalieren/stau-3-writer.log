@@ -1,0 +1,137 @@
+Picked up JAVA_TOOL_OPTIONS: 
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.5.16)
+
+2026-09-23T10:12:08.131Z  INFO 1 --- [load-generator] [           main] c.b.m.l.LoadGeneratorApplication         : Starting LoadGeneratorApplication v0.1.0-SNAPSHOT using Java 21.0.12 with PID 1 (/app/app.jar started by root in /app)
+2026-09-23T10:12:08.134Z  INFO 1 --- [load-generator] [           main] c.b.m.l.LoadGeneratorApplication         : No active profile set, falling back to 1 default profile: "default"
+2026-09-23T10:12:08.910Z  INFO 1 --- [load-generator] [           main] c.b.m.l.LoadGeneratorApplication         : Started LoadGeneratorApplication in 1.295 seconds (process running for 1.715)
+2026-09-23T10:12:08.914Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : Starting load: 100000 messages per minute (1666 per second) for 120 seconds into room 00000000-0000-0000-0000-000000000003
+2026-09-23T10:12:11.024Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 1: target 1666, accepted 1173, failed 0, in flight 493
+2026-09-23T10:12:12.334Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 2: target 1666, accepted 1658, failed 0, in flight 500
+2026-09-23T10:12:13.423Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 3: target 1666, accepted 1677, failed 0, in flight 474
+2026-09-23T10:12:14.535Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 4: target 1666, accepted 1625, failed 0, in flight 500
+2026-09-23T10:12:15.550Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 5: target 1666, accepted 1665, failed 0, in flight 500
+2026-09-23T10:12:16.926Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 6: target 1666, accepted 1704, failed 0, in flight 461
+2026-09-23T10:12:17.942Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 7: target 1666, accepted 1637, failed 0, in flight 490
+2026-09-23T10:12:18.946Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 8: target 1666, accepted 1813, failed 0, in flight 284
+2026-09-23T10:12:19.946Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 9: target 1666, accepted 1721, failed 0, in flight 229
+2026-09-23T10:12:20.948Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 10: target 1666, accepted 1895, failed 0, in flight 0
+2026-09-23T10:12:21.948Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 11: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:22.949Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 12: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:23.949Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 13: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:24.950Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 14: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:25.950Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 15: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:26.951Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 16: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:27.951Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 17: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:28.952Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 18: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:29.952Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 19: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:30.953Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 20: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:31.953Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 21: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:32.954Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 22: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:33.954Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 23: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:34.955Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 24: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:35.955Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 25: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:36.956Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 26: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:37.956Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 27: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:38.957Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 28: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:39.959Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 29: target 1666, accepted 1366, failed 0, in flight 300
+2026-09-23T10:12:40.959Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 30: target 1666, accepted 1898, failed 0, in flight 68
+2026-09-23T10:12:41.962Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 31: target 1666, accepted 1729, failed 0, in flight 0
+2026-09-23T10:12:42.962Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 32: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:43.963Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 33: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:44.963Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 34: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:45.963Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 35: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:46.964Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 36: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:47.964Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 37: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:48.965Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 38: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:49.965Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 39: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:50.966Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 40: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:51.966Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 41: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:52.967Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 42: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:53.968Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 43: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:54.968Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 44: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:55.969Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 45: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:56.969Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 46: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:57.969Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 47: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:58.970Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 48: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:12:59.970Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 49: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:00.971Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 50: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:01.971Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 51: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:02.972Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 52: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:03.973Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 53: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:04.973Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 54: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:05.974Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 55: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:06.974Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 56: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:07.975Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 57: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:08.975Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 58: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:09.976Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 59: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:10.976Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 60: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:11.977Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 61: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:12.978Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 62: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:13.978Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 63: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:14.978Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 64: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:15.979Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 65: target 1666, accepted 1592, failed 0, in flight 74
+2026-09-23T10:13:16.980Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 66: target 1666, accepted 1740, failed 0, in flight 0
+2026-09-23T10:13:17.980Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 67: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:18.981Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 68: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:19.981Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 69: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:20.982Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 70: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:21.982Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 71: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:22.982Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 72: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:23.983Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 73: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:24.983Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 74: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:25.984Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 75: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:26.984Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 76: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:27.985Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 77: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:28.985Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 78: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:29.986Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 79: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:30.986Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 80: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:31.987Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 81: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:32.987Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 82: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:33.988Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 83: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:34.989Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 84: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:35.990Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 85: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:36.990Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 86: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:37.991Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 87: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:38.991Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 88: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:39.991Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 89: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:40.992Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 90: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:41.992Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 91: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:42.993Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 92: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:43.993Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 93: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:44.994Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 94: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:45.994Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 95: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:46.994Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 96: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:47.995Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 97: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:48.995Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 98: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:49.996Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 99: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:50.996Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 100: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:51.996Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 101: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:52.997Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 102: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:53.997Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 103: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:54.998Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 104: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:55.998Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 105: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:56.999Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 106: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:57.999Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 107: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:13:58.999Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 108: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:00.000Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 109: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:01.000Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 110: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:02.001Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 111: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:03.001Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 112: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:04.001Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 113: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:05.002Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 114: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:06.002Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 115: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:07.003Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 116: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:08.003Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 117: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:09.004Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 118: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:10.004Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 119: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:11.005Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : second 120: target 1666, accepted 1666, failed 0, in flight 0
+2026-09-23T10:14:11.006Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : Load finished after 122.1 s: accepted 199920, failed 0, that is 98249 messages per minute
+2026-09-23T10:14:11.006Z  INFO 1 --- [load-generator] [           main] c.b.m.loadgenerator.service.LoadRunner   : chat-service instance 7319c167833d accepted 199920

@@ -1,0 +1,5 @@
+NAME                       CPU %     MEM USAGE / LIMIT
+it3c-m321-batch-writer-1   50.04%    272.1MiB / 15.61GiB
+it3c-m321-chat-service-1   0.16%     381.6MiB / 15.61GiB
+it3c-m321-rabbitmq-1       78.33%    277.2MiB / 15.61GiB
+it3c-m321-postgres-1       37.53%    131.5MiB / 15.61GiB

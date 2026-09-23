@@ -1,0 +1,8 @@
+NAME                                        CPU %     MEM USAGE / LIMIT
+it3c-m321-load-generator-run-3c0e77ed8a3d   112.17%   559.1MiB / 15.61GiB
+it3c-m321-chat-service-2                    252.80%   275.6MiB / 15.61GiB
+it3c-m321-chat-service-3                    0.12%     193.5MiB / 15.61GiB
+it3c-m321-batch-writer-1                    10.82%    192.3MiB / 15.61GiB
+it3c-m321-chat-service-1                    3.46%     392.7MiB / 15.61GiB
+it3c-m321-rabbitmq-1                        11.28%    259MiB / 15.61GiB
+it3c-m321-postgres-1                        0.57%     180.8MiB / 15.61GiB

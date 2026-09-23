@@ -2,8 +2,8 @@
 #
 # Startet das ganze System und lässt scripts/messreihe.sh in drei Versuchen
 # laufen (batch-writer skalieren, chat-service skalieren, dasselbe ohne
-# DNS-Cache). Die
-# Ergebnisse als Artefakt "messreihe" ab. Die Zahlen gelten für DIESE
+# DNS-Cache). Die Ergebnisse liegen danach als Artefakt "messreihe" bereit
+# (Tabellen, Verläufe als CSV, docker stats). Die Zahlen gelten für DIESE
 # Maschine (4 Kerne, 16 GB) — auf einem Laptop kommt etwas anderes heraus,
 # und genau das ist der Punkt von offenem Punkt 7.
 #
