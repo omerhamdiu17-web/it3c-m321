@@ -85,9 +85,9 @@ services:
       start_period: 10s
 
   # Keycloak ist der Login-Dienst (IDP). Er hat KEINEN Port nach aussen und
-  # wird später vom web-gateway unter localhost:8080/auth durchgereicht
-  # (PLANUNG.md, Abschnitt 3.2). Deshalb kennt er schon jetzt diese äussere
-  # Adresse: der Aussteller (issuer) in jedem Token muss so lauten.
+  # wird vom web-gateway unter localhost:8080/auth durchgereicht
+  # (PLANUNG.md, Abschnitt 3.2). Deshalb kennt er diese äussere Adresse:
+  # der Aussteller (issuer) in jedem Token muss so lauten.
   keycloak:
     image: quay.io/keycloak/keycloak:26.7.3
     # start-dev: Entwicklungsmodus ohne TLS-Zwang.

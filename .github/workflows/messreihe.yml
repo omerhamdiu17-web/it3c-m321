@@ -34,7 +34,7 @@ jobs:
       LOAD_MESSAGES_PER_MINUTE: ${{ github.event.inputs.messages_per_minute || '100000' }}
       LOAD_DURATION_SECONDS: ${{ github.event.inputs.duration_seconds || '60' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: .env aus den Beispielwerten
         run: cp .env.example .env
       - name: System starten

@@ -95,8 +95,8 @@ class MessagePublisherIntegrationTest {
      *
      * Der Zieltyp wird hier ausdrücklich mitgegeben. Grund: in der Queue
      * liegt JSON, nicht ein Java-Objekt. Wer liest, muss wissen, was er
-     * erwartet — genau so wird es später auch der batch-writer machen,
-     * der ja seine eigene Kopie der Klasse hat.
+     * erwartet — genau so macht es auch der batch-writer, der seine
+     * eigene Kopie der Klasse hat.
      */
     private ChatMessage receiveFrom(String queueName) {
         ParameterizedTypeReference<ChatMessage> targetType = new ParameterizedTypeReference<>() {
