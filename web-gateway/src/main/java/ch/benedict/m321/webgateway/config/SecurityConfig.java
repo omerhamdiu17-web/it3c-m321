@@ -7,7 +7,9 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -46,6 +48,15 @@ public class SecurityConfig {
         // Sitzung bzw. die Weiterleitung zu Keycloak; deshalb steht dieser
         // Teil NACH oauth2Login.
         http.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()));
+
+        // Wer ohne Anmeldung kommt, wird zu Keycloak weitergeleitet — wie
+        // vor dem Desktop-Client. Das muss hier ausdrücklich stehen: sonst
+        // antwortet Spring manchen Anfragen mit 401 statt der Weiterleitung,
+        // weil jetzt auch der Resource Server mitreden will. Ein UNGÜLTIGES
+        // Bearer-Token beantwortet der Resource Server trotzdem selbst mit 401.
+        String loginPath = "/oauth2/authorization/" + KeycloakClientConfig.REGISTRATION_ID;
+        AuthenticationEntryPoint redirectToLogin = new LoginUrlAuthenticationEntryPoint(loginPath);
+        http.exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(redirectToLogin));
 
         // Abmelden per einfachem Link (GET). Spring empfiehlt POST mit
         // CSRF-Token; wir nehmen den Link, weil die Oberfläche dann kein
