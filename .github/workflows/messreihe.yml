@@ -1,7 +1,8 @@
 # Die Messreihe aus Schritt 6 auf einer Maschine von GitHub.
 #
-# Startet das ganze System, lässt scripts/messreihe.sh laufen (1, 2 und 3
-# batch-writer, danach dasselbe mit 3 chat-service-Instanzen) und legt die
+# Startet das ganze System und lässt scripts/messreihe.sh in drei Versuchen
+# laufen (batch-writer skalieren, chat-service skalieren, dasselbe ohne
+# DNS-Cache). Die
 # Ergebnisse als Artefakt "messreihe" ab. Die Zahlen gelten für DIESE
 # Maschine (4 Kerne, 16 GB) — auf einem Laptop kommt etwas anderes heraus,
 # und genau das ist der Punkt von offenem Punkt 7.
@@ -40,16 +41,28 @@ jobs:
         run: |
           docker compose --profile load build
           docker compose up -d --wait --wait-timeout 300 rabbitmq postgres chat-service batch-writer
-      - name: Messreihe mit 1 chat-service
+      # Versuch 1: 1, 2, 3 batch-writer — im Normalbetrieb und beim Stauabbau.
+      - name: batch-writer skalieren
         env:
           CHAT_SERVICE_COUNT: "1"
-          RESULT_DIR: messreihe/ein-chat-service
+          RESULT_DIR: messreihe/1-batch-writer-skalieren
         run: bash scripts/messreihe.sh
-      - name: Messreihe mit 3 chat-service
+      # Versuch 2: 3 chat-service. Verteilt Docker-DNS die Last wirklich?
+      - name: chat-service skalieren
         env:
+          PHASES: durchsatz
           CHAT_SERVICE_COUNT: "3"
-          WRITER_COUNTS: "3"
-          RESULT_DIR: messreihe/drei-chat-service
+          WRITER_COUNTS: "1"
+          RESULT_DIR: messreihe/2-chat-service-skalieren
+        run: bash scripts/messreihe.sh
+      # Versuch 3: wie 2, aber der load-generator merkt sich DNS-Antworten nicht.
+      - name: chat-service skalieren ohne DNS-Cache
+        env:
+          PHASES: durchsatz
+          CHAT_SERVICE_COUNT: "3"
+          WRITER_COUNTS: "1"
+          LOAD_JAVA_OPTIONS: "-Dnetworkaddress.cache.ttl=0"
+          RESULT_DIR: messreihe/3-chat-service-ohne-dns-cache
         run: bash scripts/messreihe.sh
       - name: Auslastung der Container am Ende
         if: always()

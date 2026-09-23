@@ -175,6 +175,9 @@ services:
       CHAT_SERVICE_BASE_URL: http://chat-service:8080
       LOAD_MESSAGES_PER_MINUTE: ${LOAD_MESSAGES_PER_MINUTE:-100000}
       LOAD_DURATION_SECONDS: ${LOAD_DURATION_SECONDS:-60}
+      # Für Versuche mit der JVM, z.B. den DNS-Cache ausschalten:
+      # LOAD_JAVA_OPTIONS="-Dnetworkaddress.cache.ttl=0" (siehe docs/messreihe.md)
+      JAVA_TOOL_OPTIONS: ${LOAD_JAVA_OPTIONS:-}
     depends_on:
       chat-service:
         condition: service_started
