@@ -29,6 +29,7 @@
         <module>web-gateway</module>
         <module>batch-writer</module>
         <module>load-generator</module>
+        <module>desktop-client</module>
     </modules>
 
     <!-- Spring Cloud liefert das Gateway (Proxy auf Keycloak). Die Linie

@@ -10,6 +10,7 @@ COPY chat-service/pom.xml chat-service/pom.xml
 COPY web-gateway/pom.xml web-gateway/pom.xml
 COPY batch-writer/pom.xml batch-writer/pom.xml
 COPY load-generator/pom.xml load-generator/pom.xml
+COPY desktop-client/pom.xml desktop-client/pom.xml
 COPY load-generator/src load-generator/src
 # Tests werden hier übersprungen. Getestet wird vorher mit "mvn test".
 RUN mvn -q -pl load-generator -am package -DskipTests
