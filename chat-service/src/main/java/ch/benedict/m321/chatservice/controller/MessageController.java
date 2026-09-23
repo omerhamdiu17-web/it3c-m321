@@ -4,7 +4,7 @@ import ch.benedict.m321.chatservice.dto.AcceptedResponse;
 import ch.benedict.m321.chatservice.dto.SendMessageRequest;
 import ch.benedict.m321.chatservice.service.MessageService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,10 +18,28 @@ import org.springframework.web.bind.annotation.RestController;
  * das hat das Gateway bereits getan.
  */
 @RestController
-@RequiredArgsConstructor
 public class MessageController {
 
+    /**
+     * In diesem Header steht, welche Instanz geantwortet hat. Der
+     * load-generator zählt damit, ob sich die Last bei "--scale
+     * chat-service=3" wirklich verteilt (PLANUNG.md, offener Punkt 8).
+     */
+    public static final String INSTANCE_HEADER = "X-Chat-Service-Instance";
+
     private final MessageService messageService;
+    private final String instanceName;
+
+    /**
+     * Den Konstruktor schreiben wir hier von Hand, weil der Name der Instanz
+     * aus der Umgebung kommt (@Value). Docker setzt HOSTNAME für jeden
+     * Container auf dessen Kennung; ausserhalb von Docker steht "local".
+     */
+    public MessageController(MessageService messageService,
+                             @Value("${HOSTNAME:local}") String instanceName) {
+        this.messageService = messageService;
+        this.instanceName = instanceName;
+    }
 
     /**
      * Nimmt eine Nachricht entgegen.
@@ -33,6 +51,8 @@ public class MessageController {
     @PostMapping("/messages")
     public ResponseEntity<AcceptedResponse> send(@Valid @RequestBody SendMessageRequest request) {
         AcceptedResponse response = messageService.accept(request);
-        return ResponseEntity.accepted().body(response);
+        return ResponseEntity.accepted()
+                .header(INSTANCE_HEADER, instanceName)
+                .body(response);
     }
 }

@@ -18,6 +18,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -56,7 +57,8 @@ class MessageControllerIntegrationTest {
                         .content(requestBody))
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.sentAt").exists());
+                .andExpect(jsonPath("$.sentAt").exists())
+                .andExpect(header().exists(MessageController.INSTANCE_HEADER));
 
         ParameterizedTypeReference<ChatMessage> targetType = new ParameterizedTypeReference<>() {
         };
