@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: load-generator
+  main:
+    # Der load-generator ruft auf, er wird nicht aufgerufen. Kein Webserver,
+    # kein Port — und wenn die Last durch ist, beendet sich der Container.
+    web-application-type: none
+  http:
+    client:
+      # Hängt der chat-service, zählt eine Anfrage nach 10 s als gescheitert
+      # statt ewig einen Platz in der Semaphore zu belegen.
+      connect-timeout: 5s
+      read-timeout: 10s
+
+# Die Stellschrauben für den Lastversuch (PLANUNG.md, Abschnitt 4).
+load:
+  # Direkt an den chat-service, NICHT über das Gateway: wir messen die
+  # Architektur dahinter, nicht den einen offenen Port.
+  chat-service-base-url: ${CHAT_SERVICE_BASE_URL:http://chat-service:8080}
+  # Das Ziel aus der Planung: 100'000 pro Minute = rund 1'667 pro Sekunde.
+  messages-per-minute: ${LOAD_MESSAGES_PER_MINUTE:100000}
+  # So lange läuft der Versuch.
+  duration-seconds: ${LOAD_DURATION_SECONDS:60}
+  # Der Raum "Lasttest" aus postgres/init/03-rooms.sql. Wer in der Lobby
+  # sitzt, merkt von der Last nichts.
+  room-id: 00000000-0000-0000-0000-000000000003
+  # So viele Anfragen dürfen höchstens gleichzeitig unterwegs sein.
+  max-in-flight: ${LOAD_MAX_IN_FLIGHT:500}
+
+logging:
+  level:
+    ch.benedict.m321: INFO

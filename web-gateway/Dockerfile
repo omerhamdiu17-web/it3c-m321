@@ -17,6 +17,7 @@ COPY pom.xml .
 COPY chat-service/pom.xml chat-service/pom.xml
 COPY web-gateway/pom.xml web-gateway/pom.xml
 COPY batch-writer/pom.xml batch-writer/pom.xml
+COPY load-generator/pom.xml load-generator/pom.xml
 COPY web-gateway/src web-gateway/src
 # Die gebaute Oberfläche wandert in die statischen Ressourcen des Gateways.
 # Spring Boot liefert alles unter static/ direkt aus.

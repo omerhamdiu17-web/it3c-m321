@@ -10,16 +10,14 @@ COPY chat-service/pom.xml chat-service/pom.xml
 COPY web-gateway/pom.xml web-gateway/pom.xml
 COPY batch-writer/pom.xml batch-writer/pom.xml
 COPY load-generator/pom.xml load-generator/pom.xml
-COPY chat-service/src chat-service/src
-# Tests werden hier übersprungen: Testcontainers bräuchte einen Docker-Daemon
-# INNERHALB des Builds. Getestet wird vorher mit "mvn test".
-RUN mvn -q -pl chat-service -am package -DskipTests
+COPY load-generator/src load-generator/src
+# Tests werden hier übersprungen. Getestet wird vorher mit "mvn test".
+RUN mvn -q -pl load-generator -am package -DskipTests
 
 # Stufe 2: laufen
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /build/chat-service/target/chat-service-0.1.0-SNAPSHOT.jar app.jar
-# EXPOSE dokumentiert den Port nur. Veröffentlicht wird er NICHT —
-# siehe docker-compose.yml, dort steht bewusst kein ports:-Eintrag.
-EXPOSE 8080
+COPY --from=build /build/load-generator/target/load-generator-0.1.0-SNAPSHOT.jar app.jar
+# Kein EXPOSE: der load-generator hat keinen Webserver. Er ruft nur
+# selbst den chat-service auf und wird von niemandem aufgerufen.
 ENTRYPOINT ["java", "-jar", "app.jar"]

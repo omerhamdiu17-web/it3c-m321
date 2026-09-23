@@ -24,11 +24,11 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- Weitere Dienste kommen hier dazu: load-generator. -->
     <modules>
         <module>chat-service</module>
         <module>web-gateway</module>
         <module>batch-writer</module>
+        <module>load-generator</module>
     </modules>
 
     <!-- Spring Cloud liefert das Gateway (Proxy auf Keycloak). Die Linie

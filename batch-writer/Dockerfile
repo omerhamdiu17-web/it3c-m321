@@ -9,6 +9,7 @@ COPY pom.xml .
 COPY chat-service/pom.xml chat-service/pom.xml
 COPY web-gateway/pom.xml web-gateway/pom.xml
 COPY batch-writer/pom.xml batch-writer/pom.xml
+COPY load-generator/pom.xml load-generator/pom.xml
 COPY batch-writer/src batch-writer/src
 # Tests werden hier übersprungen: Testcontainers bräuchte einen Docker-Daemon
 # INNERHALB des Builds. Getestet wird vorher mit "mvn test".
