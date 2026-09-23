@@ -1,5 +1,6 @@
-# Ausbaustufe 4: Broker, Datenbank, Login-Dienst, chat-service,
-# batch-writer und das web-gateway als einziger Port nach aussen.
+# Ausbaustufe 5: Broker, Datenbank, Login-Dienst, chat-service, batch-writer,
+# das web-gateway als einziger Port nach aussen und der load-generator
+# (nur mit dem Profil "load").
 services:
 
   # Der EINZIGE Container mit einem Port nach aussen. Er meldet den Benutzer
@@ -157,6 +158,26 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    networks:
+      - chat-net
+
+  # Erzeugt Last: schickt Nachrichten direkt an den chat-service, nicht über
+  # das Gateway. Läuft NUR mit dem Profil "load", also nicht bei einem
+  # normalen "docker compose up":
+  #   docker compose --profile load up load-generator
+  # Nach der eingestellten Dauer beendet sich der Container von selbst.
+  load-generator:
+    build:
+      context: .
+      dockerfile: load-generator/Dockerfile
+    profiles: ["load"]
+    environment:
+      CHAT_SERVICE_BASE_URL: http://chat-service:8080
+      LOAD_MESSAGES_PER_MINUTE: ${LOAD_MESSAGES_PER_MINUTE:-100000}
+      LOAD_DURATION_SECONDS: ${LOAD_DURATION_SECONDS:-60}
+    depends_on:
+      chat-service:
+        condition: service_started
     networks:
       - chat-net
 
