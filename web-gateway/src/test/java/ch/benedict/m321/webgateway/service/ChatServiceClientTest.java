@@ -1,6 +1,8 @@
 package ch.benedict.m321.webgateway.service;
 
 import ch.benedict.m321.webgateway.dto.AcceptedResponse;
+import ch.benedict.m321.webgateway.dto.ChatMessage;
+import ch.benedict.m321.webgateway.dto.Room;
 import ch.benedict.m321.webgateway.dto.SendMessageRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,5 +76,55 @@ class ChatServiceClientTest {
         SendMessageRequest request = new SendMessageRequest(roomId, "sub-alice", "Alice Muster", "Hallo");
 
         assertThrows(RestClientException.class, () -> chatServiceClient.send(request));
+    }
+
+    @Test
+    void loadsRooms() {
+        String responseJson = """
+                [
+                  {"id": "00000000-0000-0000-0000-000000000001", "name": "Lobby"},
+                  {"id": "00000000-0000-0000-0000-000000000002", "name": "M321"}
+                ]
+                """;
+        chatServiceMock.expect(requestTo(CHAT_SERVICE_BASE_URL + "/rooms"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.OK)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(responseJson));
+
+        List<Room> rooms = chatServiceClient.loadRooms();
+
+        assertEquals(2, rooms.size());
+        assertEquals("Lobby", rooms.get(0).name());
+        chatServiceMock.verify();
+    }
+
+    @Test
+    void loadsHistory() {
+        UUID roomId = UUID.randomUUID();
+        String responseJson = """
+                [
+                  {
+                    "id": "3f2b1c4e-0000-0000-0000-000000000009",
+                    "roomId": "%s",
+                    "senderId": "sub-alice",
+                    "senderName": "Alice Muster",
+                    "content": "Hallo Verlauf",
+                    "sentAt": "2026-09-23T10:00:00Z"
+                  }
+                ]
+                """.formatted(roomId);
+        chatServiceMock.expect(requestTo(CHAT_SERVICE_BASE_URL + "/rooms/" + roomId + "/messages"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.OK)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(responseJson));
+
+        List<ChatMessage> history = chatServiceClient.loadHistory(roomId);
+
+        assertEquals(1, history.size());
+        assertEquals("Hallo Verlauf", history.get(0).content());
+        assertEquals(roomId, history.get(0).roomId());
+        chatServiceMock.verify();
     }
 }
