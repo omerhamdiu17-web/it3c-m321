@@ -382,7 +382,7 @@ Ehrlich benannt, nicht weggeschwiegen:
 | 1 | **Gateway skaliert nicht** | Eine WebSocket-Verbindung klebt an einer Instanz. Bei `--scale web-gateway=2` landen zwei Clients auf zwei Instanzen und der Port ist mehrfach vergeben | nginx als Lastverteiler davor, mit Sticky Sessions. Wäre ein achter Container — bewusst zurückgestellt |
 | 2 | **Datenbank wächst um 1,2 GB/Stunde** | Ungelöst | Partitionierung nach Tag, oder ein Aufräum-Job, der Nachrichten älter als X löscht |
 | 3 | **Reihenfolge der Nachrichten** | Bei N `chat-service`-Instanzen ist die Reihenfolge innerhalb eines Raums nicht garantiert. **Umgesetzt (Schritt 3/4):** die Clients sortieren nach dem Server-Zeitstempel `sentAt` und verwerfen Doppelte über die ID | Entweder über den `room_id`-Hash konsistent auf eine Instanz routen, oder im Client nach `sent_at` sortieren. Zweiteres ist einfacher und für einen Chat gut genug |
-| 4 | **Login im JavaFX-Client** | Konzept steht, nicht erprobt | System-Browser öffnen, Rückleitung auf `http://127.0.0.1:<zufälliger Port>/callback` (RFC 8252). Der Client speichert kein Passwort |
+| 4 | **Login im JavaFX-Client** | **Umgesetzt (Schritt 7)** wie beschrieben: öffentlicher Client `desktop-client`, PKCE, Rückleitung auf `http://127.0.0.1:<zufälliger Port>/callback`. Der Weg ist im Rauchtest gegen das echte Keycloak geprüft; das Fenster selbst wurde nicht automatisch gestartet | System-Browser öffnen, Rückleitung auf `http://127.0.0.1:<zufälliger Port>/callback` (RFC 8252). Der Client speichert kein Passwort |
 | 5 | **Keycloak-Admin-Oberfläche** | Nicht erreichbar, das ist so gewollt | Realm kommt als JSON-Import. Für Änderungen im Unterricht: `docker compose exec` oder eine dokumentierte `docker-compose.override.yml`, die den Port nur temporär öffnet |
 | 6 | **Rechte und Rollen** | **Entschieden (Schritt 5):** wie vorgeschlagen. Keycloak schreibt die Realm-Rollen als Claim `roles` ins Token, das Gateway prüft `admin` selbst (`/api/admin/queue`, sonst 403) | Vorschlag: Keycloak-Rollen `user` und `admin`; nur `admin` sieht die Queue-Tiefe |
 | 7 | **Wirklich 100k/min auf einem Laptop?** | **Gemessen (Schritt 6, `docs/messreihe.md`)** auf einer Maschine mit 4 Kernen: alle 99'960 Nachrichten ohne Verlust, aber mit 83k–93k/min statt 100k. Engpass ist der Sendeweg (load-generator, chat-service, RabbitMQ); der batch-writer schafft allein ~1 Mio./min | Muss gemessen werden. Realistischer Engpass ist RabbitMQ mit persistenten Nachrichten, nicht die Datenbank. Fällt die Messung schlecht aus, ist das ein Ergebnis und kein Misserfolg |
@@ -571,3 +571,23 @@ load-generator abhängt, still auf eine Instanz zurückgesetzt. Aufgefallen ist 
 `docker stats` nur einen chat-service-Container zeigte. Das Messskript startet den
 load-generator seither mit `--no-deps` und schreibt die Zahl der laufenden Instanzen in jede
 Tabellenzeile.
+
+### Nachtrag — Schritt 7 (23.09.2026)
+
+**Zwei Wege hinein, ein Gateway.** Abschnitt 3.3 zeichnet den Browser mit einem Bearer-Token.
+Umgesetzt wurde in Schritt 2 etwas anderes: das Gateway ist OIDC-Client, der Browser hat nur ein
+Session-Cookie und sieht nie ein Token. Das ist für einen Browser sogar sicherer. Der
+Desktop-Client kann kein Cookie des Gateways bekommen; er meldet sich selbst bei Keycloak an
+(`desktop-client`, PKCE, System-Browser, Rückleitung auf 127.0.0.1) und schickt das Access-Token
+als `Authorization: Bearer`. Das Gateway prüft es jetzt zusätzlich als OAuth2 Resource Server —
+genau der Teil von Abschnitt 3.3, der bisher fehlte. Controller und WebSocket lesen beides über
+`LoggedInUser`; eine Sonderlogik für den Desktop gibt es nicht.
+
+**Ein Fehler, den die Tests gefunden haben.** Mit dem Resource Server antwortete Spring anonymen
+Anfragen plötzlich mit 401 statt mit der Weiterleitung zu Keycloak. `SecurityConfigTest` und der
+Rauchtest schlugen an; die Weiterleitung ist seither ausdrücklich der Standard.
+
+**Nicht automatisch geprüft:** das JavaFX-Fenster selbst. Die Tests laufen ohne Bildschirm und
+prüfen PKCE, Rückleitung, Token-Tausch, Token-Erneuerung und die API-Aufrufe; der Rauchtest geht
+denselben Login- und API-Weg gegen das echte System. Ob Knöpfe und Listen richtig aussehen, zeigt
+erst `mvn -pl desktop-client javafx:run` auf einem Rechner mit Bildschirm.

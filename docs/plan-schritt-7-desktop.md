@@ -1,6 +1,6 @@
 # Schritt 7: Desktop-Client — Implementation Plan
 
-> **Für agentische Mitarbeiter:** Umsetzung Aufgabe für Aufgabe, jede mit Test zuerst. Die Kästchen (`- [ ]`) zeigen den Stand.
+> **Für agentische Mitarbeiter:** Umsetzung Aufgabe für Aufgabe, jede mit Test zuerst. Die Kästchen (`- [x]`) zeigen den Stand.
 
 **Ziel:** Ein zweiter Client in JavaFX benutzt **dieselbe** Schnittstelle wie der Browser: Räume, Verlauf, WebSocket. Er beweist, dass das Backend clientneutral ist (PLANUNG.md, Abschnitt 2.2). Das ist die Kür der Umsetzungsreihenfolge.
 
@@ -79,35 +79,35 @@ desktop-client/
 
 ## Task 1: Realm-Client desktop-client
 
-- [ ] Öffentlicher Client, Standard Flow, PKCE S256, Rückleitung `http://127.0.0.1/*`, derselbe Protocol Mapper `roles` wie beim Gateway.
+- [x] Öffentlicher Client, Standard Flow, PKCE S256, Rückleitung `http://127.0.0.1/*`, derselbe Protocol Mapper `roles` wie beim Gateway.
 
 ## Task 2: Gateway akzeptiert Bearer-Tokens
 
-- [ ] Test `BearerTokenTest` — `/api/rooms` mit gültigem JWT (simuliert mit `jwt()`) → 200; `/api/me` mit JWT liefert den Namen aus dem Token.
-- [ ] Test `SecurityConfigTest` bleibt grün: ohne Anmeldung weiterhin Weiterleitung zu Keycloak.
-- [ ] `JwtConfig` (JwtDecoder: JWKS intern, Aussteller öffentlich), `oauth2ResourceServer` in `SecurityConfig`.
-- [ ] Controller lesen `ClaimAccessor` statt `OidcUser`.
+- [x] Test `BearerTokenTest` — `/api/rooms` mit gültigem JWT (simuliert mit `jwt()`) → 200; `/api/me` mit JWT liefert den Namen aus dem Token.
+- [x] Test `SecurityConfigTest` bleibt grün: ohne Anmeldung weiterhin Weiterleitung zu Keycloak.
+- [x] `JwtConfig` (JwtDecoder: JWKS intern, Aussteller öffentlich), `oauth2ResourceServer` in `SecurityConfig`.
+- [x] Controller lesen `ClaimAccessor` statt `OidcUser`.
 
 ## Task 3: Desktop-Client ohne Oberfläche
 
-- [ ] Test `PkceTest` — Beispiel aus RFC 7636, Anhang B.
-- [ ] Test `KeycloakLoginTest` — Login-Adresse enthält client_id, redirect_uri, code_challenge; Token-Tausch gegen einen Test-Webserver schickt code_verifier mit und liest die Tokens.
-- [ ] Test `ChatApiClientTest` — schickt `Authorization: Bearer`, liest Räume und Verlauf.
-- [ ] Test `ServerEventParserTest` — erkennt die drei Ereignisarten.
+- [x] Test `PkceTest` — Beispiel aus RFC 7636, Anhang B.
+- [x] Test `KeycloakLoginTest` — Login-Adresse enthält client_id, redirect_uri, code_challenge; Token-Tausch gegen einen Test-Webserver schickt code_verifier mit und liest die Tokens.
+- [x] Test `ChatApiClientTest` — schickt `Authorization: Bearer`, liest Räume und Verlauf.
+- [x] Test `ServerEventParserTest` — erkennt die drei Ereignisarten.
 
 ## Task 4: Oberfläche
 
-- [ ] Fenster mit Anmelde-Knopf, Raumliste, Nachrichtenliste, Eingabefeld.
-- [ ] Raumwechsel: WebSocket neu verbinden, dann Verlauf laden (gleiche Reihenfolge wie im Browser).
+- [x] Fenster mit Anmelde-Knopf, Raumliste, Nachrichtenliste, Eingabefeld.
+- [x] Raumwechsel: WebSocket neu verbinden, dann Verlauf laden (gleiche Reihenfolge wie im Browser).
 
 ## Task 5: Prüfung gegen das echte System
 
-- [ ] `scripts/smoke-test.py`: Login als `desktop-client` mit PKCE und Rückleitung auf `127.0.0.1`, dann Räume, `/api/me` und WebSocket mit `Authorization: Bearer`. Das ist genau der Weg des Desktop-Clients, nur ohne Fenster.
+- [x] `scripts/smoke-test.py`: Login als `desktop-client` mit PKCE und Rückleitung auf `127.0.0.1`, dann Räume, `/api/me` und WebSocket mit `Authorization: Bearer`. Das ist genau der Weg des Desktop-Clients, nur ohne Fenster.
 
 ## Task 6: Dokumentation
 
-- [ ] README: Desktop-Client starten.
-- [ ] PLANUNG.md: offener Punkt 4 erledigt.
+- [x] README: Desktop-Client starten.
+- [x] PLANUNG.md: offener Punkt 4 erledigt.
 
 ---
 

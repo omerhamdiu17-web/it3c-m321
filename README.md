@@ -132,6 +132,26 @@ einer Maschine mit 4 Kernen mit 83'000–93'000 statt 100'000 pro Minute; der En
 Sendeweg, nicht die Datenbank. Ein einziger batch-writer schreibt ~17'500 Nachrichten pro Sekunde.
 `--scale chat-service=3` verteilt die Last nicht (offener Punkt 8).
 
+## Desktop-Client (Schritt 7)
+
+Ein zweiter Client in JavaFX an **derselben** Schnittstelle wie die Web-UI. Er läuft auf dem
+Host (nicht in Docker) und braucht nur den einen offenen Port 8080:
+
+```bash
+docker compose up -d --build          # das System muss laufen
+mvn -pl desktop-client javafx:run     # startet das Fenster
+```
+
+«Anmelden» öffnet den System-Browser mit der Keycloak-Anmeldung (z.B. `bob` / `bob`). Danach
+leitet Keycloak auf `http://127.0.0.1:<zufälliger Port>/callback` zurück, wo der Client kurz
+einen kleinen Webserver laufen lässt — der Client sieht das Passwort also nie (RFC 8252, PKCE,
+öffentlicher Client `desktop-client` ohne Secret). Mit dem Access-Token ruft er dieselben
+Endpunkte auf wie der Browser, nur mit `Authorization: Bearer <JWT>` statt Session-Cookie; das
+Gateway prüft das Token als OAuth2 Resource Server. Das Token gilt 5 Minuten, der Client holt
+sich vorher mit dem Refresh-Token selbst ein neues.
+
+Was im Desktop-Client geschrieben wird, erscheint im Browser im selben Raum und umgekehrt.
+
 ## Automatische Prüfung (GitHub Actions)
 
 Bei jedem Push baut GitHub das Projekt und prüft es ([`.github/workflows/build.yml`](.github/workflows/build.yml)):
@@ -141,7 +161,8 @@ Bei jedem Push baut GitHub das Projekt und prüft es ([`.github/workflows/build.
 - Bau aller Container-Images,
 - ein **Rauchtest gegen das ganze System**: `docker compose up`, echter Login von alice, bob und
   admin bei Keycloak, Nachricht per WebSocket, Zustellung nach Raum, Speicherung im Verlauf,
-  Rollenprüfung und ein kurzer Lastlauf ([`scripts/smoke-test.py`](scripts/smoke-test.py)).
+  Rollenprüfung, der Login-Weg des Desktop-Clients (PKCE, Bearer-Token für REST und WebSocket)
+  und ein kurzer Lastlauf ([`scripts/smoke-test.py`](scripts/smoke-test.py)).
 
 Die Messreihe läuft als eigener Workflow ([`.github/workflows/messreihe.yml`](.github/workflows/messreihe.yml)),
 von Hand gestartet im Reiter «Actions».
@@ -158,6 +179,7 @@ von Hand gestartet im Reiter «Actions».
 | web-gateway | Spring Boot 3, Java 21 | Einziger nach aussen offener Port: Login über Keycloak, Proxy auf `/auth`, liefert die Web-UI aus, WebSocket `/ws/chat` mit Zustellung nach Raum, Räume und Verlauf, Queue-Tiefe für admin | vorhanden |
 | load-generator | Spring Boot 3, Java 21 | Erzeugt Last direkt auf den chat-service (Profil `load`) | vorhanden |
 | Web-UI | React 19 + Vite | Browser-Client, wird im Docker-Build des Gateways gebaut | Räume, Verlauf, Chat, Queue-Balken für admin |
+| desktop-client | JavaFX 21, Java 21 | Zweiter Client auf dem Host: Login im System-Browser (PKCE), dann Bearer-Token für REST und WebSocket | Räume, Verlauf, Chat |
 
 Alles unterhalb des Gateways läuft in einem internen Docker-Netzwerk und ist von aussen nicht
 erreichbar.
@@ -175,6 +197,8 @@ erreichbar.
 - [`docs/plan-schritt-5-last.md`](docs/plan-schritt-5-last.md) — Plan für Schritt 5:
   load-generator, Queue-Tiefe, Rolle admin.
 - [`docs/messreihe.md`](docs/messreihe.md) — Schritt 6: Messreihe, Ergebnisse und was sie bedeuten.
+- [`docs/plan-schritt-7-desktop.md`](docs/plan-schritt-7-desktop.md) — Plan für Schritt 7:
+  Desktop-Client, Bearer-Token im Gateway.
 - [`CLAUDE.md`](CLAUDE.md) — Codestil-Regeln für dieses Projekt. Gelten auch für dich.
 - [`docs/flipchart-chat-app.png`](docs/flipchart-chat-app.png) — das Flipchart aus der Lektion,
   von dem die Planung ausgeht.
