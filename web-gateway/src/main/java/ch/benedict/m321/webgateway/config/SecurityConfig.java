@@ -40,6 +40,13 @@ public class SecurityConfig {
         // kommt aus KeycloakClientConfig.
         http.oauth2Login(Customizer.withDefaults());
 
+        // Zweiter Weg hinein, für den Desktop-Client: ein Bearer-Token im
+        // Header "Authorization". Geprüft wird es mit dem JwtDecoder aus
+        // JwtConfig. Anfragen OHNE Token laufen weiter wie bisher über die
+        // Sitzung bzw. die Weiterleitung zu Keycloak; deshalb steht dieser
+        // Teil NACH oauth2Login.
+        http.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()));
+
         // Abmelden per einfachem Link (GET). Spring empfiehlt POST mit
         // CSRF-Token; wir nehmen den Link, weil die Oberfläche dann kein
         // Token verwalten muss. Für ein Schulprojekt ist das vertretbar.

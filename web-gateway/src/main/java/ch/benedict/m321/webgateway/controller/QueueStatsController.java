@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,7 +31,7 @@ public class QueueStatsController {
 
     /** Liefert die Zahlen der Queue chat.persist, oder 403 für alle ausser admin. */
     @GetMapping("/api/admin/queue")
-    public ResponseEntity<QueueStats> persistQueueStats(@AuthenticationPrincipal OidcUser user) {
+    public ResponseEntity<QueueStats> persistQueueStats(@AuthenticationPrincipal ClaimAccessor user) {
         LoggedInUser loggedInUser = LoggedInUser.fromClaims(user);
         if (!loggedInUser.admin()) {
             log.warn("User {} without role {} asked for queue stats", loggedInUser.username(), LoggedInUser.ADMIN_ROLE);
