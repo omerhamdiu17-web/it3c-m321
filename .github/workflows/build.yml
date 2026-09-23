@@ -52,3 +52,24 @@ jobs:
         run: cp .env.example .env
       - name: docker compose build
         run: docker compose --profile load build
+
+  # Das ganze System wirklich starten und einmal durchspielen: Login bei
+  # Keycloak, Nachricht per WebSocket, Zustellung, Speicherung.
+  # Siehe scripts/smoke-test.py.
+  end-to-end:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: .env aus den Beispielwerten
+        run: cp .env.example .env
+      - name: docker compose up
+        run: docker compose up -d --build --wait --wait-timeout 300 rabbitmq postgres chat-service batch-writer web-gateway
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests websocket-client
+      - name: Rauchtest
+        run: python scripts/smoke-test.py
+      - name: Logs bei Fehler
+        if: failure()
+        run: docker compose logs --no-color --tail 200
