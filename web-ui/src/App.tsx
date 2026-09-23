@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Chat } from './Chat'
+import { QueueDepth } from './QueueDepth'
 
 /** Was das Gateway unter /api/me liefert (siehe CurrentUser.java). */
 type CurrentUser = {
   username: string
   displayName: string
+  admin: boolean
 }
 
 /** Ein Raum, wie ihn das Gateway unter /api/rooms liefert (siehe Room.java). */
@@ -95,6 +97,9 @@ export function App() {
         neuen Raum geht auf, und der Verlauf wird frisch geladen.
       */}
       {selectedRoom !== null && <Chat key={selectedRoom.id} roomId={selectedRoom.id} roomName={selectedRoom.name} />}
+
+      {/* Nur für admin. Das ist Bequemlichkeit: das Gateway prüft die Rolle selbst noch einmal. */}
+      {user.admin && <QueueDepth />}
     </main>
   )
 }
