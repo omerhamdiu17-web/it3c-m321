@@ -2,6 +2,8 @@ package ch.benedict.m321.chatservice.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.AmqpException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +21,17 @@ class MessageExceptionHandlerTest {
         AmqpException exception = new AmqpException("Broker nicht erreichbar");
 
         ResponseEntity<String> response = handler.handleBrokerNotAvailable(exception);
+
+        assertEquals(503, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+    }
+
+    @Test
+    void answersWithServiceUnavailableWhenDatabaseIsDown() {
+        MessageExceptionHandler handler = new MessageExceptionHandler();
+        DataAccessException exception = new DataAccessResourceFailureException("Datenbank nicht erreichbar");
+
+        ResponseEntity<String> response = handler.handleDatabaseNotAvailable(exception);
 
         assertEquals(503, response.getStatusCode().value());
         assertNotNull(response.getBody());

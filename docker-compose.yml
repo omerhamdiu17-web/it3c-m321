@@ -124,8 +124,13 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Nur zum Lesen des Verlaufs; geschrieben wird vom batch-writer.
+      POSTGRES_HOST: postgres
+      CHAT_DB_PASSWORD: ${CHAT_DB_PASSWORD}
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - chat-net

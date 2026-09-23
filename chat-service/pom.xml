@@ -27,6 +27,18 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
+        <!-- Verlauf lesen: JdbcTemplate, bewusst kein JPA. Geschrieben
+             wird nur vom batch-writer, der chat-service liest nur. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Prüfung der eingehenden Felder (@NotNull, @NotBlank) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -61,6 +73,12 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>rabbitmq</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Startet im Test ein echtes Postgres für den Verlauf -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

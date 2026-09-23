@@ -8,6 +8,12 @@ spring:
     port: 5672
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+  datasource:
+    # Nur zum LESEN des Verlaufs. Die Verbindung wird erst bei der ersten
+    # Abfrage aufgebaut, der Dienst startet also auch ohne Datenbank.
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/chat
+    username: chat
+    password: ${CHAT_DB_PASSWORD:chat}
 
 server:
   port: 8080
