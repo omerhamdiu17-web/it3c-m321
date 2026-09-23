@@ -6,12 +6,13 @@ import ch.benedict.m321.webgateway.dto.SendMessageRequest;
 import ch.benedict.m321.webgateway.dto.ServerEvent;
 import ch.benedict.m321.webgateway.service.ChatServiceClient;
 import ch.benedict.m321.webgateway.service.ChatSessionRegistry;
+import ch.benedict.m321.webgateway.service.LoggedInUser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.core.ClaimAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClientException;
@@ -131,14 +132,9 @@ public class ChatSocketHandler extends TextWebSocketHandler {
     private SendMessageRequest buildRequest(WebSocketSession session, IncomingChatMessage incoming) {
         Principal principal = session.getPrincipal();
         Authentication authentication = (Authentication) principal;
-        OidcUser user = (OidcUser) authentication.getPrincipal();
+        ClaimAccessor claims = (ClaimAccessor) authentication.getPrincipal();
+        LoggedInUser sender = LoggedInUser.fromClaims(claims);
 
-        String senderId = user.getSubject();
-        String senderName = user.getFullName();
-        if (senderName == null) {
-            senderName = user.getPreferredUsername();
-        }
-
-        return new SendMessageRequest(incoming.roomId(), senderId, senderName, incoming.content());
+        return new SendMessageRequest(incoming.roomId(), sender.subject(), sender.displayName(), incoming.content());
     }
 }

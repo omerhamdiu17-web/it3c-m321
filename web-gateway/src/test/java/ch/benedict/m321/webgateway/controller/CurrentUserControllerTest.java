@@ -7,6 +7,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.util.List;
+
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -50,5 +52,29 @@ class CurrentUserControllerTest {
         mockMvc.perform(request)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("bob"));
+    }
+
+    @Test
+    void reportsAdminRole() throws Exception {
+        MockHttpServletRequestBuilder request = get("/api/me")
+                .with(oidcLogin().idToken(token -> token
+                        .claim("preferred_username", "admin")
+                        .claim("roles", List.of("user", "admin"))));
+
+        mockMvc.perform(request)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.admin").value(true));
+    }
+
+    @Test
+    void reportsNoAdminRoleForNormalUser() throws Exception {
+        MockHttpServletRequestBuilder request = get("/api/me")
+                .with(oidcLogin().idToken(token -> token
+                        .claim("preferred_username", "alice")
+                        .claim("roles", List.of("user"))));
+
+        mockMvc.perform(request)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.admin").value(false));
     }
 }
