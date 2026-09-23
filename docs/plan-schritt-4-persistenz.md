@@ -1,6 +1,6 @@
 # Schritt 4: Persistenz — Implementation Plan
 
-> **Für agentische Mitarbeiter:** Umsetzung Aufgabe für Aufgabe, jede mit Test zuerst. Die Kästchen (`- [ ]`) zeigen den Stand.
+> **Für agentische Mitarbeiter:** Umsetzung Aufgabe für Aufgabe, jede mit Test zuerst. Die Kästchen (`- [x]`) zeigen den Stand.
 
 **Ziel:** Jede Nachricht landet in der Datenbank, ohne dass der Zustellweg darauf wartet. Wer einen Raum öffnet, sieht die letzten 50 Nachrichten. Es gibt mehrere Räume, und eine Nachricht geht nur an die Browser, die im betroffenen Raum sind.
 
@@ -111,68 +111,68 @@ web-ui/src/
 
 ## Task 1: Feste Räume in der Datenbank
 
-- [ ] `postgres/init/03-rooms.sql` legt Lobby (`…0001`), M321 (`…0002`) und Lasttest (`…0003`) an. Die Lobby-ID ist dieselbe, die die Oberfläche seit Schritt 3 benutzt.
-- [ ] README: Hinweis, dass nach dem Update einmal `docker compose down -v` nötig ist.
+- [x] `postgres/init/03-rooms.sql` legt Lobby (`…0001`), M321 (`…0002`) und Lasttest (`…0003`) an. Die Lobby-ID ist dieselbe, die die Oberfläche seit Schritt 3 benutzt.
+- [x] README: Hinweis, dass nach dem Update einmal `docker compose down -v` nötig ist.
 
 **Warum zuerst:** `message.room_id` ist ein Fremdschlüssel auf `room`. Ohne Raum scheitert jeder INSERT.
 
 ## Task 2: Modul batch-writer und Anwendungsstart
 
-- [ ] Test `BatchWriterApplicationTest.contextLoads` — Kontext fährt ohne Broker und ohne Datenbank hoch (Listener aus, Verbindung zur DB erst bei Bedarf).
-- [ ] `batch-writer/pom.xml`, Eintrag im Eltern-POM, `BatchWriterApplication`, `application.yml` (kein Webserver: `web-application-type: none`).
+- [x] Test `BatchWriterApplicationTest.contextLoads` — Kontext fährt ohne Broker und ohne Datenbank hoch (Listener aus, Verbindung zur DB erst bei Bedarf).
+- [x] `batch-writer/pom.xml`, Eintrag im Eltern-POM, `BatchWriterApplication`, `application.yml` (kein Webserver: `web-application-type: none`).
 
 ## Task 3: Bulk-INSERT
 
-- [ ] Test `MessageRepositoryIntegrationTest`:
+- [x] Test `MessageRepositoryIntegrationTest`:
   - `storesWholeBatch` — drei Nachrichten, danach drei Zeilen.
   - `ignoresDuplicate` — dieselbe Nachricht zweimal, danach eine Zeile (At-least-once, PLANUNG.md 3.6).
   - `rejectsUnknownRoom` — Raum existiert nicht → `DataIntegrityViolationException`.
-- [ ] `MessageRepository.insertBatch` mit `batchUpdate` und `ON CONFLICT (id) DO NOTHING`, in einer Transaktion. `insertOne` für den Einzelversuch.
-- [ ] JDBC-URL mit `reWriteBatchedInserts=true`: der Treiber macht aus 500 Einzel-INSERTs einen einzigen mehrzeiligen INSERT.
+- [x] `MessageRepository.insertBatch` mit `batchUpdate` und `ON CONFLICT (id) DO NOTHING`, in einer Transaktion. `insertOne` für den Einzelversuch.
+- [x] JDBC-URL mit `reWriteBatchedInserts=true`: der Treiber macht aus 500 Einzel-INSERTs einen einzigen mehrzeiligen INSERT.
 
 ## Task 4: Batch-Listener mit Bestätigung nach dem COMMIT
 
-- [ ] Test `MessageBatchListenerIntegrationTest` gegen echtes RabbitMQ **und** echtes Postgres:
+- [x] Test `MessageBatchListenerIntegrationTest` gegen echtes RabbitMQ **und** echtes Postgres:
   - `storesMessagesFromQueue` — Nachrichten in `chat.persist` → Zeilen in `message`.
   - `sendsBrokenJsonToDeadLetterQueue` — kaputtes JSON → `chat.dlq`, die Queue läuft weiter.
   - `storesGoodMessagesAndRejectsUnknownRoom` — gemischter Stapel: gute Nachricht gespeichert, schlechte in `chat.dlq`.
-- [ ] `RabbitConfig` mit den vier Stapel-Einstellungen, `persistQueue` mit **denselben** Argumenten wie im chat-service (sonst lehnt RabbitMQ die zweite Anmeldung ab).
-- [ ] `MessageBatchListener`: lesen → schreiben → `basicAck(letzterTag, multiple=true)`; bei Datenbankfehler `basicNack(…, requeue=true)` nach einer Sekunde Pause.
+- [x] `RabbitConfig` mit den vier Stapel-Einstellungen, `persistQueue` mit **denselben** Argumenten wie im chat-service (sonst lehnt RabbitMQ die zweite Anmeldung ab).
+- [x] `MessageBatchListener`: lesen → schreiben → `basicAck(letzterTag, multiple=true)`; bei Datenbankfehler `basicNack(…, requeue=true)` nach einer Sekunde Pause.
 
 ## Task 5: batch-writer im docker-compose
 
-- [ ] `batch-writer/Dockerfile` (wie beim chat-service), Dienst in `docker-compose.yml` **ohne** `ports:`.
-- [ ] Alle Dockerfiles kopieren das neue Modul-POM mit (Maven liest alle Module aus dem Eltern-POM).
+- [x] `batch-writer/Dockerfile` (wie beim chat-service), Dienst in `docker-compose.yml` **ohne** `ports:`.
+- [x] Alle Dockerfiles kopieren das neue Modul-POM mit (Maven liest alle Module aus dem Eltern-POM).
 
 ## Task 6: Verlauf und Raumliste im chat-service
 
-- [ ] Test `RoomControllerIntegrationTest` (Postgres-Testcontainer mit den Init-Skripten):
+- [x] Test `RoomControllerIntegrationTest` (Postgres-Testcontainer mit den Init-Skripten):
   - `listsSeededRooms` — `GET /rooms` liefert die drei Räume.
   - `returnsLatestMessagesOldestFirst` — `GET /rooms/{id}/messages` liefert höchstens 50, die älteste zuerst.
-- [ ] `RoomRepository`, `RoomService` (Regel: 50), `RoomController`, `Room`.
-- [ ] Datenbank weg → 503, wie beim Broker.
-- [ ] `docker-compose.yml`: chat-service bekommt Datenbank-Zugang und wartet auf Postgres.
+- [x] `RoomRepository`, `RoomService` (Regel: 50), `RoomController`, `Room`.
+- [x] Datenbank weg → 503, wie beim Broker.
+- [x] `docker-compose.yml`: chat-service bekommt Datenbank-Zugang und wartet auf Postgres.
 
 ## Task 7: Gateway reicht Verlauf und Räume durch
 
-- [ ] Test `ChatServiceClientTest` (+ `loadsRooms`, `loadsHistory`), `RoomControllerTest` im Gateway mit simuliertem Login.
-- [ ] `GET /api/rooms` und `GET /api/rooms/{id}/messages`.
+- [x] Test `ChatServiceClientTest` (+ `loadsRooms`, `loadsHistory`), `RoomControllerTest` im Gateway mit simuliertem Login.
+- [x] `GET /api/rooms` und `GET /api/rooms/{id}/messages`.
 
 ## Task 8: Zustellung nur an den richtigen Raum
 
-- [ ] Test `ChatSessionRegistryTest` — eine Nachricht für Raum A kommt nur bei Verbindungen in Raum A an.
-- [ ] `ChatSocketHandlerTest` — Verbindung ohne gültige `roomId` wird geschlossen.
-- [ ] `DeliveryListenerIntegrationTest` prüft jetzt `sendToRoom`.
+- [x] Test `ChatSessionRegistryTest` — eine Nachricht für Raum A kommt nur bei Verbindungen in Raum A an.
+- [x] `ChatSocketHandlerTest` — Verbindung ohne gültige `roomId` wird geschlossen.
+- [x] `DeliveryListenerIntegrationTest` prüft jetzt `sendToRoom`.
 
 ## Task 9: Oberfläche mit Räumen und Verlauf
 
-- [ ] Raumliste aus `/api/rooms`, Klick wechselt den Raum.
-- [ ] Beim Öffnen eines Raums: zuerst WebSocket verbinden, **dann** Verlauf laden. So geht keine Nachricht verloren, die zwischen beiden Schritten geschrieben wird; doppelte fallen über die ID heraus.
+- [x] Raumliste aus `/api/rooms`, Klick wechselt den Raum.
+- [x] Beim Öffnen eines Raums: zuerst WebSocket verbinden, **dann** Verlauf laden. So geht keine Nachricht verloren, die zwischen beiden Schritten geschrieben wird; doppelte fallen über die ID heraus.
 
 ## Task 10: Dokumentation
 
-- [ ] README: Stand-Tabelle, Weg einer Nachricht mit Datenbank, `docker compose down -v`.
-- [ ] PLANUNG.md, Abschnitt 8: Entscheidung zur Fehlerbehandlung festhalten.
+- [x] README: Stand-Tabelle, Weg einer Nachricht mit Datenbank, `docker compose down -v`.
+- [x] PLANUNG.md, Abschnitt 8: Entscheidung zur Fehlerbehandlung festhalten.
 
 ---
 
@@ -188,5 +188,5 @@ docker compose up --build
 3. In einem privaten Fenster als `bob` in den Raum "M321" wechseln: Lobby-Nachrichten von alice erscheinen dort **nicht**.
 4. Direkt in der Datenbank nachsehen:
    ```bash
-   docker compose exec postgres psql -U chat -d chat -c "SELECT sender_name, content, sent_at FROM message ORDER BY sent_at DESC LIMIT 5;"
+   docker compose exec postgres psql -U postgres -d chat -c "SELECT sender_name, content, sent_at FROM message ORDER BY sent_at DESC LIMIT 5;"
    ```

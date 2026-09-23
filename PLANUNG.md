@@ -331,8 +331,12 @@ it3c-m321/
 ├── CLAUDE.md                   # Projektregeln (Sprache, Code-Stil)
 ├── PLANUNG.md                  # dieses Dokument
 ├── pom.xml                     # Maven-Elternprojekt
+├── .github/workflows/          # Build, Tests und Rauchtest bei jedem Push; Messreihe
+├── scripts/                    # Rauchtest gegen das ganze System, Messreihe
 ├── docs/
 │   ├── flipchart-chat-app.png
+│   ├── plan-*.md               # Umsetzungspläne pro Schritt
+│   ├── messreihe.md            # Ergebnisse von Schritt 6
 │   └── design/                 # HTML-Fassung dieses Dokuments
 ├── keycloak/
 │   └── realm-chat.json         # Realm, Clients und Testbenutzer als Import
@@ -377,12 +381,12 @@ Ehrlich benannt, nicht weggeschwiegen:
 |---|---|---|---|
 | 1 | **Gateway skaliert nicht** | Eine WebSocket-Verbindung klebt an einer Instanz. Bei `--scale web-gateway=2` landen zwei Clients auf zwei Instanzen und der Port ist mehrfach vergeben | nginx als Lastverteiler davor, mit Sticky Sessions. Wäre ein achter Container — bewusst zurückgestellt |
 | 2 | **Datenbank wächst um 1,2 GB/Stunde** | Ungelöst | Partitionierung nach Tag, oder ein Aufräum-Job, der Nachrichten älter als X löscht |
-| 3 | **Reihenfolge der Nachrichten** | Bei N `chat-service`-Instanzen ist die Reihenfolge innerhalb eines Raums nicht garantiert | Entweder über den `room_id`-Hash konsistent auf eine Instanz routen, oder im Client nach `sent_at` sortieren. Zweiteres ist einfacher und für einen Chat gut genug |
+| 3 | **Reihenfolge der Nachrichten** | Bei N `chat-service`-Instanzen ist die Reihenfolge innerhalb eines Raums nicht garantiert. **Umgesetzt (Schritt 3/4):** die Clients sortieren nach dem Server-Zeitstempel `sentAt` und verwerfen Doppelte über die ID | Entweder über den `room_id`-Hash konsistent auf eine Instanz routen, oder im Client nach `sent_at` sortieren. Zweiteres ist einfacher und für einen Chat gut genug |
 | 4 | **Login im JavaFX-Client** | Konzept steht, nicht erprobt | System-Browser öffnen, Rückleitung auf `http://127.0.0.1:<zufälliger Port>/callback` (RFC 8252). Der Client speichert kein Passwort |
 | 5 | **Keycloak-Admin-Oberfläche** | Nicht erreichbar, das ist so gewollt | Realm kommt als JSON-Import. Für Änderungen im Unterricht: `docker compose exec` oder eine dokumentierte `docker-compose.override.yml`, die den Port nur temporär öffnet |
-| 6 | **Rechte und Rollen** | Noch nicht entschieden | Vorschlag: Keycloak-Rollen `user` und `admin`; nur `admin` sieht die Queue-Tiefe |
-| 7 | **Wirklich 100k/min auf einem Laptop?** | Unbewiesen | Muss gemessen werden. Realistischer Engpass ist RabbitMQ mit persistenten Nachrichten, nicht die Datenbank. Fällt die Messung schlecht aus, ist das ein Ergebnis und kein Misserfolg |
-| 8 | **Lastverteilung auf `chat-service`** | Neu, durch den REST-Sendeweg entstanden | Docker-DNS verteilt auf mehrere Instanzen, aber ein HTTP-Client mit Verbindungspool umgeht das. Keep-Alive begrenzen oder pro Anfrage neu auflösen. Muss gemessen werden, sonst glaubt man an eine Verteilung, die nicht stattfindet |
+| 6 | **Rechte und Rollen** | **Entschieden (Schritt 5):** wie vorgeschlagen. Keycloak schreibt die Realm-Rollen als Claim `roles` ins Token, das Gateway prüft `admin` selbst (`/api/admin/queue`, sonst 403) | Vorschlag: Keycloak-Rollen `user` und `admin`; nur `admin` sieht die Queue-Tiefe |
+| 7 | **Wirklich 100k/min auf einem Laptop?** | **Gemessen (Schritt 6, `docs/messreihe.md`)** auf einer Maschine mit 4 Kernen: alle 99'960 Nachrichten ohne Verlust, aber mit 83k–93k/min statt 100k. Engpass ist der Sendeweg (load-generator, chat-service, RabbitMQ); der batch-writer schafft allein ~1 Mio./min | Muss gemessen werden. Realistischer Engpass ist RabbitMQ mit persistenten Nachrichten, nicht die Datenbank. Fällt die Messung schlecht aus, ist das ein Ergebnis und kein Misserfolg |
+| 8 | **Lastverteilung auf `chat-service`** | Neu, durch den REST-Sendeweg entstanden. **Gemessen (Schritt 6):** bei 3 Instanzen arbeitet zu jedem Zeitpunkt nur eine, auch ohne DNS-Cache — die Verbindungen des Clients bleiben offen. Weiterhin offen | Docker-DNS verteilt auf mehrere Instanzen, aber ein HTTP-Client mit Verbindungspool umgeht das. Keep-Alive begrenzen oder pro Anfrage neu auflösen. Muss gemessen werden, sonst glaubt man an eine Verteilung, die nicht stattfindet |
 | 9 | **Kein Puffer auf dem Sendeweg** | Neu, bewusst in Kauf genommen | Ist der `chat-service` überlastet oder unten, schlägt das Senden sofort fehl — es gibt keine Queue, die das auffängt. Der Client muss das sichtbar machen („Nachricht nicht gesendet") statt sie stillschweigend zu verlieren. Ausbauweg wäre eine Eingangs-Queue, also genau die Variante, die wir verworfen haben |
 
 ---
@@ -518,3 +522,52 @@ Die sieben offenen Punkte aus Abschnitt 7 sind nicht entschieden. Am dringendste
 Punkt 3 (Reihenfolge der Nachrichten) und Punkt 7 (ob 100k/min auf einem Laptop
 überhaupt erreichbar sind). Punkt 7 lässt sich nicht am Whiteboard klären, sondern erst
 nach Schritt 5 der Umsetzungsreihenfolge messen.
+
+### Runde 4 — Umsetzung der Schritte 4 bis 6 (23.09.2026)
+
+*Ebenfalls von der KI geschrieben. Festgehalten ist, wo die Umsetzung von der Planung abweicht
+oder etwas entscheiden musste, das die Planung offen liess. Die Schritt-Pläne stehen in
+`docs/plan-schritt-4-persistenz.md` und `docs/plan-schritt-5-last.md`, die Messung in
+`docs/messreihe.md`.*
+
+**Geprüft wird auf GitHub.** Auf dem Rechner, auf dem gearbeitet wurde, gab es weder Java noch
+Docker. Deshalb läuft bei jedem Push `.github/workflows/build.yml`: alle Tests mit
+Testcontainers, der Bau aller Images und ein Rauchtest gegen das ganze System
+(`scripts/smoke-test.py`: echter Login bei Keycloak, WebSocket, Zustellung, Verlauf, Rollen,
+kurzer Lastlauf). "Läuft" heisst in diesem Abschnitt: dort gelaufen.
+
+**Feste Räume statt Raumverwaltung.** `message.room_id` ist ein Fremdschlüssel; ohne Raum
+scheitert jeder INSERT. `postgres/init/03-rooms.sql` legt Lobby, M321 und Lasttest an. Eine
+Oberfläche zum Anlegen von Räumen wäre Aufwand ohne Bezug zum Lernziel. `room_member` bleibt
+ungenutzt: jeder angemeldete Benutzer sieht jeden Raum.
+
+**Zustellung nach Raum.** Der Browser nennt beim Verbindungsaufbau seinen Raum
+(`/ws/chat?roomId=…`), das Gateway stellt nur dort zu. Spätestens mit dem load-generator ist
+das nötig: 1'667 Nachrichten pro Sekunde im Raum Lasttest dürfen die Lobby nicht fluten.
+
+**Dead Letter nach Art des Fehlers, nicht nach 3 Versuchen.** Abschnitt 3.5 sieht "nach 3
+fehlgeschlagenen Versuchen" vor. Eine klassische RabbitMQ-Queue zählt aber keine Versuche; das
+könnte erst eine Quorum-Queue, und die hätte die Queue-Definition im chat-service geändert. Der
+batch-writer unterscheidet stattdessen: eine *kaputte Nachricht* (kein JSON, Raum existiert
+nicht) geht sofort nach `chat.dlq`, weil ein zweiter Versuch genauso scheitern würde; eine
+*fehlende Datenbank* gibt den Stapel mit Wiederholung zurück. Scheitert ein Stapel an einer
+einzelnen Nachricht, wird er einzeln wiederholt.
+
+**Stapel: 500 Stück oder 200 ms Ruhe.** Das Sammeln macht Spring AMQP selbst
+(`consumerBatchEnabled`). "200 ms" bedeutet dabei: kommt 200 ms lang nichts Neues, geht der
+angefangene Stapel los — nicht "spätestens 200 ms nach der ersten Nachricht". Unter Last füllt
+sich der Stapel ohnehin in rund 0,3 Sekunden.
+
+**Offener Punkt 6 entschieden** wie vorgeschlagen (Rolle `admin` sieht die Queue-Tiefe). Die
+Claims liest an genau einer Stelle `LoggedInUser`; vorher stand das in jedem Controller.
+
+**Messbar gemacht, was Punkt 8 verlangt.** Der chat-service schreibt seinen Container-Namen in
+den Antwort-Header `X-Chat-Service-Instance`, der load-generator zählt mit. Die Ergebnisse stehen
+in `docs/messreihe.md`.
+
+**Ein Fehler in der ersten Messung, offen benannt.** Der erste Lauf "3 chat-service" lief in
+Wirklichkeit mit einem einzigen: `docker compose run` hat die Dienste, von denen der
+load-generator abhängt, still auf eine Instanz zurückgesetzt. Aufgefallen ist es nur, weil
+`docker stats` nur einen chat-service-Container zeigte. Das Messskript startet den
+load-generator seither mit `--no-deps` und schreibt die Zahl der laufenden Instanzen in jede
+Tabellenzeile.

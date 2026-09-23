@@ -1,6 +1,6 @@
 # Schritt 5: Last — Implementation Plan
 
-> **Für agentische Mitarbeiter:** Umsetzung Aufgabe für Aufgabe, jede mit Test zuerst. Die Kästchen (`- [ ]`) zeigen den Stand.
+> **Für agentische Mitarbeiter:** Umsetzung Aufgabe für Aufgabe, jede mit Test zuerst. Die Kästchen (`- [x]`) zeigen den Stand.
 
 **Ziel:** Es gibt etwas zu messen. Ein eigener Container erzeugt Last (Ziel: 100'000 Nachrichten pro Minute), und die Web-Oberfläche zeigt die Tiefe der Queue `chat.persist` als Balken — so sieht die Klasse, ob der `batch-writer` hinterherkommt.
 
@@ -59,11 +59,12 @@ load-generator/
     ├── LoadProperties.java                     # Rate, Dauer, Raum, Adresse
     ├── dto/SendMessageRequest.java             # eigene Kopie des Vertrags
     ├── service/LoadStatistics.java             # zählt Erfolge, Fehler, Instanzen
+    ├── service/LoadStarter.java                # startet den Versuch nach dem Hochfahren
     └── service/LoadRunner.java                 # die Schleife: jede Sekunde N Anfragen
 chat-service/
     └── controller/MessageController.java       # + Header X-Chat-Service-Instance
 web-gateway/
-    ├── config/RabbitManagementProperties.java  # Adresse und Zugang der Management-API
+    ├── service/LoggedInUser.java               # liest Kennung, Namen und Rolle aus den Claims
     ├── dto/QueueStats.java
     ├── dto/CurrentUser.java                    # + admin
     ├── service/QueueStatsClient.java           # GET /api/queues/%2F/chat.persist
@@ -76,36 +77,36 @@ web-ui/src/QueueDepth.tsx                       # der Balken
 
 ## Task 1: Rollen ins Token
 
-- [ ] Protocol Mapper `realm-roles` am Client `web-gateway`: Realm-Rollen als Claim `roles` in ID-Token, Access-Token und Userinfo.
-- [ ] Test `CurrentUserControllerTest.reportsAdminRole` — mit Claim `roles: [admin]` meldet `/api/me` `admin: true`, ohne `false`.
+- [x] Protocol Mapper `realm-roles` am Client `web-gateway`: Realm-Rollen als Claim `roles` in ID-Token, Access-Token und Userinfo.
+- [x] Test `CurrentUserControllerTest.reportsAdminRole` — mit Claim `roles: [admin]` meldet `/api/me` `admin: true`, ohne `false`.
 
 ## Task 2: Queue-Tiefe im Gateway
 
-- [ ] Test `QueueStatsClientTest` (MockRestServiceServer) — liest `messages`, `consumers` und die Raten aus dem JSON der Management-API.
-- [ ] Test `QueueStatsControllerTest` — `admin` bekommt 200, `alice` bekommt 403.
-- [ ] `QueueStatsClient`, `QueueStatsController`, `QueueStats`, Konfiguration in `application.yml` und `docker-compose.yml`.
+- [x] Test `QueueStatsClientTest` (MockRestServiceServer) — liest `messages`, `consumers` und die Raten aus dem JSON der Management-API.
+- [x] Test `QueueStatsControllerTest` — `admin` bekommt 200, `alice` bekommt 403.
+- [x] `QueueStatsClient`, `QueueStatsController`, `QueueStats`, Konfiguration in `application.yml` und `docker-compose.yml`.
 
 ## Task 3: Balken in der Oberfläche
 
-- [ ] `QueueDepth.tsx` fragt jede Sekunde `/api/admin/queue` und zeigt Tiefe, Anzahl batch-writer und die Raten rein/raus.
-- [ ] Nur sichtbar, wenn `/api/me` `admin: true` meldet.
+- [x] `QueueDepth.tsx` fragt jede Sekunde `/api/admin/queue` und zeigt Tiefe, Anzahl batch-writer und die Raten rein/raus.
+- [x] Nur sichtbar, wenn `/api/me` `admin: true` meldet.
 
 ## Task 4: Instanz im Antwort-Header des chat-service
 
-- [ ] Test `MessageControllerIntegrationTest` prüft den Header `X-Chat-Service-Instance`.
-- [ ] Der Name kommt aus der Umgebungsvariable `HOSTNAME` (setzt Docker für jeden Container).
+- [x] Test `MessageControllerIntegrationTest` prüft den Header `X-Chat-Service-Instance`.
+- [x] Der Name kommt aus der Umgebungsvariable `HOSTNAME` (setzt Docker für jeden Container).
 
 ## Task 5: load-generator
 
-- [ ] Test `LoadStatisticsTest` — zählt Erfolge, Fehler und Antworten pro Instanz richtig.
-- [ ] Test `LoadRunnerTest` — gegen einen Test-Webserver: bei Rate 600/min und 2 Sekunden Dauer kommen 20 Anfragen im Raum Lasttest an.
-- [ ] `LoadRunner` mit virtuellen Threads und Semaphore, Protokoll jede Sekunde (Soll/Ist), Zusammenfassung am Ende.
-- [ ] Dockerfile, Dienst im Profil `load` in `docker-compose.yml`, Rate und Dauer über `.env`.
+- [x] Test `LoadStatisticsTest` — zählt Erfolge, Fehler und Antworten pro Instanz richtig.
+- [x] Test `LoadRunnerTest` — gegen einen Test-Webserver: bei Rate 600/min und 2 Sekunden Dauer kommen 20 Anfragen im Raum Lasttest an.
+- [x] `LoadRunner` mit virtuellen Threads und Semaphore, Protokoll jede Sekunde (Soll/Ist), Zusammenfassung am Ende.
+- [x] Dockerfile, Dienst im Profil `load` in `docker-compose.yml`, Rate und Dauer über `.env`.
 
 ## Task 6: Dokumentation
 
-- [ ] README: Last erzeugen, Balken ansehen, Rolle admin.
-- [ ] PLANUNG.md, Abschnitt 8: Entscheidung zu offenem Punkt 6.
+- [x] README: Last erzeugen, Balken ansehen, Rolle admin.
+- [x] PLANUNG.md, Abschnitt 8: Entscheidung zu offenem Punkt 6.
 
 ---
 
@@ -120,7 +121,7 @@ docker compose --profile load up load-generator
 Der `load-generator` schreibt jede Sekunde eine Zeile wie
 
 ```
-second 12: target 1667, sent 1667, failed 0, in flight 3
+second 12: target 1666, accepted 1666, failed 0, in flight 3
 ```
 
 und am Ende, welche `chat-service`-Instanz wie viele Anfragen beantwortet hat.
