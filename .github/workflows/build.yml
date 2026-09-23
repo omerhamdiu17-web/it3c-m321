@@ -70,6 +70,16 @@ jobs:
       - run: pip install requests websocket-client
       - name: Rauchtest
         run: python scripts/smoke-test.py
+      # Ein kurzer Lastlauf: 6'000 pro Minute, 10 Sekunden. Prüft nur, dass
+      # der load-generator startet, sendet und sich wieder beendet. Die
+      # richtige Messreihe läuft im Workflow "messreihe".
+      - name: Kurzer Lastlauf
+        env:
+          LOAD_MESSAGES_PER_MINUTE: "6000"
+          LOAD_DURATION_SECONDS: "10"
+        run: |
+          docker compose --profile load run --rm load-generator | tee load.log
+          grep "Load finished" load.log | grep -q "failed 0,"
       - name: Logs bei Fehler
         if: failure()
         run: docker compose logs --no-color --tail 200

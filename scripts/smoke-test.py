@@ -7,7 +7,8 @@ Er macht genau das, was man sonst von Hand im Browser prüft:
 3. per WebSocket in der Lobby eine Nachricht senden,
 4. prüfen, dass sie über den Zustellweg zurückkommt,
 5. prüfen, dass bob im Raum M321 sie NICHT bekommt (Zustellung nach Raum),
-6. prüfen, dass sie im Verlauf steht (batch-writer hat sie gespeichert).
+6. prüfen, dass sie im Verlauf steht (batch-writer hat sie gespeichert),
+7. prüfen, dass nur admin die Queue-Tiefe sieht.
 
 Aufruf:  python scripts/smoke-test.py
 Braucht: pip install requests websocket-client
@@ -156,7 +157,28 @@ def main():
 
     alice_socket.close()
     bob_socket.close()
+
+    check_queue_stats_only_for_admin(alice)
     print("Rauchtest bestanden")
+
+
+def check_queue_stats_only_for_admin(normal_user):
+    """Die Queue-Tiefe sieht nur die Rolle admin (PLANUNG.md, offener Punkt 6)."""
+    url = BASE_URL + "/api/admin/queue"
+
+    forbidden = normal_user.get(url, timeout=10)
+    print("alice fragt nach der Queue-Tiefe: HTTP", forbidden.status_code)
+    if forbidden.status_code != 403:
+        fail("alice darf die Queue-Tiefe nicht sehen")
+
+    admin = login("admin", "admin")
+    me = admin.get(BASE_URL + "/api/me", timeout=10).json()
+    if me["admin"] is not True:
+        fail("admin hat die Rolle admin nicht im Token")
+    stats = admin.get(url, timeout=10).json()
+    print("admin sieht:", stats)
+    if stats["queueName"] != "chat.persist" or stats["consumers"] < 1:
+        fail("Queue-Tiefe unvollständig: kein batch-writer an chat.persist?")
 
 
 if __name__ == "__main__":
