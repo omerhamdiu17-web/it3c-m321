@@ -8,6 +8,7 @@ COPY pom.xml .
 # gebaut werden. Deshalb muss jedes Modul-POM vorhanden sein.
 COPY chat-service/pom.xml chat-service/pom.xml
 COPY web-gateway/pom.xml web-gateway/pom.xml
+COPY batch-writer/pom.xml batch-writer/pom.xml
 COPY chat-service/src chat-service/src
 # Tests werden hier übersprungen: Testcontainers bräuchte einen Docker-Daemon
 # INNERHALB des Builds. Getestet wird vorher mit "mvn test".
