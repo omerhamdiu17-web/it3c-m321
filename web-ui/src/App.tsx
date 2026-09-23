@@ -7,16 +7,25 @@ type CurrentUser = {
   displayName: string
 }
 
+/** Ein Raum, wie ihn das Gateway unter /api/rooms liefert (siehe Room.java). */
+type Room = {
+  id: string
+  name: string
+}
+
 /**
- * Der Rahmen der Oberfläche: zeigt, wer angemeldet ist, und darunter den Chat.
+ * Der Rahmen der Oberfläche: zeigt, wer angemeldet ist, die Raumliste und
+ * darunter den Chat des gewählten Raums.
  *
- * Die App weiss nichts von Keycloak. Sie ruft nur /api/me auf; das
- * Session-Cookie schickt der Browser von selbst mit. Wer nicht angemeldet
- * ist, kommt gar nicht bis hierher, weil das Gateway vorher zu Keycloak
- * weiterleitet.
+ * Die App weiss nichts von Keycloak. Sie ruft nur /api/me und /api/rooms
+ * auf; das Session-Cookie schickt der Browser von selbst mit. Wer nicht
+ * angemeldet ist, kommt gar nicht bis hierher, weil das Gateway vorher zu
+ * Keycloak weiterleitet.
  */
 export function App() {
   const [user, setUser] = useState<CurrentUser | null>(null)
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -30,6 +39,24 @@ export function App() {
       setUser(currentUser)
     }
     loadCurrentUser()
+  }, [])
+
+  useEffect(() => {
+    // Die Räume kommen aus der Datenbank (über Gateway und chat-service).
+    // Der erste Raum der Liste ist die Lobby; die ist beim Start offen.
+    async function loadRooms() {
+      const response = await fetch('/api/rooms')
+      if (!response.ok) {
+        setError('Räume konnten nicht geladen werden (HTTP ' + response.status + ')')
+        return
+      }
+      const loadedRooms: Room[] = await response.json()
+      setRooms(loadedRooms)
+      if (loadedRooms.length > 0) {
+        setSelectedRoom(loadedRooms[0])
+      }
+    }
+    loadRooms()
   }, [])
 
   if (error !== null) {
@@ -48,8 +75,26 @@ export function App() {
       </p>
       {/* Ein einfacher Link: das Gateway beendet die Sitzung und meldet auch bei Keycloak ab. */}
       <a href="/logout">Abmelden</a>
-      {/* Der Chat wird erst gezeigt, wenn der Benutzer geladen ist. */}
-      <Chat />
+
+      <nav aria-label="Räume">
+        {rooms.map((room) => (
+          <button
+            key={room.id}
+            type="button"
+            onClick={() => setSelectedRoom(room)}
+            aria-pressed={selectedRoom !== null && selectedRoom.id === room.id}
+          >
+            {room.name}
+          </button>
+        ))}
+      </nav>
+
+      {/*
+        key={...}: wechselt der Raum, baut React den Chat komplett neu auf.
+        Damit schliesst sich die alte WebSocket-Verbindung, eine neue für den
+        neuen Raum geht auf, und der Verlauf wird frisch geladen.
+      */}
+      {selectedRoom !== null && <Chat key={selectedRoom.id} roomId={selectedRoom.id} roomName={selectedRoom.name} />}
     </main>
   )
 }

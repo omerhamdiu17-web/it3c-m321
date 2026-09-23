@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
-/**
- * Schritt 3 kennt genau EINEN Raum mit dieser festen Kennung. Räume aus
- * der Datenbank kommen erst mit der Persistenz in Schritt 4.
- */
-const LOBBY_ROOM_ID = '00000000-0000-0000-0000-000000000001'
-
 /** Eine zugestellte Nachricht (siehe ChatMessage.java im web-gateway). */
 type ChatMessage = {
   id: string
@@ -22,6 +16,12 @@ type ServerEvent =
   | { type: 'message'; payload: ChatMessage }
   | { type: 'accepted'; payload: { id: string; sentAt: string } }
   | { type: 'error'; payload: string }
+
+/** Was der Chat von aussen braucht: welcher Raum offen ist. */
+type ChatProps = {
+  roomId: string
+  roomName: string
+}
 
 /**
  * Fügt eine Nachricht in die Liste ein und sortiert nach dem Zeitstempel
@@ -40,31 +40,74 @@ function addMessage(currentMessages: ChatMessage[], incoming: ChatMessage): Chat
   return nextMessages
 }
 
-/** Baut die WebSocket-Adresse aus der Adresse der Seite: gleicher Rechner, gleicher Port. */
-function buildSocketUrl(): string {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return protocol + '//' + window.location.host + '/ws/chat'
+/** Fügt den ganzen Verlauf ein, Nachricht für Nachricht, mit derselben Regel wie oben. */
+function addHistory(currentMessages: ChatMessage[], history: ChatMessage[]): ChatMessage[] {
+  let nextMessages = currentMessages
+  for (const message of history) {
+    nextMessages = addMessage(nextMessages, message)
+  }
+  return nextMessages
 }
 
 /**
- * Der Chat: eine WebSocket-Verbindung zum Gateway, eine Liste, ein Eingabefeld.
+ * Baut die WebSocket-Adresse aus der Adresse der Seite: gleicher Rechner,
+ * gleicher Port. Der Raum steht in der Adresse, damit das Gateway weiss,
+ * welche Nachrichten diese Verbindung bekommen soll.
+ */
+function buildSocketUrl(roomId: string): string {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return protocol + '//' + window.location.host + '/ws/chat?roomId=' + encodeURIComponent(roomId)
+}
+
+/**
+ * Der Chat eines Raums: eine WebSocket-Verbindung zum Gateway, der Verlauf
+ * aus der Datenbank, eine Liste, ein Eingabefeld.
  *
  * Die eigene Nachricht wird NICHT sofort in die Liste geschrieben. Sie
  * erscheint erst, wenn sie über den Zustellweg zurückkommt, genau wie bei
  * allen anderen. So sieht man, dass sie wirklich durch das System lief.
  */
-export function Chat() {
+export function Chat({ roomId, roomName }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
   const [connected, setConnected] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const socketRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const socket = new WebSocket(buildSocketUrl())
+    // Wird die Komponente abgebaut, bevor der Verlauf da ist, darf die
+    // Antwort den Zustand nicht mehr ändern.
+    let active = true
+
+    // Der Verlauf kommt aus der Datenbank: Gateway -> chat-service -> SELECT.
+    async function loadHistory() {
+      const response = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/messages')
+      if (!active) {
+        return
+      }
+      if (!response.ok) {
+        setHistoryError('Verlauf konnte nicht geladen werden (HTTP ' + response.status + ')')
+        return
+      }
+      const history: ChatMessage[] = await response.json()
+      if (!active) {
+        return
+      }
+      setMessages((currentMessages) => addHistory(currentMessages, history))
+    }
+
+    const socket = new WebSocket(buildSocketUrl(roomId))
     socketRef.current = socket
 
-    socket.onopen = () => setConnected(true)
+    // Reihenfolge mit Absicht: ERST die Verbindung, DANN der Verlauf.
+    // Umgekehrt ginge eine Nachricht verloren, die genau zwischen beiden
+    // Schritten geschrieben wird. So kann sie höchstens doppelt kommen,
+    // und Doppelte sortiert addMessage über die ID aus.
+    socket.onopen = () => {
+      setConnected(true)
+      loadHistory()
+    }
     socket.onclose = () => setConnected(false)
 
     socket.onmessage = (event: MessageEvent<string>) => {
@@ -81,15 +124,17 @@ export function Chat() {
       }
     }
 
-    // Aufräumen, wenn die Komponente verschwindet. Die Handler kommen
-    // zuerst weg, damit die alte Verbindung nichts mehr am Zustand ändert.
+    // Aufräumen, wenn die Komponente verschwindet (z.B. Raumwechsel). Die
+    // Handler kommen zuerst weg, damit die alte Verbindung nichts mehr am
+    // Zustand ändert.
     return () => {
+      active = false
       socket.onopen = null
       socket.onclose = null
       socket.onmessage = null
       socket.close()
     }
-  }, [])
+  }, [roomId])
 
   function sendDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -106,15 +151,16 @@ export function Chat() {
     }
 
     // Nur Raum und Text. Den Absender kennt das Gateway aus dem Login.
-    const outgoing = { roomId: LOBBY_ROOM_ID, content: content }
+    const outgoing = { roomId: roomId, content: content }
     socket.send(JSON.stringify(outgoing))
     setDraft('')
   }
 
   return (
     <section>
-      <h2>Lobby</h2>
+      <h2>{roomName}</h2>
       {!connected && <p role="status">Keine Verbindung zum Server. Seite neu laden.</p>}
+      {historyError !== null && <p role="alert">{historyError}</p>}
 
       <ul>
         {messages.map((message) => (
