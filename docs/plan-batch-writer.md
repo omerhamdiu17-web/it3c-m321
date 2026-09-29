@@ -478,7 +478,7 @@ git commit -m "chore: Modul batch-writer anlegen" \
 - Verbraucht: Modul aus Task 2
 - Stellt bereit: Tabelle `message(id uuid PK, room_id uuid, sender_id varchar, sender_name varchar, content text, sent_at timestamptz)`, alle `NOT NULL`, Index `message_room_id_sent_at_idx`; `TestDatabase.createContainer()` → `PostgreSQLContainer<?>` mit genau diesem Schema und `reWriteBatchedInserts=true` in der JDBC-URL
 
-- [ ] **Schritt 1: Die Hilfsklasse für den Test-Container anlegen**
+- [x] **Schritt 1: Die Hilfsklasse für den Test-Container anlegen**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/TestDatabase.java`
 
@@ -524,7 +524,7 @@ public final class TestDatabase {
 }
 ```
 
-- [ ] **Schritt 2: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 2: Den fehlschlagenden Test schreiben**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/SchemaIntegrationTest.java`
 
@@ -644,12 +644,12 @@ class SchemaIntegrationTest {
 }
 ```
 
-- [ ] **Schritt 3: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 3: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=SchemaIntegrationTest`
-Erwartet: Fehlschlag — `MountableFile` findet `../postgres/init/01-schema.sql` nicht, das Schema gibt es noch nicht.
+Erwartet: Fehlschlag — 3 von 4 Tests rot mit `but was: <[]>` bzw. `but was: <0>`: der Container startet ohne Schema, die Tabelle fehlt. `hasNoForeignKey` ist schon grün, denn ohne Tabelle gibt es auch keinen Fremdschlüssel; er schützt davor, dass später einer dazukommt.
 
-- [ ] **Schritt 4: Schema anlegen**
+- [x] **Schritt 4: Schema anlegen**
 
 `postgres/init/01-schema.sql`
 
@@ -691,12 +691,16 @@ CREATE INDEX message_room_id_sent_at_idx ON message (room_id, sent_at DESC);
 > PLANUNG.md 3.7. Der Test hält genau das fest: Name, Typ und «darf nicht leer sein» jeder
 > Spalte, den Primärschlüssel, den Index und dass es **keinen** Fremdschlüssel gibt.
 
-- [ ] **Schritt 5: Test laufen lassen und grün bestätigen**
+> **Falle (beim Bauen gefunden, 29.09.2026):** Fehlt die Schema-Datei, meldet Testcontainers das
+> nicht: der Container startet einfach ohne Tabelle. Deshalb prüft der Test den Inhalt des Schemas
+> (Spalten, Primärschlüssel, Index) und nicht nur, ob der Container startet.
+
+- [x] **Schritt 5: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=SchemaIntegrationTest`
 Erwartet: 4 Tests grün. Der erste Lauf dauert länger, weil das Image `postgres:16` geladen wird.
 
-- [ ] **Schritt 6: Committen**
+- [x] **Schritt 6: Committen**
 
 ```bash
 git add postgres/init/01-schema.sql batch-writer/src/test/java/ch/benedict/m321/batchwriter
