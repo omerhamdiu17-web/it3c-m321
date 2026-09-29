@@ -1,0 +1,36 @@
+# Baut und testet das Projekt bei jedem Push.
+#
+# Warum: «Läuft» sagen wir erst, wenn es wirklich gelaufen ist (CLAUDE.md).
+# Die Maschinen von GitHub haben Java und Docker. Hier laufen dieselben Tests
+# wie lokal mit "mvn clean test", mit echten Containern über Testcontainers.
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+
+  # Szenario S1: alle Tests aller Module in einem Lauf.
+  maven:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: mvn clean test
+        run: mvn -B clean test
+
+  # Alle Images bauen, genau wie "docker compose up --build".
+  # Findet z.B. eine fehlende COPY-Zeile in einem Dockerfile.
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: .env aus den Beispielwerten
+        run: cp .env.example .env
+      - name: docker compose build
+        run: docker compose build

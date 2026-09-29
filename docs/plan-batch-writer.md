@@ -144,7 +144,7 @@ Von innen nach aussen: erst der Prüfstand, dann was ohne Broker testbar ist, da
 - Verbraucht: nichts
 - Stellt bereit: Workflow `build` mit den Jobs `maven` (Szenario S1: `mvn -B clean test`) und `images` (`docker compose build`). Task 10 und 11 ergänzen Jobs.
 
-- [ ] **Schritt 1: Workflow anlegen**
+- [x] **Schritt 1: Workflow anlegen**
 
 `.github/workflows/build.yml`
 
@@ -187,12 +187,12 @@ jobs:
         run: docker compose build
 ```
 
-- [ ] **Schritt 2: Pushen und den Lauf prüfen**
+- [x] **Schritt 2: Pushen und den Lauf prüfen**
 
 Ausführen: `git push`, dann `gh run watch`
 Erwartet: beide Jobs grün. `maven` zeigt die Tests des `chat-service` (`Tests run: …, Failures: 0, Errors: 0`), `images` baut `chat-service`.
 
-- [ ] **Schritt 3: Committen**
+- [x] **Schritt 3: Committen**
 
 ```bash
 git add .github/workflows/build.yml
