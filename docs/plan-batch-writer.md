@@ -1005,7 +1005,7 @@ git commit -m "feat: Nachricht aus dem JSON lesen, ohne __TypeId__" \
 - Verbraucht: Tabelle `message` (Task 3), `TestDatabase.createContainer()` (Task 3), `ChatMessage` (Task 4)
 - Stellt bereit: `MessageRepository.insertBatch(List<ChatMessage> messages)` → `void`, eine Transaktion pro Aufruf; wirft `DataIntegrityViolationException`, wenn die Datenbank eine Zeile ablehnt, und eine andere `RuntimeException`, wenn sie nicht erreichbar ist
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/repository/MessageRepositoryIntegrationTest.java`
 
@@ -1190,12 +1190,12 @@ class MessageRepositoryIntegrationTest {
 }
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=MessageRepositoryIntegrationTest`
 Erwartet: Übersetzungsfehler — `MessageRepository` gibt es noch nicht.
 
-- [ ] **Schritt 3: `MessageRepository` anlegen**
+- [x] **Schritt 3: `MessageRepository` anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/repository/MessageRepository.java`
 
@@ -1274,12 +1274,12 @@ public class MessageRepository {
 > 2. **`batchUpdate(String, List<Object[]>)`** statt eines `BatchPreparedStatementSetter`: keine
 >    anonyme Klasse, und `OffsetDateTime` und `UUID` gibt Spring unverändert an den Treiber.
 
-- [ ] **Schritt 4: Test laufen lassen und grün bestätigen**
+- [x] **Schritt 4: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=MessageRepositoryIntegrationTest`
 Erwartet: 6 Tests grün.
 
-- [ ] **Schritt 5: Committen**
+- [x] **Schritt 5: Committen**
 
 ```bash
 git add batch-writer/src/main/java/ch/benedict/m321/batchwriter/repository \
