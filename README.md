@@ -53,7 +53,7 @@ Jeder Push läuft in GitHub Actions durch `mvn clean test`, den Bau aller Images
 |---|---|---|---|
 | chat-service | Spring Boot 3, Java 21 | Nimmt Nachrichten per `POST /messages` an, legt sie auf Queue und Fanout-Exchange | vorhanden |
 | rabbitmq | RabbitMQ 3.13 | Message Queue zwischen den Services | vorhanden |
-| batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank: liest `chat.persist` in Stapeln bis 500, ein INSERT pro Stapel, ACK nach dem COMMIT | vorhanden |
+| batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank: liest `chat.persist` in Stapeln bis 500, eine Transaktion pro Stapel, ACK nach dem COMMIT | vorhanden |
 | postgres | PostgreSQL 16 | Speichert den Chat-Verlauf in der Tabelle `message` | vorhanden |
 | keycloak | Keycloak | Login (OIDC) | folgt |
 | web-gateway | nginx | Einziger nach aussen offener Port | folgt |

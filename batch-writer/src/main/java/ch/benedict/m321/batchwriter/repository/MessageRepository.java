@@ -12,9 +12,10 @@ import java.util.List;
 /**
  * Der einzige Weg in die Tabelle message.
  *
- * Bewusst JdbcTemplate und kein JPA: ein ganzer Stapel soll als EIN
- * Bulk-INSERT in die Datenbank gehen, und batchUpdate ist genau das
- * (PLANUNG.md, Abschnitt 2.1).
+ * Bewusst JdbcTemplate und kein JPA: batchUpdate schickt einen ganzen
+ * Stapel auf einmal an die Datenbank (PLANUNG.md, Abschnitt 2.1). Der Treiber
+ * macht daraus mehrzeilige INSERTs zu höchstens 128 Zeilen, und alle stehen
+ * in EINER Transaktion (Spezifikation, Abschnitt 5).
  */
 @Repository
 @RequiredArgsConstructor

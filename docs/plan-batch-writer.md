@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Ziel:** Der `batch-writer` holt jede Nachricht aus `chat.persist`, schreibt sie stapelweise mit einem INSERT pro Stapel dauerhaft in die Tabelle `message` und bestätigt sie erst nach dem COMMIT. Er übersteht doppelte Nachrichten, einen Rückstau, mehrere Instanzen und einen Datenbank-Ausfall ohne Verlust.
+**Ziel:** Der `batch-writer` holt jede Nachricht aus `chat.persist`, schreibt sie stapelweise, eine Transaktion pro Stapel, dauerhaft in die Tabelle `message` und bestätigt sie erst nach dem COMMIT. Er übersteht doppelte Nachrichten, einen Rückstau, mehrere Instanzen und einen Datenbank-Ausfall ohne Verlust.
 
 **Architektur:** Schichtung wie beim `chat-service`: `config` richtet beim Start die Queues und das Lesen in Stapeln ein, `service` liest und bestätigt, `repository` schreibt, `dto` ist die eigene Kopie des Vertrags. Der Listener kennt kein SQL, das Repository kein RabbitMQ. Das Schema liegt nicht im Dienst, sondern in `postgres/init` und wird von PostgreSQL beim ersten Start ausgeführt.
 
@@ -1214,9 +1214,10 @@ import java.util.List;
 /**
  * Der einzige Weg in die Tabelle message.
  *
- * Bewusst JdbcTemplate und kein JPA: ein ganzer Stapel soll als EIN
- * Bulk-INSERT in die Datenbank gehen, und batchUpdate ist genau das
- * (PLANUNG.md, Abschnitt 2.1).
+ * Bewusst JdbcTemplate und kein JPA: batchUpdate schickt einen ganzen
+ * Stapel auf einmal an die Datenbank (PLANUNG.md, Abschnitt 2.1). Der Treiber
+ * macht daraus mehrzeilige INSERTs zu höchstens 128 Zeilen, und alle stehen
+ * in EINER Transaktion (Spezifikation, Abschnitt 5).
  */
 @Repository
 @RequiredArgsConstructor
@@ -3566,7 +3567,7 @@ Jeder Push läuft in GitHub Actions durch `mvn clean test`, den Bau aller Images
 - [x] **Schritt 2: Tabelle «Was gebaut wird» nachführen**
 
 ```markdown
-| batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank: liest `chat.persist` in Stapeln bis 500, ein INSERT pro Stapel, ACK nach dem COMMIT | vorhanden |
+| batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank: liest `chat.persist` in Stapeln bis 500, eine Transaktion pro Stapel, ACK nach dem COMMIT | vorhanden |
 | postgres | PostgreSQL 16 | Speichert den Chat-Verlauf in der Tabelle `message` | vorhanden |
 ```
 
@@ -3612,7 +3613,7 @@ rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
 - [x] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
 - [x] **K3** S8 prüft den ganzen Verlauf
 - [x] **K4** Testberichte ohne Protokolle bestandener Tests
-- [ ] **K5** «eine Transaktion pro Stapel» überall gleich
+- [x] **K5** «eine Transaktion pro Stapel» überall gleich
 
 **K4, Ergänzung in `batch-writer/pom.xml`** (unter `<plugins>`, nach dem `spring-boot-maven-plugin`):
 
