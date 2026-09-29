@@ -551,7 +551,7 @@ Stack zwischen den Szenarien nicht aufgeräumt wird.
 | S1 | Ein Lauf, `BUILD SUCCESS`, 0 Failures, 0 Errors, echte Container | `mvn clean test` |
 | S2 | 4 Dienste `running` (rabbitmq, chat-service, postgres, batch-writer); **keine** Zeile mit `->` in den Ports | `docker compose up -d --build`, dann `docker compose ps` und `docker compose ps --format '{{.Service}} {{.Ports}}' \| grep -- '->'` (keine Ausgabe) |
 | S3 | Höchstens 60 s nach dem Senden: `S3`-Zeilen = 1000 und `chat.persist` = 0 | `send 1000 S3` (erwartet `1000 202`), dann `sql "SELECT count(*) FROM message WHERE content LIKE 'S3 %'"` und `queues` |
-| S4 | Keine Nachricht verloren: `S4`-Zeilen = 1000. **Höchstens 100 Transaktionen** (Differenz von `xact_commit + xact_rollback`). Erwartet: 2 schreibende Transaktionen | `docker compose stop batch-writer`; `X0=$(sql "SELECT xact_commit + xact_rollback FROM pg_stat_database WHERE datname = current_database()")`; `send 1000 S4`; `docker compose start batch-writer`; `queues` wiederholen, bis `chat.persist 0` (in dieser Zeit **kein** `psql`, jede Abfrage wäre selbst eine Transaktion); 11 s warten (PostgreSQL führt die Statistik verzögert nach); `X1` wie `X0`; Differenz `X1 - X0` ≤ 100; `sql "SELECT count(*), count(DISTINCT xmin::text) FROM message WHERE content LIKE 'S4 %'"` → `1000\|2`. `xmin` ist die Transaktion, die eine Zeile geschrieben hat |
+| S4 | Keine Nachricht verloren: `S4`-Zeilen = 1000. **Höchstens 100 Transaktionen** (Differenz von `xact_commit + xact_rollback`). Erwartet: 2 schreibende Transaktionen | `docker compose stop batch-writer`; `X0=$(sql "SELECT xact_commit + xact_rollback FROM pg_stat_database WHERE datname = current_database()")`; `send 1000 S4`; `docker compose start batch-writer`; `queues` wiederholen, bis `chat.persist 0` (in dieser Zeit **kein** `psql`, jede Abfrage wäre selbst eine Transaktion); 12 s warten (PostgreSQL führt die Statistik verzögert nach); `X1` wie `X0`; Differenz `X1 - X0` ≤ 100; `sql "SELECT count(*), count(DISTINCT xmin::text) FROM message WHERE content LIKE 'S4 %'"` → `1000\|2`. `xmin` ist die Transaktion, die eine Zeile geschrieben hat |
 | S5 | Dieselbe Nachricht 2× nur mit `content_type`: genau 1 Zeile, `chat.dlq` = 0 | `ID=$(sql "SELECT gen_random_uuid()")`; zweimal `docker compose exec -T rabbitmq rabbitmqadmin -u "$RABBITMQ_USER" -p "$RABBITMQ_PASSWORD" publish exchange=amq.default routing_key=chat.persist properties='{"content_type":"application/json"}' payload="{\"id\":\"$ID\",\"roomId\":\"3f2b1c4e-0000-0000-0000-000000000001\",\"senderId\":\"abnahme\",\"senderName\":\"Abnahme\",\"content\":\"S5 Duplikat\",\"sentAt\":\"2026-09-29T13:38:12.974043374Z\"}"`; nach wenigen Sekunden `sql "SELECT count(*) FROM message WHERE id = '$ID'"` → `1` und `queues` → `chat.dlq 0` |
 | S6 | Beide Instanzen hängen an der Queue (`consumers` = 2) und schreiben Stapel. Höchstens 60 s nach dem Senden: `S6`-Zeilen = 1000, keine `id` doppelt | `docker compose up -d --scale batch-writer=2`; `queues` → `chat.persist 0 2`; warten, bis der `chat-service` wieder antwortet (das erste `up` ohne `--build` erstellt die gebauten Dienste neu, auch ihn); `send 1000 S6`; `sql "SELECT count(*), count(DISTINCT id) FROM message WHERE content LIKE 'S6 %'"` → `1000\|1000`; `docker compose logs --since <Zeitpunkt des Sendens> batch-writer \| grep 'Stored batch'` zeigt beide Instanzen |
 | S7 | Höchstens 90 s nach dem Neustart: `S7`-Zeilen = 300, `chat.dlq` = 0. batch-writer läuft ohne Neustart von Hand | `docker compose stop postgres`; `send 300 S7`; `sleep 15`; `docker compose start postgres`; alle paar Sekunden `sql "SELECT count(*) FROM message WHERE content LIKE 'S7 %'"` → `300`; `docker inspect -f '{{.Name}} {{.State.Status}} RestartCount={{.RestartCount}}' $(docker compose ps -q batch-writer)` → `running`, `RestartCount=0`; `queues` → `chat.dlq 0` |
@@ -569,6 +569,23 @@ Stack zwischen den Szenarien nicht aufgeräumt wird.
 Alle Kriterien S2 bis S8 prüft zusätzlich das Skript `scripts/abnahme.sh` automatisch, in dieser
 Reihenfolge und auf demselben Stack wie die Abnahme. Es läuft bei jedem Push in GitHub Actions
 (siehe Umsetzungsplan).
+
+### Abnahmeprotokoll vom 29.09.2026
+
+Gemessen mit `mvn -B clean test` und `scripts/abnahme.sh` in GitHub Actions: frischer Checkout, `.env`
+aus `.env.example`, Lauf [36598446488](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36598446488)
+auf Commit `2452cb2`.
+
+| Nr | Ergebnis | gemessen |
+|---|---|---|
+| S1 | bestanden | chat-service 14 Tests, batch-writer 27 Tests, 0 Fehler |
+| S2 | bestanden | 4 Dienste laufen, 0 veröffentlichte Ports |
+| S3 | bestanden | 1000 × `202`, 1000 Zeilen, `chat.persist` leer nach 3 s |
+| S4 | bestanden | 1000 Zeilen, **17 Transaktionen**, davon 2 schreibend |
+| S5 | bestanden | 1 Zeile mit dieser `id`, `chat.dlq` leer |
+| S6 | bestanden | 2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, 1000 verschiedene `id` |
+| S7 | bestanden | alle 300 Zeilen **6 s** nach dem Neustart von PostgreSQL, `chat.dlq` leer, 0 Neustarts |
+| S8 | bestanden | 0 × «stream», 0 fehlende Kommentare, `.env` weder im Repository noch in einem der 81 Commits |
 
 ---
 
@@ -613,6 +630,12 @@ Repositorys sichtbar.
    kann `Instant` nicht binden, jeder Stapel wäre gescheitert. Jetzt `OffsetDateTime` (4.1).
 6. *Eine KI-Prüfung behauptete, das Image `rabbitmq:3.13-management` enthalte kein `rabbitmqadmin`
    mehr.* Der Mitschnitt (2.4) zeigt `rabbitmqadmin 3.13.7`. Die Behauptung war falsch.
+
+**Abschluss-Review.** Ein unabhängiges Code-Review (KI, frischer Kontext, gegen diese Spezifikation und
+CLAUDE.md) fand keine kritischen Fehler. Fünf Stellen wurden danach korrigiert, jede mit eigenem
+Commit (Umsetzungsplan, «Korrekturen aus dem Abschluss-Review»). Die lehrreichste: Das erste
+`docker compose up` ohne `--build` erstellt die gebauten Dienste neu, auch den `chat-service`. In S6
+ist das genau das `up --scale`, deshalb wartet das Abnahmeskript dort, bis er wieder antwortet.
 
 **Von mir entschieden** (29.09.2026):
 - alten Stand archivieren und neu beginnen;

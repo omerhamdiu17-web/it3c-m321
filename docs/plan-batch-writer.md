@@ -110,6 +110,7 @@ Testklassen heissen `...Test` oder `...IntegrationTest`, damit Surefire sie ohne
 - **Test zuerst.** Jede Aufgabe beginnt mit einem Test, der fehlschlägt. Erst dann kommt der Code.
 - **Lokal und im CI.** Übersetzen und die Tests ohne Container laufen lokal mit Maven. Die Tests mit Containern laufen ab Task 1 bei jedem Push in GitHub Actions. Ein Stand geht erst auf `main`, wenn dieser Lauf grün ist.
 - **Ein Thema pro Commit.** Jede Aufgabe endet mit genau einem Commit, die Message steht im Plan.
+- **Rot sichtbar gemacht.** Wo der rote Schritt echte Container braucht (Task 3, 8, 9, 10), lief der Test ohne den Code als Wegwerf-Commit auf dem Branch `probe`. Diese roten Läufe stehen in GitHub Actions; auf `main` kamen nur grüne Commits.
 - **Plan und `git log` bleiben deckungsgleich.** Das Häkchen einer Aufgabe und jede beim Bauen entdeckte Falle kommen **im selben Commit** wie die Aufgabe in diesen Plan.
 
 ## Reihenfolge und warum
@@ -2454,6 +2455,14 @@ public class MessageBatchListener {
 > `prefetch` wäre ausgeschöpft, und der Verbraucher bekäme nichts Neues mehr. Das NACK muss also
 > im Listener selbst stehen.
 >
+> **Falle 3 – Assertions im Test (beim Bauen gefunden, 29.09.2026):** Surefire startet die Tests
+> mit `-ea`. Auf einer getrennten Verbindung wirft der PostgreSQL-Treiber dann einen
+> `AssertionError` (`getAutoCommit() should not throw`), also keine `RuntimeException`. Dass
+> trotzdem der NACK-Zweig greift, liegt daran, dass auch das Zurückrollen scheitert: Spring
+> meldet «Application exception overridden by rollback exception» und reicht die
+> `DataAccessResourceFailureException` des Zurückrollens weiter. Im Betrieb läuft Java ohne
+> `-ea`; dort meldet der Treiber den Fehler als `PSQLException`, also als `RuntimeException`.
+>
 > **Warum Pause und NACK statt einer Warteschleife im Listener:** Spring AMQP unterbricht die
 > Verbraucher-Threads 5 s nach dem Stopp-Signal. Eine Schleife, die bis zur Rückkehr der
 > Datenbank wartet, würde das Herunterfahren blockieren. So kehrt der Listener nach höchstens rund
@@ -3509,7 +3518,7 @@ Ausführen:
 git update-index --add --chmod=+x scripts/abnahme.sh
 bash scripts/abnahme.sh
 ```
-Erwartet: sieben Zeilen `PASS` (S2 bis S8), am Ende `Alle Szenarien bestanden.`, Exit-Code 0. Im CI ist der Job `abnahme` grün. Die gemessenen Werte (Transaktionen in S4, Sekunden in S7) kommen in Schritt 6 in die Abschluss-Prüfung dieses Plans.
+Erwartet: sieben Zeilen `PASS` (S2 bis S8), am Ende `Alle Szenarien bestanden.`, Exit-Code 0. Im CI ist der Job `abnahme` grün. Die gemessenen Werte (Transaktionen in S4, Sekunden in S7) kommen nach Task 12 in die Abschluss-Prüfung dieses Plans; sie stehen erst nach dem CI-Lauf fest.
 
 - [x] **Schritt 6: Committen**
 
@@ -3636,12 +3645,20 @@ rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
 
 ## Abschluss-Prüfung
 
-- [ ] `mvn -q clean test` — alle Tests grün, in einem Lauf
-- [ ] `bash scripts/abnahme.sh` — S2 bis S8 alle `PASS`; gemessene Werte hier eintragen
-- [ ] `grep -n "ports:" docker-compose.yml` — keine Treffer
-- [ ] `git ls-files .env` — keine Ausgabe
-- [ ] `git log --oneline` — Spezifikation, dieser Plan und die Tasks 1 bis 12 in dieser Reihenfolge, ein Thema pro Commit
-- [ ] Jede Aufgabe oben ist abgehakt, und jede beim Bauen entdeckte Falle steht bei ihrer Aufgabe
+Gemessen in GitHub Actions, Lauf [36598446488](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36598446488) auf Commit `2452cb2` am 29.09.2026, frischer Checkout, `.env` aus `.env.example`:
+
+- [x] `mvn -q clean test`: alle Tests grün, in einem Lauf (chat-service 14, batch-writer 27)
+- [x] `bash scripts/abnahme.sh`: S2 bis S8 alle `PASS`
+  - S3: 1000 Zeilen nach 3 s
+  - S4: **17 Transaktionen**, davon 2 schreibend
+  - S5: 1 Zeile, `chat.dlq` leer
+  - S6: beide Instanzen schreiben Stapel
+  - S7: alle 300 Zeilen **6 s** nach dem Neustart von PostgreSQL, 0 Neustarts
+  - S8: sauber über 81 Commits
+- [x] `grep -nE '^\s+ports:' docker-compose.yml`: keine Treffer. Gesucht wird nur nach eingerückten Schlüsseln, denn der Kommentar «KEIN ports:-Eintrag» am Ende der Datei ist kein Eintrag
+- [x] `git ls-files .env`: keine Ausgabe
+- [x] `git log --oneline`: Spezifikation, dieser Plan, die Tasks 1 bis 12 und die Korrekturen K1 bis K5 in dieser Reihenfolge, ein Thema pro Commit
+- [x] Jede Aufgabe oben ist abgehakt, und jede beim Bauen entdeckte Falle steht bei ihrer Aufgabe
 
 **Damit ist Schritt 4 der Umsetzungsreihenfolge für den Schreibweg erreicht:** Jede Nachricht,
 die der `chat-service` annimmt, landet dauerhaft in der Datenbank, auch bei Duplikaten,
