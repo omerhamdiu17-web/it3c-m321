@@ -2793,7 +2793,7 @@ git commit -m "feat: nicht speicherbare Nachricht einzeln in die DLQ" \
 - Verbraucht: das Modul aus Task 2 bis 9, `postgres/init/01-schema.sql` (Task 3)
 - Stellt bereit: Compose-Dienste `postgres` und `batch-writer` im Netz `chat-net`, ohne Ports; Datenbank `chat` mit Benutzer `chat` (aus `.env`); Volume `chat-history`
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 In `.github/workflows/build.yml` nach dem Job `images` einfügen:
 
@@ -2832,12 +2832,12 @@ In `.github/workflows/build.yml` nach dem Job `images` einfügen:
         run: docker compose logs --no-color --tail 200
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: pushen, dann `gh run watch`
 Erwartet: Job `stack` rot. Es gibt keinen Dienst `postgres`, `psql` findet ihn nicht, und die Nachricht bleibt in `chat.persist` liegen.
 
-- [ ] **Schritt 3: `batch-writer/Dockerfile` anlegen**
+- [x] **Schritt 3: `batch-writer/Dockerfile` anlegen**
 
 `batch-writer/Dockerfile`
 
@@ -2866,7 +2866,7 @@ COPY --from=build /build/batch-writer/target/batch-writer-0.1.0-SNAPSHOT.jar app
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
-- [ ] **Schritt 4: `docker-compose.yml` ergänzen**
+- [x] **Schritt 4: `docker-compose.yml` ergänzen**
 
 `docker-compose.yml`, ganze Datei. Neu sind der Kopfkommentar, `postgres`, `batch-writer` und `volumes`. `rabbitmq` und `chat-service` bleiben unverändert:
 
@@ -2976,7 +2976,7 @@ volumes:
 >    aus einem anderen Projekt im gleichnamigen Ordner würde sonst übernommen. Dann liefe das
 >    Init-Skript nicht (Spezifikation 4.3).
 
-- [ ] **Schritt 5: `.env.example` ergänzen**
+- [x] **Schritt 5: `.env.example` ergänzen**
 
 `.env.example`, ganze Datei:
 
@@ -2994,12 +2994,12 @@ POSTGRES_PASSWORD=bitte-lokal-aendern
 
 Danach die lokale `.env` neu erzeugen: `cp .env.example .env`. `git check-ignore -v .env` bestätigt, dass sie nicht ins Repository kommt.
 
-- [ ] **Schritt 6: Test laufen lassen und grün bestätigen**
+- [x] **Schritt 6: Test laufen lassen und grün bestätigen**
 
 Ausführen: pushen, dann `gh run watch`
 Erwartet: `maven`, `images` und `stack` grün. `stack` zeigt vier Dienste ohne `->` in den Ports und findet die Nachricht `Rauchtest` in der Tabelle.
 
-- [ ] **Schritt 7: Committen**
+- [x] **Schritt 7: Committen**
 
 ```bash
 git add batch-writer/Dockerfile docker-compose.yml .env.example .github/workflows/build.yml

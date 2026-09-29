@@ -34,3 +34,36 @@ jobs:
         run: cp .env.example .env
       - name: docker compose build
         run: docker compose build
+
+  # Den Stack wirklich starten: kein Dienst veröffentlicht einen Port, und
+  # eine Nachricht geht vom chat-service bis in die Tabelle message.
+  stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: .env aus den Beispielwerten
+        run: cp .env.example .env
+      - name: docker compose up
+        run: docker compose up -d --build --wait
+      - name: Kein Dienst veröffentlicht einen Port
+        run: |
+          docker compose ps --format '{{.Service}} {{.Ports}}'
+          if docker compose ps --format '{{.Ports}}' | grep -- '->'; then exit 1; fi
+      - name: Eine Nachricht landet in der Tabelle
+        run: |
+          for i in $(seq 1 30); do
+            code=$(docker run --rm --network chat-net curlimages/curl -s -o /dev/null -w '%{http_code}' \
+              -X POST http://chat-service:8080/messages -H 'Content-Type: application/json' \
+              -d '{"roomId":"3f2b1c4e-0000-0000-0000-000000000001","senderId":"ci","senderName":"CI","content":"Rauchtest"}' || true)
+            if [ "$code" = "202" ]; then break; fi
+            sleep 2
+          done
+          for i in $(seq 1 30); do
+            count=$(docker compose exec -T postgres psql -U chat -d chat -tAc "SELECT count(*) FROM message WHERE content = 'Rauchtest'" || true)
+            if [ "$count" = "1" ]; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Protokolle bei Fehler
+        if: failure()
+        run: docker compose logs --no-color --tail 200

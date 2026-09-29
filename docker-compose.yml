@@ -1,6 +1,5 @@
-# Ausbaustufe 1: nur der Broker und der chat-service.
-# Postgres, Keycloak, web-gateway und batch-writer kommen in den
-# folgenden Schritten dazu.
+# Ausbaustufe 2: Broker, chat-service, Datenbank und batch-writer.
+# Keycloak und web-gateway kommen in späteren Schritten dazu.
 services:
 
   rabbitmq:
@@ -30,8 +29,62 @@ services:
     networks:
       - chat-net
 
+  # Die Datenbank für den Chat-Verlauf. Das Schema kommt beim ersten Start
+  # aus postgres/init, aber nur bei leerem Volume (Spezifikation 4.2).
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Die Daten überleben "docker compose down", erst "down -v" löscht sie.
+      - chat-history:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - chat-net
+    healthcheck:
+      # -h localhost: erst der richtige Server zählt. Beim ersten Start läuft
+      # kurz ein Hilfsserver, der nur über den Unix-Socket erreichbar ist.
+      test: ["CMD-SHELL", "pg_isready -h localhost -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Der EINZIGE Schreiber in die Datenbank. Holt Nachrichten stapelweise aus
+  # chat.persist. Skalierbar mit "--scale batch-writer=N": alle Instanzen
+  # teilen sich dieselbe Queue (Competing Consumers, PLANUNG.md 4.2).
+  # Deshalb auch kein container_name: --scale braucht vergebene Namen.
+  batch-writer:
+    build:
+      context: .
+      dockerfile: batch-writer/Dockerfile
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    # Nur ein Sicherheitsnetz: bei Datenbank- oder Broker-Ausfall stürzt der
+    # batch-writer nicht ab, sondern versucht es wieder (Spezifikation 3.3).
+    restart: unless-stopped
+    networks:
+      - chat-net
+
 # KEIN ports:-Eintrag in dieser Datei. Der einzige offene Port des
 # Gesamtsystems gehört später dem web-gateway.
 networks:
   chat-net:
     name: chat-net
+
+volumes:
+  # Eigener Name statt des üblichen "postgres-data": so wird kein gleichnamiges
+  # Volume eines anderen Projekts im gleichnamigen Ordner übernommen.
+  chat-history:
