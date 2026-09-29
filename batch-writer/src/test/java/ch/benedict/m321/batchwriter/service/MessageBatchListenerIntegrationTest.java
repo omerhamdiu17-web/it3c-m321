@@ -160,12 +160,56 @@ class MessageBatchListenerIntegrationTest {
         assertTrue(transactions <= 20, "zu viele Transaktionen: " + transactions);
     }
 
+    /**
+     * Eine Nachricht, die die Datenbank ablehnt (Zeichen NUL im Text), reisst
+     * die anderen im selben Stapel nicht mit: sie werden gespeichert, nur die
+     * abgelehnte landet in chat.dlq (F9). Der Verbraucher ist beim Senden aus,
+     * damit alle drei sicher im selben Stapel ankommen.
+     */
+    @Test
+    void rejectsOnlyTheMessageTheDatabaseRefuses() throws InterruptedException {
+        UUID firstId = UUID.randomUUID();
+        UUID refusedId = UUID.randomUUID();
+        UUID lastId = UUID.randomUUID();
+        String nul = jsonEscapedNul();
+        String refusedContent = "vor " + nul + " nach";
+        String firstBody = json(firstId, "davor");
+        String refusedBody = json(refusedId, refusedContent);
+        String lastBody = json(lastId, "danach");
+        MessageListenerContainer container = listenerContainer();
+        container.stop();
+
+        publish(firstBody);
+        publish(refusedBody);
+        publish(lastBody);
+        container.start();
+
+        int stored = waitForCount(2, "SELECT count(*) FROM message WHERE id IN (?, ?)", firstId, lastId);
+        Message deadLetter = rabbitTemplate.receive(QueueNames.DEAD_LETTER_QUEUE, WAIT_MILLISECONDS);
+        int refusedRows = countRows("SELECT count(*) FROM message WHERE id = ?", refusedId);
+        assertEquals(2, stored);
+        assertEquals(0, refusedRows);
+        assertNotNull(deadLetter, "die abgelehnte Nachricht ist nicht in chat.dlq");
+        byte[] deadBytes = deadLetter.getBody();
+        String deadBody = new String(deadBytes, StandardCharsets.UTF_8);
+        String refusedIdText = refusedId.toString();
+        assertTrue(deadBody.contains(refusedIdText), deadBody);
+    }
+
     /** Baut den Body einer Nachricht im Format des chat-service (Spezifikation 2.2). */
     private String json(UUID id, String content) {
         String template = """
                 {"id":"%s","roomId":"%s","senderId":"anna","senderName":"Anna Muster",\
                 "content":"%s","sentAt":"2026-09-29T13:38:12.974043374Z"}""";
         return template.formatted(id, ROOM_ID, content);
+    }
+
+    /**
+     * Die Escape-Folge für das Zeichen NUL, wie sie im JSON-Text steht:
+     * Backslash, u und viermal 0. Jackson macht daraus beim Lesen das Zeichen.
+     */
+    private String jsonEscapedNul() {
+        return "\\" + "u0000";
     }
 
     /** Legt einen Body in chat.persist, NUR mit content_type – wie im Szenario S5. */

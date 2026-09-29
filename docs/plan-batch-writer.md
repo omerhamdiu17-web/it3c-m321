@@ -2492,7 +2492,7 @@ git commit -m "feat: Stapel bei Datenbankausfall zurück in die Queue" \
 - Verbraucht: `MessageRepository.insertBatch` (Task 5), die im Test aus Task 5 nachgewiesene `DataIntegrityViolationException` bei NUL, Listener aus Task 8
 - Stellt bereit: Lehnt die Datenbank eine Zeile ab, wird der Stapel Nachricht für Nachricht geschrieben. Gute Nachrichten bekommen ein ACK, die abgelehnte ein Reject und landet in `chat.dlq`. Fällt dabei die Datenbank aus, geht der Rest mit einem NACK zurück.
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 In `MessageBatchListenerIntegrationTest` nach `writesThousandWaitingMessagesInFewTransactions` einfügen, dazu die Hilfsmethode `jsonEscapedNul` vor `publish`:
 
@@ -2542,12 +2542,12 @@ In `MessageBatchListenerIntegrationTest` nach `writesThousandWaitingMessagesInFe
     }
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=MessageBatchListenerIntegrationTest#rejectsOnlyTheMessageTheDatabaseRefuses`
-Erwartet: Fehlschlag mit `expected: <2> but was: <0>`. Die `DataIntegrityViolationException` landet im `catch (RuntimeException …)` aus Task 8: Der ganze Stapel geht alle 2 s zurück in die Queue und wird nie geschrieben, auch die zwei guten Nachrichten nicht.
+Erwartet: Fehlschlag mit `expected: <2> but was: <0>`. Die `DataIntegrityViolationException` landet im `catch (RuntimeException …)` aus Task 8: Der ganze Stapel geht alle 2 s zurück in die Queue und wird nie geschrieben, auch die zwei guten Nachrichten nicht. Im roten Probelauf vom 29.09.2026 scheiterte deshalb auch der Test, der danach lief (`storesDuplicateOnlyOnce`): der vergiftete Stapel lag gerade unbestätigt beim Listener, überstand so das Leeren der Queue und kreiste weiter.
 
-- [ ] **Schritt 3: Den Listener um das Einzelschreiben ergänzen**
+- [x] **Schritt 3: Den Listener um das Einzelschreiben ergänzen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/MessageBatchListener.java`, ganze Datei. Neu sind die Importe `DataIntegrityViolationException` und `UUID`, der erste `catch` in `store` sowie `storeOneByOne` und `storeOne`:
 
@@ -2763,12 +2763,12 @@ public class MessageBatchListener {
 > true, …)` betrifft nur Nachrichten, die noch offen sind. Die schon bestätigten oder
 > abgelehnten des Stapels überspringt RabbitMQ.
 
-- [ ] **Schritt 4: Tests laufen lassen und grün bestätigen**
+- [x] **Schritt 4: Tests laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test`
 Erwartet: alle Tests grün, `MessageBatchListenerIntegrationTest` jetzt mit 5 Tests. Im Protokoll steht `Database refused message …, rejecting it to chat.dlq`.
 
-- [ ] **Schritt 5: Committen**
+- [x] **Schritt 5: Committen**
 
 ```bash
 git add batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/MessageBatchListener.java \

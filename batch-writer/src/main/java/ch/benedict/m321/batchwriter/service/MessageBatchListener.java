@@ -10,11 +10,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Holt Stapel aus chat.persist, schreibt sie in die Datenbank und bestätigt
@@ -97,6 +99,10 @@ public class MessageBatchListener {
 
         try {
             messageRepository.insertBatch(chatMessages);
+        } catch (DataIntegrityViolationException exception) {
+            log.warn("Database refused a message in a batch of {}, storing the batch one by one", batchSize);
+            storeOneByOne(messages, channel);
+            return;
         } catch (RuntimeException exception) {
             returnToQueue(lastDeliveryTag, channel, exception);
             return;
@@ -105,6 +111,44 @@ public class MessageBatchListener {
         // Erst hier, nach dem COMMIT, bestätigen wir den ganzen Stapel.
         channel.basicAck(lastDeliveryTag, true);
         log.info("Stored batch of {} messages", batchSize);
+    }
+
+    /**
+     * Die Datenbank hat eine Zeile des Stapels abgelehnt, z. B. wegen des
+     * Zeichens NUL. Jetzt schreiben wir jede Nachricht einzeln: gute werden
+     * bestätigt, nur die abgelehnte geht nach chat.dlq (Spezifikation 3.3, F9).
+     * Fällt dabei die Datenbank aus, geht der Rest mit einem NACK zurück.
+     */
+    private void storeOneByOne(List<ReceivedMessage> messages, Channel channel) throws IOException {
+        long lastDeliveryTag = lastDeliveryTag(messages);
+        try {
+            for (ReceivedMessage message : messages) {
+                storeOne(message, channel);
+            }
+        } catch (RuntimeException exception) {
+            returnToQueue(lastDeliveryTag, channel, exception);
+        }
+    }
+
+    /**
+     * Schreibt eine einzelne Nachricht in ihrer eigenen Transaktion. Lehnt die
+     * Datenbank sie ab, ist die Nachricht schuld: Reject, sie geht nach
+     * chat.dlq. Jeder andere Fehler geht weiter an storeOneByOne.
+     */
+    private void storeOne(ReceivedMessage message, Channel channel) throws IOException {
+        ChatMessage chatMessage = message.chatMessage();
+        long deliveryTag = message.deliveryTag();
+        List<ChatMessage> single = List.of(chatMessage);
+
+        try {
+            messageRepository.insertBatch(single);
+        } catch (DataIntegrityViolationException exception) {
+            UUID messageId = chatMessage.id();
+            log.warn("Database refused message {}, rejecting it to {}", messageId, QueueNames.DEAD_LETTER_QUEUE);
+            channel.basicReject(deliveryTag, false);
+            return;
+        }
+        channel.basicAck(deliveryTag, false);
     }
 
     /**
