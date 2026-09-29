@@ -725,7 +725,7 @@ git commit -m "feat: Tabelle message als Init-Skript für Postgres" \
   - `ChatMessage(UUID id, UUID roomId, String senderId, String senderName, String content, OffsetDateTime sentAt)`
   - `ChatMessageReader(ObjectMapper objectMapper)`, Spring-Bean; `ChatMessage read(byte[] body)` → `null`, wenn der Body kein passendes JSON ist oder ein Feld fehlt
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/service/ChatMessageReaderTest.java`
 
@@ -866,12 +866,12 @@ class ChatMessageReaderTest {
 }
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=ChatMessageReaderTest`
 Erwartet: Übersetzungsfehler — `ChatMessage` und `ChatMessageReader` gibt es noch nicht.
 
-- [ ] **Schritt 3: `ChatMessage` anlegen**
+- [x] **Schritt 3: `ChatMessage` anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/dto/ChatMessage.java`
 
@@ -913,7 +913,7 @@ public record ChatMessage(
 > 07006, und Spring meldete das als `BadSqlGrammarException`, nicht als Datenfehler. Deshalb
 > ist `sentAt` hier ein `OffsetDateTime`.
 
-- [ ] **Schritt 4: `ChatMessageReader` anlegen**
+- [x] **Schritt 4: `ChatMessageReader` anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/ChatMessageReader.java`
 
@@ -976,12 +976,12 @@ public class ChatMessageReader {
 }
 ```
 
-- [ ] **Schritt 5: Test laufen lassen und grün bestätigen**
+- [x] **Schritt 5: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=ChatMessageReaderTest`
 Erwartet: 7 Tests grün, ohne Container.
 
-- [ ] **Schritt 6: Committen**
+- [x] **Schritt 6: Committen**
 
 ```bash
 git add batch-writer/src/main/java/ch/benedict/m321/batchwriter/dto \
