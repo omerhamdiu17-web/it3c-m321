@@ -3304,8 +3304,13 @@ scenario_s6() {
   echo "== S6: zwei Instanzen, 1000 Nachrichten"
   docker compose up -d --scale batch-writer=2
   wait_until 90 consumers_are 2
+  # Das erste "up" ohne --build erstellt die gebauten Dienste neu, auch den
+  # chat-service. Gesendet wird erst, wenn er wieder antwortet.
+  wait_until 120 chat_service_answers
   local consumers
   consumers=$(queue_value chat.persist consumers)
+  local since
+  since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   local accepted
   accepted=$(send_messages 1000 S6)
   wait_until 60 s6_done
@@ -3313,13 +3318,14 @@ scenario_s6() {
   rows=$(count_marked S6)
   local distinct
   distinct=$(sql "SELECT count(DISTINCT id) FROM message WHERE content LIKE 'S6 %'")
+  # Nur Protokollzeilen seit dem Senden: so zählt, wer S6 wirklich geschrieben hat.
   local instances
-  instances=$(docker compose logs --no-color batch-writer 2>/dev/null | grep 'Stored batch' | awk '{ print $1 }' | sort -u | count_lines)
+  instances=$(docker compose logs --no-color --since "$since" batch-writer 2>/dev/null | grep 'Stored batch' | awk '{ print $1 }' | sort -u | count_lines)
   local ok=1
-  if [ "$consumers" = "2" ] && [ "$rows" = "1000" ] && [ "$distinct" = "1000" ]; then
+  if [ "$consumers" = "2" ] && [ "$instances" = "2" ] && [ "$rows" = "1000" ] && [ "$distinct" = "1000" ]; then
     ok=0
   fi
-  report S6 "202: $accepted, Verbraucher: $consumers, Zeilen: $rows, verschiedene ids: $distinct, Instanzen mit Stapeln: $instances" "2 Verbraucher, 1000 Zeilen, keine doppelt" "$ok"
+  report S6 "202: $accepted, Verbraucher: $consumers, Instanzen mit Stapeln: $instances, Zeilen: $rows, verschiedene ids: $distinct" "2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, keine doppelt" "$ok"
 }
 
 s6_done() {
@@ -3407,6 +3413,11 @@ echo "Alle Szenarien bestanden."
 >    verwechselt werden. Die Prüfung erkennt Kommentarzeilen deshalb zuerst.
 > 5. **Windows:** Git Bash schriebe Argumente mit `/` in Pfade um (`MSYS_NO_PATHCONV=1`), und
 >    ohne `.gitattributes` bekäme das Skript CRLF-Zeilenenden.
+> 6. **Das erste `up` ohne `--build` erstellt die gebauten Dienste neu** (beobachtet mit Docker
+>    Compose 2.38 am 29.09.2026). In S6 ist `up -d --scale` genau dieses erste `up` nach S2. Auch
+>    der `chat-service` startet dabei neu und nimmt einige Sekunden keine Nachrichten an. S6
+>    wartet deshalb vor dem Senden, bis er wieder antwortet, und zählt nur Protokollzeilen seit
+>    dem Senden.
 
 - [x] **Schritt 2: Zeilenenden festlegen**
 
@@ -3591,7 +3602,7 @@ rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
 | K5 | README und Kommentar in `MessageRepository` sprachen von «einem INSERT pro Stapel». Richtig ist, was die Spezifikation in Abschnitt 5 sagt: eine Transaktion, mehrzeilige INSERTs zu höchstens 128 Zeilen | Widerspruch zwischen den Dokumenten | Text stimmt mit Spezifikation 5 überein | `docs: ein Stapel ist eine Transaktion, nicht ein INSERT` |
 
 - [x] **K1** `.env.example` mit LF
-- [ ] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
+- [x] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
 - [ ] **K3** S8 prüft den ganzen Verlauf
 - [ ] **K4** Testberichte ohne Protokolle bestandener Tests
 - [ ] **K5** «eine Transaktion pro Stapel» überall gleich

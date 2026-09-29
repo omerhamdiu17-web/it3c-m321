@@ -272,8 +272,13 @@ scenario_s6() {
   echo "== S6: zwei Instanzen, 1000 Nachrichten"
   docker compose up -d --scale batch-writer=2
   wait_until 90 consumers_are 2
+  # Das erste "up" ohne --build erstellt die gebauten Dienste neu, auch den
+  # chat-service. Gesendet wird erst, wenn er wieder antwortet.
+  wait_until 120 chat_service_answers
   local consumers
   consumers=$(queue_value chat.persist consumers)
+  local since
+  since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   local accepted
   accepted=$(send_messages 1000 S6)
   wait_until 60 s6_done
@@ -281,13 +286,14 @@ scenario_s6() {
   rows=$(count_marked S6)
   local distinct
   distinct=$(sql "SELECT count(DISTINCT id) FROM message WHERE content LIKE 'S6 %'")
+  # Nur Protokollzeilen seit dem Senden: so zählt, wer S6 wirklich geschrieben hat.
   local instances
-  instances=$(docker compose logs --no-color batch-writer 2>/dev/null | grep 'Stored batch' | awk '{ print $1 }' | sort -u | count_lines)
+  instances=$(docker compose logs --no-color --since "$since" batch-writer 2>/dev/null | grep 'Stored batch' | awk '{ print $1 }' | sort -u | count_lines)
   local ok=1
-  if [ "$consumers" = "2" ] && [ "$rows" = "1000" ] && [ "$distinct" = "1000" ]; then
+  if [ "$consumers" = "2" ] && [ "$instances" = "2" ] && [ "$rows" = "1000" ] && [ "$distinct" = "1000" ]; then
     ok=0
   fi
-  report S6 "202: $accepted, Verbraucher: $consumers, Zeilen: $rows, verschiedene ids: $distinct, Instanzen mit Stapeln: $instances" "2 Verbraucher, 1000 Zeilen, keine doppelt" "$ok"
+  report S6 "202: $accepted, Verbraucher: $consumers, Instanzen mit Stapeln: $instances, Zeilen: $rows, verschiedene ids: $distinct" "2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, keine doppelt" "$ok"
 }
 
 s6_done() {
