@@ -1502,7 +1502,7 @@ git commit -m "feat: Queues wie im chat-service anlegen" \
   - `ReceivedMessage(long deliveryTag, ChatMessage chatMessage)`
   - `MessageBatchListener.LISTENER_ID` = `"messageBatchListener"`; `onBatch(List<Message> batch, Channel channel)`
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/service/MessageBatchListenerIntegrationTest.java`
 
@@ -1734,12 +1734,12 @@ class MessageBatchListenerIntegrationTest {
 }
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=MessageBatchListenerIntegrationTest`
 Erwartet: Übersetzungsfehler — `MessageBatchListener` gibt es noch nicht.
 
-- [ ] **Schritt 3: `RabbitConfig` um den Stapel-Listener ergänzen**
+- [x] **Schritt 3: `RabbitConfig` um den Stapel-Listener ergänzen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/config/RabbitConfig.java`, ganze Datei:
 
@@ -1832,7 +1832,7 @@ public class RabbitConfig {
 > lange an einem Stapel gesammelt wird. `receiveTimeout` allein hiesse nur «200 ms lang nichts
 > Neues»; bei gleichmässigem Verkehr würde ein Stapel dann erst fertig, wenn er voll ist.
 
-- [ ] **Schritt 4: `ReceivedMessage` anlegen**
+- [x] **Schritt 4: `ReceivedMessage` anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/ReceivedMessage.java`
 
@@ -1855,7 +1855,7 @@ public record ReceivedMessage(long deliveryTag, ChatMessage chatMessage) {
 }
 ```
 
-- [ ] **Schritt 5: `MessageBatchListener` anlegen**
+- [x] **Schritt 5: `MessageBatchListener` anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/MessageBatchListener.java`
 
@@ -1984,12 +1984,12 @@ public class MessageBatchListener {
 > Nachrichten liest `ChatMessageReader` nur den Body, und jede Nachricht behält ihren eigenen
 > `deliveryTag` für ACK oder Reject.
 
-- [ ] **Schritt 6: Test laufen lassen und grün bestätigen**
+- [x] **Schritt 6: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=MessageBatchListenerIntegrationTest`
 Erwartet: 4 Tests grün; im Protokoll des S4-Tests Zeilen wie `Stored batch of 500 messages`.
 
-- [ ] **Schritt 7: Committen**
+- [x] **Schritt 7: Committen**
 
 ```bash
 git add batch-writer/src/main/java/ch/benedict/m321/batchwriter \
