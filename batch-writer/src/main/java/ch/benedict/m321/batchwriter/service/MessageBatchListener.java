@@ -22,6 +22,12 @@ import java.util.List;
  *
  * Stürzt der batch-writer vor dem ACK ab, liefert RabbitMQ den Stapel erneut:
  * At-least-once. Das zweite Mal verwirft die Datenbank (ON CONFLICT DO NOTHING).
+ *
+ * Fehler gehören in eine von zwei Klassen (Spezifikation 3.3):
+ * - Die Nachricht ist schuld: sie geht sofort nach chat.dlq, ein zweiter
+ *   Versuch würde genauso scheitern.
+ * - Die Umgebung ist schuld, z. B. die Datenbank ist weg: der Stapel geht
+ *   nach einer Pause zurück in die Queue und kommt später wieder.
  */
 @Service
 @Slf4j
@@ -30,6 +36,9 @@ public class MessageBatchListener {
 
     /** Unter diesem Namen findet man den Listener, z. B. im Test, um ihn anzuhalten. */
     public static final String LISTENER_ID = "messageBatchListener";
+
+    /** Pause, bevor ein Stapel zurückgeht. Ohne sie kreiste er ohne Halt zwischen Queue und Listener. */
+    private static final long PAUSE_BEFORE_RETRY_MILLISECONDS = 2000;
 
     private final ChatMessageReader chatMessageReader;
     private final MessageRepository messageRepository;
@@ -86,11 +95,43 @@ public class MessageBatchListener {
         long lastDeliveryTag = lastDeliveryTag(messages);
         int batchSize = chatMessages.size();
 
-        messageRepository.insertBatch(chatMessages);
+        try {
+            messageRepository.insertBatch(chatMessages);
+        } catch (RuntimeException exception) {
+            returnToQueue(lastDeliveryTag, channel, exception);
+            return;
+        }
 
         // Erst hier, nach dem COMMIT, bestätigen wir den ganzen Stapel.
         channel.basicAck(lastDeliveryTag, true);
         log.info("Stored batch of {} messages", batchSize);
+    }
+
+    /**
+     * Die Datenbank ist nicht erreichbar, oder etwas anderes Unerwartetes ist
+     * passiert. Die Nachrichten sind nicht schuld und gehören nicht in die DLQ.
+     * Wir warten kurz und geben den Stapel an RabbitMQ zurück, das ihn erneut
+     * liefert (PLANUNG.md 3.6: NACK mit requeue).
+     */
+    private void returnToQueue(long lastDeliveryTag, Channel channel, RuntimeException exception) throws IOException {
+        String reason = exception.getMessage();
+        log.warn("Could not store batch, returning it to {} after {} ms: {}",
+                QueueNames.PERSIST_QUEUE, PAUSE_BEFORE_RETRY_MILLISECONDS, reason);
+        pauseBeforeRetry();
+        channel.basicNack(lastDeliveryTag, true, true);
+    }
+
+    /**
+     * Wartet vor dem NACK. Wird der Thread dabei unterbrochen, weil der
+     * batch-writer herunterfährt, hören wir sofort auf zu warten und merken
+     * uns die Unterbrechung für Spring.
+     */
+    private void pauseBeforeRetry() {
+        try {
+            Thread.sleep(PAUSE_BEFORE_RETRY_MILLISECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Nimmt aus den gelesenen Nachrichten den Inhalt, der in die Datenbank geht. */

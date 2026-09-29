@@ -2013,7 +2013,7 @@ git commit -m "feat: Stapel aus chat.persist lesen und nach dem COMMIT bestätig
 - Verbraucht: `MessageBatchListener` (Task 7), `TestDatabase` (Task 3)
 - Stellt bereit: Jede Exception beim Schreiben führt zu 2 s Pause und `basicNack(letzterTag, multiple = true, requeue = true)`. Nichts geht in die DLQ, der Verbraucher läuft weiter. Verbindungspool: höchstens 2 Verbindungen, 5 s Wartezeit auf eine Verbindung.
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/service/DatabaseOutageIntegrationTest.java`
 
@@ -2227,16 +2227,16 @@ class DatabaseOutageIntegrationTest {
 }
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=DatabaseOutageIntegrationTest`
 Erwartet: Fehlschlag mit `expected: <50> but was: <0>`.
 - Vor dem Ausfall hält der Pool Verbindungen, der Ausfall trennt sie.
-- Ohne unsere Einstellung wartet der Pool bis zu 30 s auf eine neue Verbindung und gibt dann mit einer `CannotCreateTransactionException` auf.
+- Der Listener schreibt auf einer dieser getrennten Verbindungen. Spring meldet `DataAccessResourceFailureException: … This connection has been closed` (so im roten Probelauf vom 29.09.2026 beobachtet). Bekommt der Pool gar keine Verbindung, wartet er ohne unsere Einstellung bis zu 30 s und wirft dann eine `CannotCreateTransactionException`.
 - Die Exception verlässt den Listener, und im Modus `MANUAL` schickt Spring AMQP dann **kein** NACK.
 - Der Stapel bleibt unbestätigt beim batch-writer liegen, auch nachdem die Datenbank zurück ist.
 
-- [ ] **Schritt 3: `application.yml` ergänzen**
+- [x] **Schritt 3: `application.yml` ergänzen**
 
 `batch-writer/src/main/resources/application.yml`, ganze Datei:
 
@@ -2277,7 +2277,7 @@ logging:
     ch.benedict.m321: DEBUG
 ```
 
-- [ ] **Schritt 4: Den Listener um die Rückgabe an die Queue ergänzen**
+- [x] **Schritt 4: Den Listener um die Rückgabe an die Queue ergänzen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/MessageBatchListener.java`, ganze Datei. Neu sind der zweite Absatz im Klassenkommentar, die Konstante `PAUSE_BEFORE_RETRY_MILLISECONDS`, das `try`/`catch` in `store` sowie `returnToQueue` und `pauseBeforeRetry`:
 
@@ -2458,17 +2458,17 @@ public class MessageBatchListener {
 > Datenbank wartet, würde das Herunterfahren blockieren. So kehrt der Listener nach höchstens rund
 > 7 s zurück: 5 s Warten auf eine Verbindung plus 2 s Pause.
 
-- [ ] **Schritt 5: Test laufen lassen und grün bestätigen**
+- [x] **Schritt 5: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=DatabaseOutageIntegrationTest`
 Erwartet: 1 Test grün, nach rund 40 s. Im Protokoll stehen während des Ausfalls etwa alle 7 s Warnungen `Could not store batch, returning it to chat.persist after 2000 ms`, danach `Stored batch of 50 messages`.
 
-- [ ] **Schritt 6: Alle Tests des Moduls laufen lassen**
+- [x] **Schritt 6: Alle Tests des Moduls laufen lassen**
 
 Ausführen: `mvn -q -pl batch-writer test`
 Erwartet: alle Tests grün. Der Pool mit 2 Verbindungen darf keinen anderen Test verlangsamen.
 
-- [ ] **Schritt 7: Committen**
+- [x] **Schritt 7: Committen**
 
 ```bash
 git add batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/MessageBatchListener.java \

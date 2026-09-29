@@ -15,9 +15,18 @@ spring:
   datasource:
     # reWriteBatchedInserts=true: der Treiber fasst die INSERTs eines Stapels
     #   zu mehrzeiligen INSERTs zusammen (bis 128 Zeilen je Anweisung).
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB:chat}?reWriteBatchedInserts=true
+    # socketTimeout=30: antwortet die Datenbank 30 s lang nicht, bricht die
+    #   Anfrage ab, statt den Stapel für immer festzuhalten.
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB:chat}?reWriteBatchedInserts=true&socketTimeout=30
     username: ${POSTGRES_USER:chat}
     password: ${POSTGRES_PASSWORD:chat}
+    hikari:
+      # Ein Verbraucher-Thread braucht genau eine Verbindung. Die Vorgabe
+      # wären 10 pro Instanz, und jede neue Verbindung kostet Transaktionen.
+      maximum-pool-size: 2
+      minimum-idle: 1
+      # Ist die Datenbank weg, merken wir es nach 5 s statt nach 30 s.
+      connection-timeout: 5000
 
 logging:
   level:
