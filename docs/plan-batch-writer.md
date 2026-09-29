@@ -3503,7 +3503,7 @@ git commit -m "test: Abnahmeskript für die Szenarien S2 bis S8" \
 - Verbraucht: alles aus Task 1 bis 11
 - Stellt bereit: Befehle zum Bauen, Starten, Messen und zur Abnahme; Tabelle «Stand» mit `batch-writer` und `postgres` = vorhanden
 
-- [ ] **Schritt 1: «Bauen, testen, starten» ersetzen**
+- [x] **Schritt 1: «Bauen, testen, starten» ersetzen**
 
 ````markdown
 ```bash
@@ -3520,7 +3520,7 @@ gehört später dem Gateway. Gesendet und gemessen wird deshalb von innen, zum B
 docker run --rm --network chat-net curlimages/curl -s -X POST http://chat-service:8080/messages \
   -H 'Content-Type: application/json' \
   -d '{"roomId":"3f2b1c4e-0000-0000-0000-000000000001","senderId":"anna","senderName":"Anna Muster","content":"Hallo"}'
-docker compose exec postgres psql -U chat -c "SELECT sender_name, content, sent_at FROM message ORDER BY sent_at DESC LIMIT 5"
+docker compose exec postgres psql -U chat -P pager=off -c "SELECT sender_name, content, sent_at FROM message ORDER BY sent_at DESC LIMIT 5"
 docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
 ```
 
@@ -3531,14 +3531,18 @@ Jeder Push läuft in GitHub Actions durch `mvn clean test`, den Bau aller Images
 (`.github/workflows/build.yml`).
 ````
 
-- [ ] **Schritt 2: Tabelle «Was gebaut wird» nachführen**
+> **Falle (beim Prüfen gefunden, 29.09.2026):** Am Terminal öffnet `psql` für seine Ausgabe den
+> Pager `less` und wartet mit «(END)» auf ein `q`. `-P pager=off` schreibt die Tabelle einfach
+> hin; das ist für Mitlernende weniger verwirrend.
+
+- [x] **Schritt 2: Tabelle «Was gebaut wird» nachführen**
 
 ```markdown
 | batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank: liest `chat.persist` in Stapeln bis 500, ein INSERT pro Stapel, ACK nach dem COMMIT | vorhanden |
 | postgres | PostgreSQL 16 | Speichert den Chat-Verlauf in der Tabelle `message` | vorhanden |
 ```
 
-- [ ] **Schritt 3: «Dokumente» um Spezifikation und Plan ergänzen**
+- [x] **Schritt 3: «Dokumente» um Spezifikation und Plan ergänzen**
 
 ```markdown
 - [`docs/spec-batch-writer.md`](docs/spec-batch-writer.md) — Spezifikation des `batch-writer`:
@@ -3547,12 +3551,12 @@ Jeder Push läuft in GitHub Actions durch `mvn clean test`, den Bau aller Images
   Schritt für Schritt mit Test.
 ```
 
-- [ ] **Schritt 4: Befehle prüfen**
+- [x] **Schritt 4: Befehle prüfen**
 
 Die Befehle aus Schritt 1 einmal am laufenden Stack ausführen.
 Erwartet: `psql -U chat` zeigt die Nachricht, `rabbitmqctl` zeigt `chat.persist 0 1`.
 
-- [ ] **Schritt 5: Committen**
+- [x] **Schritt 5: Committen**
 
 ```bash
 git add README.md
