@@ -1303,7 +1303,7 @@ git commit -m "feat: Stapel mit einem INSERT und ON CONFLICT DO NOTHING speicher
 - Verbraucht: Modul aus Task 2
 - Stellt bereit: `QueueNames.PERSIST_QUEUE` = `"chat.persist"`, `QueueNames.DEAD_LETTER_QUEUE` = `"chat.dlq"`; Beans `Queue persistQueue` (durable, `x-dead-letter-exchange` = `""`, `x-dead-letter-routing-key` = `chat.dlq`) und `Queue deadLetterQueue` (durable)
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/config/RabbitConfigIntegrationTest.java`
 
@@ -1392,12 +1392,12 @@ class RabbitConfigIntegrationTest {
 }
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=RabbitConfigIntegrationTest`
 Erwartet: Übersetzungsfehler — `QueueNames` gibt es noch nicht.
 
-- [ ] **Schritt 3: `QueueNames` anlegen**
+- [x] **Schritt 3: `QueueNames` anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/config/QueueNames.java`
 
@@ -1424,7 +1424,7 @@ public final class QueueNames {
 }
 ```
 
-- [ ] **Schritt 4: `RabbitConfig` mit den beiden Queues anlegen**
+- [x] **Schritt 4: `RabbitConfig` mit den beiden Queues anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/config/RabbitConfig.java` — die Einstellungen für das Lesen in Stapeln kommen in Task 7 dazu.
 
@@ -1469,12 +1469,12 @@ public class RabbitConfig {
 }
 ```
 
-- [ ] **Schritt 5: Test laufen lassen und grün bestätigen**
+- [x] **Schritt 5: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test -Dtest=RabbitConfigIntegrationTest`
 Erwartet: 3 Tests grün. Die Gegenprobe zeigt im Protokoll `PRECONDITION_FAILED - inequivalent arg 'x-dead-letter-exchange'`, also genau den Fehler, den eine abweichende Deklaration im Betrieb auslösen würde.
 
-- [ ] **Schritt 6: Committen**
+- [x] **Schritt 6: Committen**
 
 ```bash
 git add batch-writer/src/main/java/ch/benedict/m321/batchwriter/config \
