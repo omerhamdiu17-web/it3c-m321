@@ -3370,11 +3370,15 @@ scenario_s8() {
   env_tracked=$(git ls-files .env | count_lines)
   local env_history
   env_history=$(git log --all --format=%h -- .env | count_lines)
+  # Ein flacher Klon kennt nur den letzten Commit; dann wäre die Suche im
+  # Verlauf wertlos. Deshalb zählt auch, wie viele Commits geprüft wurden.
+  local commits
+  commits=$(git rev-list --all --count)
   local ok=1
-  if [ "$stream_hits" = "0" ] && [ "$missing" = "0" ] && [ "$env_tracked" = "0" ] && [ "$env_history" = "0" ]; then
+  if [ "$stream_hits" = "0" ] && [ "$missing" = "0" ] && [ "$env_tracked" = "0" ] && [ "$env_history" = "0" ] && [ "$commits" -gt 1 ]; then
     ok=0
   fi
-  report S8 "Treffer 'stream': $stream_hits, ohne Kommentar: $missing, .env im Repo: $env_tracked, .env im Verlauf: $env_history" "alles 0" "$ok"
+  report S8 "Treffer 'stream': $stream_hits, ohne Kommentar: $missing, .env im Repo: $env_tracked, .env im Verlauf: $env_history (geprüft: $commits Commits)" "alles 0, ganzer Verlauf" "$ok"
 }
 
 # ------------------------------------------------------------------- Ablauf
@@ -3481,6 +3485,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # S8 sucht .env im ganzen Verlauf, dafür braucht es alle Commits.
+          fetch-depth: 0
       - name: .env aus den Beispielwerten
         run: cp .env.example .env
       - name: Abnahme S2 bis S8
@@ -3603,7 +3610,7 @@ rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
 
 - [x] **K1** `.env.example` mit LF
 - [x] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
-- [ ] **K3** S8 prüft den ganzen Verlauf
+- [x] **K3** S8 prüft den ganzen Verlauf
 - [ ] **K4** Testberichte ohne Protokolle bestandener Tests
 - [ ] **K5** «eine Transaktion pro Stapel» überall gleich
 

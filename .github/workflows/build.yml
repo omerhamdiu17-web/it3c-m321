@@ -41,6 +41,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # S8 sucht .env im ganzen Verlauf, dafür braucht es alle Commits.
+          fetch-depth: 0
       - name: .env aus den Beispielwerten
         run: cp .env.example .env
       - name: Abnahme S2 bis S8
