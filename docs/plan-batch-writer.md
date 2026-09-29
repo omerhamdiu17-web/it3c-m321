@@ -3611,8 +3611,25 @@ rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
 - [x] **K1** `.env.example` mit LF
 - [x] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
 - [x] **K3** S8 prüft den ganzen Verlauf
-- [ ] **K4** Testberichte ohne Protokolle bestandener Tests
+- [x] **K4** Testberichte ohne Protokolle bestandener Tests
 - [ ] **K5** «eine Transaktion pro Stapel» überall gleich
+
+**K4, Ergänzung in `batch-writer/pom.xml`** (unter `<plugins>`, nach dem `spring-boot-maven-plugin`):
+
+```xml
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Die Testberichte unter target/ enthielten sonst auch bei
+                         bestandenen Tests das ganze Protokoll. Wer nach dem Build
+                         den Ordner batch-writer/ durchsucht (Szenario S8), fände
+                         darin Wörter aus Protokollen statt aus unserem Quelltext.
+                         Bei einem roten Test bleibt die Ausgabe erhalten. -->
+                    <enableOutErrElements>false</enableOutErrElements>
+                </configuration>
+            </plugin>
+```
 
 ---
 
