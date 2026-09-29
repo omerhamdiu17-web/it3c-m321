@@ -25,9 +25,16 @@ cd "$(dirname "$0")/.." || exit 1
 if [ ! -f .env ]; then
   cp .env.example .env
 fi
-set -a
-. ./.env
-set +a
+# Die .env Zeile für Zeile übernehmen. Ein Windows-Zeilenende (CR) wird
+# abgeschnitten, sonst hinge es an jedem Wert: psql -U "chat\r" fände den
+# Benutzer nicht. Leere Zeilen und Kommentare werden übersprungen.
+while IFS= read -r line; do
+  line=${line%$'\r'}
+  case "$line" in
+    '' | '#'*) continue ;;
+  esac
+  export "$line"
+done < .env
 
 ROOM_ID="3f2b1c4e-0000-0000-0000-000000000001"
 SUMMARY=""

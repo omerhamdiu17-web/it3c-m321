@@ -3057,9 +3057,16 @@ cd "$(dirname "$0")/.." || exit 1
 if [ ! -f .env ]; then
   cp .env.example .env
 fi
-set -a
-. ./.env
-set +a
+# Die .env Zeile für Zeile übernehmen. Ein Windows-Zeilenende (CR) wird
+# abgeschnitten, sonst hinge es an jedem Wert: psql -U "chat\r" fände den
+# Benutzer nicht. Leere Zeilen und Kommentare werden übersprungen.
+while IFS= read -r line; do
+  line=${line%$'\r'}
+  case "$line" in
+    '' | '#'*) continue ;;
+  esac
+  export "$line"
+done < .env
 
 ROOM_ID="3f2b1c4e-0000-0000-0000-000000000001"
 SUMMARY=""
@@ -3410,6 +3417,9 @@ echo "Alle Szenarien bestanden."
 # auch dann, wenn jemand unter Windows mit core.autocrlf=true auscheckt.
 *.sh  text eol=lf
 *.sql text eol=lf
+# Die .env entsteht als Kopie dieser Datei und wird von Bash eingelesen. Mit
+# CRLF hinge an jedem Wert ein unsichtbares CR, z.B. "chat\r" als Benutzer.
+.env.example text eol=lf
 ```
 
 - [x] **Schritt 3: Den CI-Job `stack` durch die Abnahme ersetzen**
@@ -3580,7 +3590,7 @@ rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
 | K4 | Die Testberichte unter `batch-writer/target/` enthalten die Protokolle bestandener Tests | ein `grep -ri stream batch-writer/` nach `mvn clean test` könnte Wörter aus Protokollen finden (S8) | `grep -c '<system-out>'` im Bericht eines bestandenen Tests: `1` → `0` | `chore: Testberichte des batch-writer ohne Protokolle` |
 | K5 | README und Kommentar in `MessageRepository` sprachen von «einem INSERT pro Stapel». Richtig ist, was die Spezifikation in Abschnitt 5 sagt: eine Transaktion, mehrzeilige INSERTs zu höchstens 128 Zeilen | Widerspruch zwischen den Dokumenten | Text stimmt mit Spezifikation 5 überein | `docs: ein Stapel ist eine Transaktion, nicht ein INSERT` |
 
-- [ ] **K1** `.env.example` mit LF
+- [x] **K1** `.env.example` mit LF
 - [ ] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
 - [ ] **K3** S8 prüft den ganzen Verlauf
 - [ ] **K4** Testberichte ohne Protokolle bestandener Tests

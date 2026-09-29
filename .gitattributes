@@ -2,3 +2,6 @@
 # auch dann, wenn jemand unter Windows mit core.autocrlf=true auscheckt.
 *.sh  text eol=lf
 *.sql text eol=lf
+# Die .env entsteht als Kopie dieser Datei und wird von Bash eingelesen. Mit
+# CRLF hinge an jedem Wert ein unsichtbares CR, z.B. "chat\r" als Benutzer.
+.env.example text eol=lf
