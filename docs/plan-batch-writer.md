@@ -3566,6 +3566,28 @@ git commit -m "docs: README für batch-writer und Abnahme" \
 
 ---
 
+## Korrekturen aus dem Abschluss-Review
+
+Ein unabhängiges Code-Review am 29.09.2026 fand keine kritischen Fehler, aber fünf Stellen, die vor
+der Abgabe korrigiert werden. Jede Korrektur ist ein eigener Commit mit einem Nachweis, der vorher
+rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
+
+| # | Befund | Folge ohne Korrektur | Nachweis: vorher → nachher | Commit |
+|---|---|---|---|---|
+| K1 | Unter Windows mit `core.autocrlf=true` wird `.env.example` mit CRLF ausgecheckt. Eine Bash, die die `.env` einliest (Linux, WSL, macOS), hängt jedem Wert ein `\r` an | `psql -U "chat\r"` findet den Benutzer nicht; das Abnahmeskript und jedes andere Prüfskript, das die `.env` einliest, melden falsche Fehler | `git check-attr eol -- .env.example`: `unspecified` → `lf` | `fix: .env.example immer mit LF-Zeilenenden` |
+| K2 | Das erste `docker compose up` ohne `--build` erstellt die gebauten Dienste neu, auch den `chat-service`. In S6 ist das genau das `up --scale`. Das Skript sendete direkt danach und verlangte nicht, dass beide Instanzen gearbeitet haben | falsches FAIL auf einem langsamen Rechner; S6 bestünde auch, wenn nur eine Instanz arbeitete | S6 wartet auf den `chat-service`, `Instanzen mit Stapeln: 2` ist Bedingung | `fix: Abnahme wartet in S6 auf den neu erstellten chat-service` |
+| K3 | S8 sucht `.env` im Verlauf, im CI aber auf einem flachen Checkout mit einem einzigen Commit | die Prüfung sah den Verlauf gar nicht | Checkout mit `--depth=1` → ganzer Verlauf; S8 meldet die Zahl der geprüften Commits | `ci: Abnahme prüft .env im ganzen Verlauf` |
+| K4 | Die Testberichte unter `batch-writer/target/` enthalten die Protokolle bestandener Tests | ein `grep -ri stream batch-writer/` nach `mvn clean test` könnte Wörter aus Protokollen finden (S8) | `grep -c '<system-out>'` im Bericht eines bestandenen Tests: `1` → `0` | `chore: Testberichte des batch-writer ohne Protokolle` |
+| K5 | README und Kommentar in `MessageRepository` sprachen von «einem INSERT pro Stapel». Richtig ist, was die Spezifikation in Abschnitt 5 sagt: eine Transaktion, mehrzeilige INSERTs zu höchstens 128 Zeilen | Widerspruch zwischen den Dokumenten | Text stimmt mit Spezifikation 5 überein | `docs: ein Stapel ist eine Transaktion, nicht ein INSERT` |
+
+- [ ] **K1** `.env.example` mit LF
+- [ ] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
+- [ ] **K3** S8 prüft den ganzen Verlauf
+- [ ] **K4** Testberichte ohne Protokolle bestandener Tests
+- [ ] **K5** «eine Transaktion pro Stapel» überall gleich
+
+---
+
 ## Abschluss-Prüfung
 
 - [ ] `mvn -q clean test` — alle Tests grün, in einem Lauf
