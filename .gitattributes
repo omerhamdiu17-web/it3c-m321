@@ -1,0 +1,4 @@
+# Skripte, die unter Linux laufen, brauchen LF-Zeilenenden. Diese Regel gilt
+# auch dann, wenn jemand unter Windows mit core.autocrlf=true auscheckt.
+*.sh  text eol=lf
+*.sql text eol=lf

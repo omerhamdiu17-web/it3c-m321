@@ -3023,7 +3023,7 @@ git commit -m "chore: Postgres und batch-writer in docker-compose" \
 - Verbraucht: den ganzen Stack aus Task 10, `.env.example`
 - Stellt bereit: `bash scripts/abnahme.sh` mit einer Tabelle «gemessen / erwartet» je Szenario und Exit-Code 0 nur, wenn S2 bis S8 alle bestehen
 
-- [ ] **Schritt 1: Das Skript schreiben**
+- [x] **Schritt 1: Das Skript schreiben**
 
 Das Skript ist hier selbst der Test. Jede Szenario-Funktion misst und meldet `PASS` oder `FAIL` mit dem gemessenen Wert.
 
@@ -3401,7 +3401,7 @@ echo "Alle Szenarien bestanden."
 > 5. **Windows:** Git Bash schriebe Argumente mit `/` in Pfade um (`MSYS_NO_PATHCONV=1`), und
 >    ohne `.gitattributes` bekäme das Skript CRLF-Zeilenenden.
 
-- [ ] **Schritt 2: Zeilenenden festlegen**
+- [x] **Schritt 2: Zeilenenden festlegen**
 
 `.gitattributes`
 
@@ -3412,7 +3412,7 @@ echo "Alle Szenarien bestanden."
 *.sql text eol=lf
 ```
 
-- [ ] **Schritt 3: Den CI-Job `stack` durch die Abnahme ersetzen**
+- [x] **Schritt 3: Den CI-Job `stack` durch die Abnahme ersetzen**
 
 `.github/workflows/build.yml`, ganze Datei. Der Job `abnahme` prüft alles, was `stack` geprüft hat, und mehr:
 
@@ -3469,11 +3469,11 @@ jobs:
         run: docker compose logs --no-color --tail 300
 ```
 
-- [ ] **Schritt 4: Spezifikation, Abschnitt 6, Befehl für S8 anpassen**
+- [x] **Schritt 4: Spezifikation, Abschnitt 6, Befehl für S8 anpassen**
 
 In der Zeile S8 `grep -rin stream batch-writer/` ersetzen durch `grep -rin --exclude-dir=target stream batch-writer/`. Nach `mvn clean test` liegt unter `batch-writer/target/` der Build-Ordner. Er ist kein Quelltext, und seine Testberichte enthalten Wörter aus Protokollen.
 
-- [ ] **Schritt 5: Skript ausführbar machen, laufen lassen und alle Szenarien grün bestätigen**
+- [x] **Schritt 5: Skript ausführbar machen, laufen lassen und alle Szenarien grün bestätigen**
 
 Ausführen:
 ```bash
@@ -3482,7 +3482,7 @@ bash scripts/abnahme.sh
 ```
 Erwartet: sieben Zeilen `PASS` (S2 bis S8), am Ende `Alle Szenarien bestanden.`, Exit-Code 0. Im CI ist der Job `abnahme` grün. Die gemessenen Werte (Transaktionen in S4, Sekunden in S7) kommen in Schritt 6 in die Abschluss-Prüfung dieses Plans.
 
-- [ ] **Schritt 6: Committen**
+- [x] **Schritt 6: Committen**
 
 ```bash
 git add scripts/abnahme.sh .gitattributes .github/workflows/build.yml docs/spec-batch-writer.md
