@@ -218,7 +218,7 @@ git commit -m "ci: Build, Tests und Images bei jedem Push" \
 - Verbraucht: Eltern-POM des Lehrers
 - Stellt bereit: Paketwurzel `ch.benedict.m321.batchwriter`, Artefakt `ch.benedict.m321:batch-writer:0.1.0-SNAPSHOT`, Spring-Kontext ohne Webserver, der ohne Broker und ohne Datenbank startet. Umgebungsvariablen `RABBITMQ_HOST`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (Spezifikation 4.4).
 
-- [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
+- [x] **Schritt 1: Den fehlschlagenden Test schreiben**
 
 `batch-writer/src/test/java/ch/benedict/m321/batchwriter/BatchWriterApplicationTest.java`
 
@@ -252,12 +252,12 @@ class BatchWriterApplicationTest {
 }
 ```
 
-- [ ] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
+- [x] **Schritt 2: Test laufen lassen und Fehlschlag bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test`
 Erwartet: Fehlschlag — `Could not find the selected project in the reactor: batch-writer`, das Modul gibt es noch nicht.
 
-- [ ] **Schritt 3: Modul im Eltern-POM eintragen**
+- [x] **Schritt 3: Modul im Eltern-POM eintragen**
 
 `pom.xml`, die Modulliste:
 
@@ -269,7 +269,7 @@ Erwartet: Fehlschlag — `Could not find the selected project in the reactor: ba
     </modules>
 ```
 
-- [ ] **Schritt 4: Modul-POM anlegen**
+- [x] **Schritt 4: Modul-POM anlegen**
 
 `batch-writer/pom.xml`
 
@@ -372,7 +372,7 @@ Erwartet: Fehlschlag — `Could not find the selected project in the reactor: ba
 </project>
 ```
 
-- [ ] **Schritt 5: Hauptklasse anlegen**
+- [x] **Schritt 5: Hauptklasse anlegen**
 
 `batch-writer/src/main/java/ch/benedict/m321/batchwriter/BatchWriterApplication.java`
 
@@ -403,7 +403,7 @@ public class BatchWriterApplication {
 }
 ```
 
-- [ ] **Schritt 6: Konfiguration anlegen**
+- [x] **Schritt 6: Konfiguration anlegen**
 
 `batch-writer/src/main/resources/application.yml` — `socketTimeout` und der Verbindungspool kommen erst in Task 8 dazu, wo sie gebraucht werden.
 
@@ -435,7 +435,7 @@ logging:
     ch.benedict.m321: DEBUG
 ```
 
-- [ ] **Schritt 7: `chat-service/Dockerfile` ergänzen**
+- [x] **Schritt 7: `chat-service/Dockerfile` ergänzen**
 
 Nach `COPY chat-service/pom.xml chat-service/pom.xml`:
 
@@ -450,12 +450,12 @@ COPY batch-writer/pom.xml batch-writer/pom.xml
 > geändert wurde. `mvn -pl chat-service -am` liest das Eltern-POM, und das nennt jetzt zwei
 > Module. Der CI-Job `images` aus Task 1 findet genau diesen Fehler.
 
-- [ ] **Schritt 8: Test laufen lassen und grün bestätigen**
+- [x] **Schritt 8: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl batch-writer test`, dann pushen und `gh run watch`
 Erwartet: `BatchWriterApplicationTest` grün, im CI zusätzlich `images` grün (baut den `chat-service` mit dem neuen Eltern-POM).
 
-- [ ] **Schritt 9: Committen**
+- [x] **Schritt 9: Committen**
 
 ```bash
 git add pom.xml chat-service/Dockerfile batch-writer/pom.xml batch-writer/src
