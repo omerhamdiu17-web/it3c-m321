@@ -79,7 +79,7 @@ batch-writer/
     │   │   └── MessageRepository.java        # INSERT ... ON CONFLICT DO NOTHING, eine Transaktion
     │   └── service/
     │       ├── ChatMessageReader.java        # Body → ChatMessage, Header egal
-    │       ├── ReceivedMessage.java          # Original-Nachricht + gelesener Inhalt (bis 29.09.: + deliveryTag)
+    │       ├── ReceivedMessage.java          # Original-Nachricht + gelesener Inhalt (bis 29.09.: Liefernummer statt Original)
     │       └── MessageBatchListener.java     # lesen, schreiben, Unspeicherbares nach chat.dlq; bestätigen macht Spring
     ├── main/resources/application.yml
     └── test/java/ch/benedict/m321/batchwriter/
@@ -1007,6 +1007,10 @@ git commit -m "feat: Nachricht aus dem JSON lesen, ohne __TypeId__" \
 
 ## Task 5: Stapel mit einem INSERT und ON CONFLICT DO NOTHING speichern
 
+> **Stand der Codeblöcke:** `MessageRepository` unten zeigt den Stand nach K5 (29.09.). Im
+> Task-Commit `0397084` sprach der Javadoc noch von «einem INSERT». Die Tests zählen Transaktionen
+> heute mit `CAST(xmin AS text)` statt `xmin::text` (R11).
+
 **Warum an dieser Stelle:** Braucht das Schema (Task 3) und `ChatMessage` (Task 4). Hier entstehen die zwei Eigenschaften, auf denen S4, S5 und S6 ruhen: Duplikate sind harmlos, und ein Stapel ist genau eine Transaktion.
 
 **Dateien:**
@@ -1501,7 +1505,9 @@ git commit -m "feat: Queues wie im chat-service anlegen" \
 ## Task 7: Stapel aus chat.persist lesen und nach dem COMMIT bestätigen
 
 > **Stand 29.09.2026:** Bestätigung von Hand (`MANUAL`). Seit dem 30.09. bestätigt Spring, siehe
-> «Vereinfachung vom 30.09.2026» am Ende dieses Plans.
+> «Vereinfachung vom 30.09.2026» am Ende dieses Plans. Die Tests unten prüfen `chat.dlq` noch mit
+> `messageCount` und zählen Transaktionen mit `xmin::text`. Heute warten sie mit `receive(2 s)`
+> auf eine falsche Kopie (R12) und zählen mit `CAST(xmin AS text)` (R11).
 
 **Warum an dieser Stelle:** Setzt Lesen (Task 4), Schreiben (Task 5) und die Queues (Task 6) zusammen. Erst jetzt gibt es den Weg von der Queue in die Tabelle und damit die Szenarien S3, S4 und S5. Die Fehlerwege kommen bewusst erst in Task 8 und 9.
 
@@ -2019,7 +2025,8 @@ git commit -m "feat: Stapel aus chat.persist lesen und nach dem COMMIT bestätig
 ## Task 8: Stapel bei Datenbankausfall zurück in die Queue
 
 > **Stand 29.09.2026:** NACK von Hand (`MANUAL`). Seit dem 30.09. schickt Spring das NACK, siehe
-> «Vereinfachung vom 30.09.2026» am Ende dieses Plans.
+> «Vereinfachung vom 30.09.2026» am Ende dieses Plans. Der Ausfall-Test unten ist der Stand vom
+> 29.09. Seit V1 schickt er zusätzlich eine unlesbare Nachricht und prüft `chat.dlq` mit `receive`.
 
 **Warum an dieser Stelle:** Ein Fehlerweg setzt den Normalweg voraus (Task 7). Von den Fehlerwegen kommt dieser zuerst, weil Szenario S7 das grösste Risiko trägt: Ohne ihn bleibt ein Stapel bei einem Ausfall unbestätigt hängen, und der batch-writer arbeitet bis zu einem Neustart nicht weiter.
 
@@ -3043,6 +3050,10 @@ git commit -m "chore: Postgres und batch-writer in docker-compose" \
 
 ## Task 11: Abnahmeskript für die Szenarien S2 bis S8
 
+> **Stand der Codeblöcke:** Das Skript unten ist der Stand nach K1 bis K3 (29.09.). Im Task-Commit
+> `72293a5` fehlten noch das Einlesen der `.env` ohne CR, das Warten in S6 und die Prüfung des
+> ganzen Verlaufs in S8. Seit R5 steht die Kommentarprüfung in `scripts/kommentare.sh`.
+
 **Warum an dieser Stelle:** Das Skript braucht den ganzen Stack (Task 10). Es prüft alles so, wie die Abnahme es tut: in derselben Reihenfolge, auf demselben Stack, ohne Aufräumen dazwischen, gemessen von innen mit `psql` und `rabbitmqctl`. Der Auftrag sagt dazu: «Sie so nachzustellen, dass du sie selbst ausführen kannst, gehört zu deiner Spezifikation und zu deinem Testen.»
 
 **Dateien:**
@@ -3717,6 +3728,9 @@ Aufgabe (Abschnitt 05). Jeder Befund bekommt wie K1 bis K5 eine eigene Zeile und
 
 ### V1: Tests, die festhalten, was heute gilt
 
+> **Stand der Codeblöcke:** Seit R12 prüfen `storesDuplicateOnlyOnce` und
+> `storesMessageWithUnknownField` `chat.dlq` mit `receive(2 s)` statt mit `messageCount`.
+
 **Warum an dieser Stelle:** Bevor sich der Code ändert. Diese Tests müssen auf dem **alten** Stand
 grün sein, und auf dem neuen müssen sie grün bleiben. Sie halten genau das fest, was eine
 Vereinfachung kaputt machen könnte.
@@ -4269,7 +4283,7 @@ letzten dieser Commits.
 - [x] **Z3** Berufungen auf den Auftrag mit Zitat
 - [x] **Z4** `PSQLException` richtiggestellt
 - [x] **Z5** Arbeitsweise so, wie sie lief
-- [ ] **Z6** Codeblöcke mit ihrem Stand markiert
+- [x] **Z6** Codeblöcke mit ihrem Stand markiert
 - [ ] **Z7** Commit-Übersicht vollständig
 
 ---
