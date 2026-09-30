@@ -4284,7 +4284,7 @@ letzten dieser Commits.
 - [x] **Z4** `PSQLException` richtiggestellt
 - [x] **Z5** Arbeitsweise so, wie sie lief
 - [x] **Z6** Codeblöcke mit ihrem Stand markiert
-- [ ] **Z7** Commit-Übersicht vollständig
+- [x] **Z7** Commit-Übersicht vollständig
 
 ---
 
@@ -4304,7 +4304,8 @@ sein Vorbild `docs/plan-chat-service.md` schon den ganzen Code. Umsetzen hiess d
 
 **Stapel von Commits:** Wurden mehrere Commits zusammen geprüft, gilt der Lauf auf dem letzten
 Commit des Stapels. Das betrifft K1 bis K5, die beiden Doku-Commits vom 30.09. vor V1 und die
-Korrekturen R7 bis R12. Reine Doku-Commits ändern keinen Code, ihr Lauf beweist nur, dass nichts
+Korrekturen R7 bis R12 sowie die Korrekturen Z1 bis Z7 der zweiten Probe-Bewertung. Reine
+Doku-Commits ändern keinen Code, ihr Lauf beweist nur, dass nichts
 bricht.
 
 | # | Hash | Message | Eintrag im Plan | Prüfung |
@@ -4345,7 +4346,15 @@ bricht.
 | 34 | `8571291` | `test: S5 und Zusatzfeld warten auf eine falsche Kopie in chat.dlq` | R12 | rot bei falscher Kopie [36694486410](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694486410), probe [36694439764](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694439764) |
 | 35 | `a0bc663` | `docs: Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch` | R10 | `grep -nE '^(Run\|Expected):' docs/plan-batch-writer.md`: keine Ausgabe |
 | 36 | `3436fbb` | `docs: Probeläufe und Nachweise im Plan verlinkt` | R3 | Links öffnen die genannten Läufe |
-| 37 | dieser Commit | `docs: Commit-Übersicht im Plan, jeder Commit mit Eintrag und Prüfung` | R2, R4 | Nachweis oben |
-| 38 | Tag `bewertung-1` | `docs: Abnahme nach der Vereinfachung` | V4 | Abnahme auf dem Code von Zeile 34, danach nur Doku |
+| 37 | `fcec659` | `docs: Commit-Übersicht im Plan, jeder Commit mit Eintrag und Prüfung` | R2, R4 | main [36695028771](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36695028771); Probe in der Reihenfolge des Lehrers [36695032988](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36695032988) |
+| 38 | `80958b3` | `docs: Abnahme nach der Vereinfachung` | V4 | main [36695842110](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36695842110); erster Tag `bewertung-1` [36696173499](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36696173499) |
+| 39 | `04e2695` | `docs: Befunde der zweiten Probe-Bewertung im Plan` | Korrekturen aus der zweiten Probe-Bewertung (Tabelle) | Stapel Z1 bis Z7: Lauf auf dem Tag `bewertung-1` (Zeile 46) |
+| 40 | `881274d` | `docs: Spezifikation F4 mit einer einzigen Zeitangabe für den Ausfall` | Z1 | Text: 15 s plus bis zu rund 40 s; Stapel-Lauf wie Zeile 39 |
+| 41 | `3f30028` | `docs: Spezifikation 7 nennt ChatMessageReader als neu` | Z2 | `git ls-tree` des Archivs: kein `ChatMessageReader`; Stapel-Lauf wie Zeile 39 |
+| 42 | `e849604` | `docs: Berufungen auf den Auftrag wörtlich belegt` | Z3 | Zitate gegen den Auftrag (Abschnitt 02 und 03); Stapel-Lauf wie Zeile 39 |
+| 43 | `441c6b5` | `docs: Plan Task 8, PSQLException ist keine RuntimeException` | Z4 | Stapel-Lauf wie Zeile 39 |
+| 44 | `cfcd95a` | `docs: Arbeitsweise im Plan so, wie sie lief` | Z5 | Text gegen diese Übersicht; Stapel-Lauf wie Zeile 39 |
+| 45 | `78293e5` | `docs: Codeblöcke im Plan mit ihrem Stand markiert` | Z6 | `git show --stat` von K1 bis K3; Stapel-Lauf wie Zeile 39 |
+| 46 | dieser Commit, Tag `bewertung-1` | `docs: Commit-Übersicht nach der zweiten Probe-Bewertung` | Z7 | Nachweis oben; CI-Lauf auf dem Tag |
 
-- [x] **Übersicht** vollständig: Zeile 1 bis 38 in der Reihenfolge des `git log`
+- [x] **Übersicht** vollständig: Zeile 1 bis 46 in der Reihenfolge des `git log`
