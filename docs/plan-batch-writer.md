@@ -4172,6 +4172,49 @@ Tests aus V1 schützen, gibt es erst im Code aus V2.
 - [ ] **P4** rot, Lauf verlinkt
 - [ ] **P5** rot, Lauf verlinkt
 
+### Korrekturen aus der Probe-Bewertung
+
+**Warum an dieser Stelle:** Nach V2 und V3 ist der Code fertig. Bevor V4 misst, was abgegeben
+wird, hat ein frischer KI-Prüfer den Stand `5fe4bc3` streng nach dem Raster der Aufgabe bewertet
+(Abschnitt 05). Das Ergebnis: A 8/8, B 4/6, C 24/24, D 6/6.
+
+Jede Korrektur ist wie K1 bis K5 ein eigener Commit, und das Häkchen kommt im selben Commit. Die
+Reihenfolge:
+1. die Spezifikation, denn sie ist der Massstab;
+2. Tests und Skripte;
+3. zuletzt der Plan, denn die Commit-Übersicht muss alle Commits kennen.
+
+| # | Befund | Folge ohne Korrektur | Nachweis | Commit |
+|---|---|---|---|---|
+| R7 | Spezifikation 2.3 sagt, der `chat-service` prüfe, ob der Raum existiert und wie lang die Texte sind. Er prüft aber nur `@NotNull` (Raum) und `@NotBlank` (Texte) | Sachfehler im Vertrag (A1) | `SendMessageRequest.java:21-24` | `docs: Spezifikation 2.3 nennt, was der chat-service wirklich prüft` |
+| R8 | Spezifikation 4.4 nennt `rabbitmq` und `postgres` als «Wert in `.env.example`». Die beiden HOST-Variablen setzt aber `docker-compose.yml` | falsche Angabe zur Konfiguration (A3) | `.env.example` enthält keine HOST-Variable | `docs: Spezifikation 4.4, die HOST-Variablen setzt docker-compose.yml` |
+| R9 | F10 sagt «wie F4». Für Fehler, die Spring als «fatal» einstuft, stimmt das nicht: Dann geht der ganze Stapel ohne requeue über die Argumente der Queue nach `chat.dlq`. Ausserdem fehlt die Zeile `Stored batch` beim Einzelschreiben (F9) | ungenaues Verhalten (A2) | `ConditionalRejectingErrorHandler` (Spring AMQP 3.2.12), `MessageBatchListener.store` | `docs: Spezifikation F10 und die Protokollzeile präzisiert` |
+| R6 | Der Ausfall-Test sperrt die Datenbank, statt sie zu stoppen. Eine fehlgeschlagene Namensauflösung prüft er nicht | offene Frage, ob der Test S7 wirklich nachstellt (D3) | Spezifikation 6 nennt, was der Test prüft und was das Abnahmeskript | `docs: Spezifikation 6, warum der Ausfall-Test die Datenbank sperrt statt stoppt` |
+| R1 | Die Vorarbeit vom 23.09. im Archiv hat denselben Aufbau. Die Spezifikation lag vor dem Code im Repository, ging aber erst am 30.09. an den Lehrer. Die Commits der Tasks 1 bis 12 liegen nur Minuten auseinander | Verdacht «Code zuerst» (A, B) | Tabelle in Spezifikation 7: was aus der Vorarbeit blieb und was die Spezifikation geändert hat | `docs: Spezifikation 7, was aus der Vorarbeit stammt und was die Spezifikation geändert hat` |
+| R5 | Für «Kommentar über jeder Klasse und Methode» (S8) gibt es keinen eigenen Befehl, nur die «Kommentarprüfung im Abnahmeskript» | Kriterium nicht einzeln messbar (A4) | `bash scripts/kommentare.sh batch-writer/src`: keine Ausgabe, Exit 0. Probelauf mit gelöschtem Javadoc: Treffer, Exit 1 | `test: Kommentarprüfung als eigenes Skript für S8` |
+| R11 | `xmin::text` in zwei Tests. Wer nach `::` sucht (Methodenreferenzen), findet dort SQL | Fehlalarm bei S8 | `grep -rn '::' batch-writer/src`: keine Ausgabe | `test: Transaktionen mit CAST statt :: zählen` |
+| R12 | Der S5-Test und der Zusatzfeld-Test zählen `chat.dlq` sofort nach der Zeile in der Tabelle. Eine falsche Kopie ginge aber erst nach dem COMMIT weg | Der Test könnte eine falsche Kopie übersehen (D2) | `receive(2 s)` bleibt leer. Probelauf, der jede Nachricht zusätzlich nach `chat.dlq` schickt: rot | `test: S5 und Zusatzfeld warten auf eine falsche Kopie in chat.dlq` |
+| R10 | Plan Zeile 7 sagt «`service` liest und bestätigt». In der Vereinfachung steht dreimal «Run/Expected» | Rest des alten Ablaufs, Doku nicht ganz deutsch (B) | `grep -nE '^(Run\|Expected):' docs/plan-batch-writer.md`: keine Ausgabe | `docs: Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch` |
+| R3 | Nicht verlinkt sind: die roten Probeläufe von Task 3, 8, 9 und 10, der Probelauf der README-Befehle, V1, V2 sowie P1 bis P5. K5 hat keinen messbaren Nachweis | «jeder Schritt mit Test» nicht belegt (B2) | Links auf GitHub Actions. `grep -rn 'einem INSERT pro' README.md batch-writer/src`: keine Ausgabe | `docs: Probeläufe und Nachweise im Plan verlinkt` |
+| R2, R4 | Sechs Commits haben keine eigene Message im Plan. `ff5678c` enthält zwei Themen (Messwerte und Nachträge). Zwei Commits vom 30.09. tragen dieselbe Sekunde | Plan deckt sich nicht ganz mit `git log` (B3) | Commit-Übersicht: `git log --reverse --format=%s f8ea557..bewertung-1` ergibt Zeile für Zeile die Spalte «Message» | `docs: Commit-Übersicht im Plan, jeder Commit mit Eintrag und Prüfung` |
+
+**Bewusst nicht geändert:**
+- *`start_period` im Healthcheck von Postgres:* Die Abnahme startet sauber, und `pg_isready -h localhost` ist schon streng (Spezifikation 4.6).
+- *Relativer Pfad zum Schema in `TestDatabase`:* Maven startet die Tests im Modulordner (S1). Nur beim Start aus einer Entwicklungsumgebung im Wurzelordner fehlte das Schema.
+- *Die Commits `ff5678c` und `72b594f`:* Sie werden nicht umgeschrieben. Die Geschichte bleibt, wie sie ist, und die Übersicht legt sie offen.
+
+- [ ] **R7** Spezifikation 2.3 richtiggestellt
+- [ ] **R8** Spezifikation 4.4 richtiggestellt
+- [ ] **R9** Spezifikation F10 und Protokollzeile präzisiert
+- [ ] **R6** Spezifikation 6 erklärt den Ausfall-Test
+- [ ] **R1** Spezifikation 7 zeigt Vorarbeit und Änderungen
+- [ ] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc
+- [ ] **R11** keine `::` mehr in `batch-writer/src`
+- [ ] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie
+- [ ] **R10** Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch
+- [ ] **R3** Probeläufe und Nachweise verlinkt
+- [ ] **R2, R4** Commit-Übersicht
+
 ### V4: Abnahme nach der Vereinfachung
 
 **Warum an dieser Stelle:** Die Messwerte gelten nur für den Stand, der abgegeben wird.
