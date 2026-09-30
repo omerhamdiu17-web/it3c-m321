@@ -4258,7 +4258,7 @@ letzten dieser Commits.
 - *Test-Kommentar «nur mit content_type»* (`RabbitTemplate` setzt zusätzlich `delivery_mode 2`): Der Code bleibt genau der gemessene Stand. Das echte S5 ganz ohne `delivery_mode` prüft das Abnahmeskript, S5 bestanden.
 - *S6 mit einem Prüfskript, das sofort nach `--scale` sendet, und der gesperrte statt gestoppte Ausfall im Test:* Beides ist offengelegt (Spezifikation 6, R6), am Code lässt es sich nicht ändern.
 
-- [ ] **Z1** F4 mit einer Zeitangabe
+- [x] **Z1** F4 mit einer Zeitangabe
 - [ ] **Z2** Vorarbeit-Tabelle nennt `ChatMessageReader` als neu
 - [ ] **Z3** Berufungen auf den Auftrag mit Zitat
 - [ ] **Z4** `PSQLException` richtiggestellt

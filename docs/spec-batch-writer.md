@@ -313,8 +313,9 @@ Jeder Fehler gehört in eine von zwei Klassen. Danach richtet sich die Reaktion:
 - *Warum nicht «nach 3 Versuchen in die DLQ»* (PLANUNG.md 3.5):
   - Schuld ist hier nicht die Nachricht, sondern die Datenbank. Eine feste Zahl von Versuchen
     begrenzt nur, wie lange ein Ausfall dauern darf. Drei Versuche à rund 7 s decken rund 21 s ab.
-    In S7 dauert der Ausfall mit Neustart und DNS-Zwischenspeicher aber bis gegen 30 s, bei einem
-    Wartungsfenster Minuten.
+    In S7 fehlt die Datenbank für den batch-writer aber 15 s lang und danach im ungünstigsten Fall
+    noch rund 40 s (siehe oben), zusammen also bis gegen 55 s. Bei einem Wartungsfenster sind es
+    Minuten.
   - Die Nachrichten landeten dann in der DLQ, obwohl mit ihnen nichts falsch ist, und müssten von
     Hand zurückgeholt werden.
   - Eine klassische Queue zählt ausserdem keine Zustellversuche.
