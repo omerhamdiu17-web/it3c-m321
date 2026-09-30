@@ -4217,7 +4217,7 @@ Reihenfolge:
 - [x] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie: [36694486410](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694486410), `storesDuplicateOnlyOnce` und `storesMessageWithUnknownField` finden die falsche Kopie, ebenso die zwei anderen Tests, die `chat.dlq` prüfen
 - [x] **R10** Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch
 - [x] **R3** Probeläufe und Nachweise verlinkt
-- [ ] **R2, R4** Commit-Übersicht
+- [x] **R2, R4** Commit-Übersicht
 
 ### V4: Abnahme nach der Vereinfachung
 
@@ -4234,3 +4234,67 @@ git add docs/spec-batch-writer.md docs/plan-batch-writer.md
 git commit -m "docs: Abnahme nach der Vereinfachung" \
   -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
+
+---
+
+## Commit-Übersicht
+
+**Wozu:** Der Plan muss zum `git log` passen (Auftrag, Abschnitt 03). Hier steht jeder Commit seit
+dem Stand des Lehrers (`f8ea557`) in der Reihenfolge des `git log`, mit seinem Eintrag in diesem
+Plan und der Prüfung, die er bestanden hat.
+
+**Nachweis:** `git log --reverse --format=%s f8ea557..bewertung-1` ergibt Zeile für Zeile die
+Spalte «Message».
+
+**Zum Tempo:** Die Commits der Tasks 1 bis 12 liegen nur Minuten auseinander. Der Plan enthielt wie
+sein Vorbild `docs/plan-chat-service.md` schon den ganzen Code. Umsetzen hiess deshalb: Test
+übernehmen, rot sehen, Code übernehmen, grün sehen. Jeder Commit lief zuerst auf dem Branch
+`probe` durch GitHub Actions und kam erst danach auf `main`. Die Spalte «Prüfung» nennt beide Läufe.
+
+**Stapel von Commits:** Wurden mehrere Commits zusammen geprüft, gilt der Lauf auf dem letzten
+Commit des Stapels. Das betrifft K1 bis K5, die beiden Doku-Commits vom 30.09. vor V1 und die
+Korrekturen R7 bis R12. Reine Doku-Commits ändern keinen Code, ihr Lauf beweist nur, dass nichts
+bricht.
+
+| # | Hash | Message | Eintrag im Plan | Prüfung |
+|---|---|---|---|---|
+| 1 | `dfe0e38` | `docs: Spezifikation für den batch-writer` | vor dem Plan (Auftrag: «Spezifikation schreiben, dann planen») | noch kein CI, das entsteht in Task 1 |
+| 2 | `3a8e663` | `docs: Umsetzungsplan für den batch-writer` | dieser Plan | noch kein CI |
+| 3 | `5cfd316` | `ci: Build, Tests und Images bei jedem Push` | Task 1 | probe [36583847303](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36583847303), main [36583996092](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36583996092) |
+| 4 | `f891e00` | `chore: Modul batch-writer anlegen` | Task 2 | probe [36584087301](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584087301), main [36584272373](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584272373) |
+| 5 | `8bf88e9` | `feat: Tabelle message als Init-Skript für Postgres` | Task 3 | rot [36584285994](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584285994), probe [36584542862](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584542862), main [36584732671](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584732671) |
+| 6 | `9753116` | `feat: Nachricht aus dem JSON lesen, ohne __TypeId__` | Task 4 | probe [36584790682](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584790682), main [36584976948](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584976948) |
+| 7 | `0397084` | `feat: Stapel mit einem INSERT und ON CONFLICT DO NOTHING speichern` | Task 5 | probe [36585022430](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585022430), main [36585220372](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585220372) |
+| 8 | `1deb9ff` | `feat: Queues wie im chat-service anlegen` | Task 6 | probe [36585290622](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585290622), main [36585481343](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585481343) |
+| 9 | `22dd3a6` | `feat: Stapel aus chat.persist lesen und nach dem COMMIT bestätigen` | Task 7 | probe [36585521241](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585521241), main [36585836104](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585836104) |
+| 10 | `8026dee` | `feat: Stapel bei Datenbankausfall zurück in die Queue` | Task 8 | rot [36585879535](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585879535), probe [36586353170](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36586353170), main [36586722128](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36586722128) |
+| 11 | `d4c5e9e` | `feat: nicht speicherbare Nachricht einzeln in die DLQ` | Task 9 | rot [36586760971](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36586760971), probe [36587354276](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36587354276), main [36587744385](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36587744385) |
+| 12 | `0c3dcff` | `chore: Postgres und batch-writer in docker-compose` | Task 10 | rot [36587770805](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36587770805), probe [36588138312](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36588138312), main [36588530558](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36588530558) |
+| 13 | `72293a5` | `test: Abnahmeskript für die Szenarien S2 bis S8` | Task 11 | probe [36588577837](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36588577837), main [36589021802](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36589021802) |
+| 14 | `2e7a1b7` | `docs: README für batch-writer und Abnahme` | Task 12 | README-Befehle [36592784897](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36592784897), probe [36592759589](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36592759589), main [36593119887](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36593119887) |
+| 15 | `8a8bb56` | `docs: Korrekturen aus dem Abschluss-Review im Plan` | Korrekturen aus dem Abschluss-Review (Tabelle) | Stapel K1 bis K5: probe [36598446488](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36598446488) |
+| 16 | `bad405b` | `fix: .env.example immer mit LF-Zeilenenden` | K1 | `git check-attr eol -- .env.example`: `lf`; Stapel-Lauf wie Zeile 15 |
+| 17 | `8f724eb` | `fix: Abnahme wartet in S6 auf den neu erstellten chat-service` | K2 | Abnahme S6 `PASS` mit 2 Instanzen; Stapel-Lauf wie Zeile 15 |
+| 18 | `1963a92` | `ci: Abnahme prüft .env im ganzen Verlauf` | K3 | S8 meldet die Zahl der geprüften Commits; Stapel-Lauf wie Zeile 15 |
+| 19 | `929a31d` | `chore: Testberichte des batch-writer ohne Protokolle` | K4 | `grep -c '<system-out>'` im Bericht: `0`; Stapel-Lauf wie Zeile 15 |
+| 20 | `2452cb2` | `docs: ein Stapel ist eine Transaktion, nicht ein INSERT` | K5 | `grep -rn 'einem INSERT pro' README.md batch-writer/src`: keine Ausgabe; Stapel-Lauf wie Zeile 15 |
+| 21 | `ff5678c` | `docs: Abschluss mit den Messwerten der Abnahme` | Abschluss-Prüfung (29.09.) | main [36599013343](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36599013343). **Offen gesagt:** Dieser Commit enthält zwei Themen, die Messwerte und vier Nachträge aus dem Abschluss-Review (R4). Er bleibt so, die Geschichte wird nicht umgeschrieben |
+| 22 | `b7173d6` | `docs: Spezifikation – Spring bestätigt die Stapel` | Vereinfachung, Einleitung (erst die Spezifikation) | Stapel mit Zeile 23 und 24: probe [36690264883](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690264883). Zeile 22 und 23 tragen dieselbe Sekunde, weil beide Doku-Commits mit einem Befehl entstanden |
+| 23 | `3f2cd5c` | `docs: Vereinfachung im Umsetzungsplan` | Vereinfachung (Abschnitt) | wie Zeile 22 |
+| 24 | `72b594f` | `test: DLQ-Kopien persistent und nur einmal, Umlaute und Zusatzfelder` | V1 | probe [36690264883](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690264883) auf dem alten Stand grün, main [36690639108](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690639108) |
+| 25 | `5fe4bc3` | `refactor: Spring bestätigt die Stapel, der Listener braucht keinen Channel mehr` | V2 | probe [36690643644](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690643644), main [36690955428](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690955428); absichtliche Fehler P1 bis P5 rot (V3) |
+| 26 | `b8d6c61` | `docs: Befunde der Probe-Bewertung im Plan` | Korrekturen aus der Probe-Bewertung (Tabelle) | Stapel R7 bis R12: probe [36694439764](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694439764) |
+| 27 | `0406de1` | `docs: Spezifikation 2.3 nennt, was der chat-service wirklich prüft` | R7 | Text gegen `SendMessageRequest.java:21-24`; Stapel-Lauf wie Zeile 26 |
+| 28 | `6f313a0` | `docs: Spezifikation 4.4, die HOST-Variablen setzt docker-compose.yml` | R8 | `grep HOST .env.example`: keine Ausgabe; Stapel-Lauf wie Zeile 26 |
+| 29 | `6ba17c0` | `docs: Spezifikation F10 und die Protokollzeile präzisiert` | R9 | Text gegen `ConditionalRejectingErrorHandler` und `MessageBatchListener.store`; Stapel-Lauf wie Zeile 26 |
+| 30 | `f594f88` | `docs: Spezifikation 6, warum der Ausfall-Test die Datenbank sperrt statt stoppt` | R6 | Stapel-Lauf wie Zeile 26 |
+| 31 | `c705ce4` | `docs: Spezifikation 7, was aus der Vorarbeit stammt und was die Spezifikation geändert hat` | R1 | Tabelle gegen den Branch `archiv/vorarbeit-2026-09-23` geprüft; Stapel-Lauf wie Zeile 26 |
+| 32 | `55146c2` | `test: Kommentarprüfung als eigenes Skript für S8` | R5 | rot bei fehlendem Javadoc [36694483541](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694483541); Stapel-Lauf wie Zeile 26 |
+| 33 | `2b93621` | `test: Transaktionen mit CAST statt :: zählen` | R11 | `grep -rn '::' batch-writer/src`: keine Ausgabe; Stapel-Lauf wie Zeile 26 |
+| 34 | `8571291` | `test: S5 und Zusatzfeld warten auf eine falsche Kopie in chat.dlq` | R12 | rot bei falscher Kopie [36694486410](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694486410), probe [36694439764](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694439764) |
+| 35 | `a0bc663` | `docs: Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch` | R10 | `grep -nE '^(Run\|Expected):' docs/plan-batch-writer.md`: keine Ausgabe |
+| 36 | `3436fbb` | `docs: Probeläufe und Nachweise im Plan verlinkt` | R3 | Links öffnen die genannten Läufe |
+| 37 | dieser Commit | `docs: Commit-Übersicht im Plan, jeder Commit mit Eintrag und Prüfung` | R2, R4 | Nachweis oben |
+| 38 | Tag `bewertung-1` | `docs: Abnahme nach der Vereinfachung` | V4 | Abnahme auf dem Code von Zeile 34, danach nur Doku |
+
+- [x] **Übersicht** vollständig: Zeile 1 bis 38 in der Reihenfolge des `git log`
