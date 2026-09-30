@@ -675,7 +675,7 @@ Archiv-Branchs mit dem heutigen Stand):
 
 | Thema | Vorarbeit (23.09.) | Heute | Grund |
 |---|---|---|---|
-| Aufbau | `MessageBatchListener`, `ReceivedMessage`, `MessageRepository`, `RabbitConfig`, `QueueNames`, `record ChatMessage` | gleich | Schichtung wie im `chat-service`, sie hat sich bewährt |
+| Aufbau | `MessageBatchListener`, `ReceivedMessage`, `MessageRepository`, `RabbitConfig`, `QueueNames`, `record ChatMessage` | dieselben Klassen, dazu neu `ChatMessageReader` | Schichtung wie im `chat-service`, sie hat sich bewährt. Das Lesen des Bodys hat eine eigene Klasse, damit es sich ohne Container testen lässt |
 | Duplikate | `ON CONFLICT (id) DO NOTHING` | gleich | F2 |
 | Fremdschlüssel `room_id` | ja, auf eine Tabelle `room` | **keiner** | Sonst landen gültige Nachrichten in der DLQ (4.1, 5) |
 | `sent_at` in Java | `Instant`, im Repository in `Timestamp` umgewandelt | `OffsetDateTime`, direkt gebunden | Eine Umwandlung weniger, der Treiber bindet `OffsetDateTime` an `timestamptz` (4.1) |

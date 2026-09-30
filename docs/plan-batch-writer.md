@@ -4259,7 +4259,7 @@ letzten dieser Commits.
 - *S6 mit einem Prüfskript, das sofort nach `--scale` sendet, und der gesperrte statt gestoppte Ausfall im Test:* Beides ist offengelegt (Spezifikation 6, R6), am Code lässt es sich nicht ändern.
 
 - [x] **Z1** F4 mit einer Zeitangabe
-- [ ] **Z2** Vorarbeit-Tabelle nennt `ChatMessageReader` als neu
+- [x] **Z2** Vorarbeit-Tabelle nennt `ChatMessageReader` als neu
 - [ ] **Z3** Berufungen auf den Auftrag mit Zitat
 - [ ] **Z4** `PSQLException` richtiggestellt
 - [ ] **Z5** Arbeitsweise so, wie sie lief
