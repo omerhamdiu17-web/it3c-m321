@@ -40,8 +40,9 @@ public class RabbitConfig {
     }
 
     /**
-     * Das Abstellgleis. Auch der batch-writer legt es an: gäbe es die Queue
-     * noch nicht, würde RabbitMQ abgelehnte Nachrichten still verwerfen.
+     * Das Abstellgleis. Auch der batch-writer legt es an, denn er legt selbst
+     * Nachrichten hinein: gäbe es die Queue noch nicht, würde RabbitMQ sie
+     * still verwerfen.
      */
     @Bean
     public Queue deadLetterQueue() {
@@ -59,7 +60,12 @@ public class RabbitConfig {
      * - receiveTimeout: kommt 200 ms lang nichts, geht der Stapel sofort los.
      * - prefetchCount: RabbitMQ schickt genau einen Stapel auf Vorrat.
      * - concurrentConsumers: ein Verbraucher pro Instanz, skaliert wird mit --scale.
-     * - MANUAL: wir bestätigen selbst, und zwar erst nach dem COMMIT.
+     * - AUTO: Spring bestätigt für uns. Kehrt der Listener ohne Fehler zurück,
+     *   also nach dem COMMIT, schickt Spring EIN ACK für den ganzen Stapel.
+     *   Wirft er einen Fehler, schickt Spring ein NACK für den ganzen Stapel.
+     * - defaultRequeueRejected: dieses NACK heisst "zurück in die Queue" und
+     *   nicht "in die DLQ". true ist auch die Vorgabe von Spring; es steht
+     *   trotzdem hier, weil der Datenbank-Ausfall (S7) genau davon abhängt.
      */
     @Bean(name = BATCH_LISTENER_FACTORY)
     public SimpleRabbitListenerContainerFactory batchListenerFactory(ConnectionFactory connectionFactory) {
@@ -72,7 +78,8 @@ public class RabbitConfig {
         factory.setReceiveTimeout(BATCH_TIMEOUT_MILLISECONDS);
         factory.setPrefetchCount(BATCH_SIZE);
         factory.setConcurrentConsumers(1);
-        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
+        factory.setDefaultRequeueRejected(true);
         return factory;
     }
 }

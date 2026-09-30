@@ -3864,7 +3864,7 @@ git commit -m "test: DLQ-Kopien persistent und nur einmal, Umlaute und Zusatzfel
 - Verbraucht: `ChatMessageReader.read(byte[])`, `MessageRepository.insertBatch(List<ChatMessage>)`, `RabbitTemplate` von Spring Boot
 - Stellt bereit: `onBatch(List<Message>)` ohne `Channel`; `ReceivedMessage(Message original, ChatMessage chatMessage)`; unverändert `LISTENER_ID` und die Log-Zeile `Stored batch of N messages` (S6 sucht sie)
 
-- [ ] **Schritt 1: `ReceivedMessage` trägt das Original statt der Liefernummer**
+- [x] **Schritt 1: `ReceivedMessage` trägt das Original statt der Liefernummer**
 
 ```java
 /**
@@ -3881,7 +3881,7 @@ public record ReceivedMessage(Message original, ChatMessage chatMessage) {
 }
 ```
 
-- [ ] **Schritt 2: `RabbitConfig`: `AUTO` und `defaultRequeueRejected`**
+- [x] **Schritt 2: `RabbitConfig`: `AUTO` und `defaultRequeueRejected`**
 
 In `batchListenerFactory` die letzte Einstellung ersetzen und eine ergänzen:
 
@@ -3904,7 +3904,7 @@ Im Javadoc der Factory statt «MANUAL: wir bestätigen selbst …»:
 Im Javadoc von `deadLetterQueue()`: «Auch der batch-writer legt es an, denn er legt selbst Nachrichten
 hinein: gäbe es die Queue noch nicht, würde RabbitMQ sie still verwerfen.»
 
-- [ ] **Schritt 3: `MessageBatchListener` neu schreiben**
+- [x] **Schritt 3: `MessageBatchListener` neu schreiben**
 
 ```java
 package ch.benedict.m321.batchwriter.service;
@@ -4129,17 +4129,17 @@ public class MessageBatchListener {
 > («Execution of Rabbit message listener failed.»). Das ist gewollt, die Zeile `Caused by:` darin
 > nennt den Grund.
 
-- [ ] **Schritt 4: Alle Tests laufen lassen, ohne einen zu ändern**
+- [x] **Schritt 4: Alle Tests laufen lassen, ohne einen zu ändern**
 
 Run: `mvn -B clean test` (im CI, Branch `probe`)
 Expected: grün, im batch-writer 29 Tests. Also dieselben Tests wie nach V1, keiner angepasst.
 
-- [ ] **Schritt 5: Nichts mehr von Hand bestätigen**
+- [x] **Schritt 5: Nichts mehr von Hand bestätigen**
 
 Run: `grep -rn -E 'Channel|basicAck|basicNack|basicReject|deliveryTag' batch-writer/src/main`
 Expected: keine Ausgabe.
 
-- [ ] **Schritt 6: Committen**
+- [x] **Schritt 6: Committen**
 
 ```bash
 git add batch-writer/src/main docs/plan-batch-writer.md

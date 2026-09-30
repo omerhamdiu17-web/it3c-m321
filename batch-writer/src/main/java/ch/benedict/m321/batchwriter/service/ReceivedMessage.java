@@ -1,16 +1,17 @@
 package ch.benedict.m321.batchwriter.service;
 
 import ch.benedict.m321.batchwriter.dto.ChatMessage;
+import org.springframework.amqp.core.Message;
 
 /**
- * Eine gelesene Nachricht zusammen mit ihrem Lieferschein.
+ * Eine gelesene Nachricht: das Original aus der Queue und der Inhalt daraus.
  *
- * Der deliveryTag ist die Nummer, unter der RabbitMQ die Nachricht auf diesem
- * Channel ausgeliefert hat. Nur mit dieser Nummer lässt sie sich bestätigen
- * (ACK), ablehnen (Reject) oder zurückgeben (NACK).
+ * In die Datenbank geht nur der Inhalt. Das Original brauchen wir, falls die
+ * Datenbank die Nachricht ablehnt: dann legen wir genau dieses Original,
+ * Body und Header unverändert, nach chat.dlq (Spezifikation 3.3, F9).
  *
- * @param deliveryTag die Liefernummer von RabbitMQ
+ * @param original    die Nachricht, wie sie aus chat.persist kam
  * @param chatMessage der Inhalt, schon aus dem JSON gelesen
  */
-public record ReceivedMessage(long deliveryTag, ChatMessage chatMessage) {
+public record ReceivedMessage(Message original, ChatMessage chatMessage) {
 }
