@@ -4203,7 +4203,7 @@ Reihenfolge:
 - *Relativer Pfad zum Schema in `TestDatabase`:* Maven startet die Tests im Modulordner (S1). Nur beim Start aus einer Entwicklungsumgebung im Wurzelordner fehlte das Schema.
 - *Die Commits `ff5678c` und `72b594f`:* Sie werden nicht umgeschrieben. Die Geschichte bleibt, wie sie ist, und die Übersicht legt sie offen.
 
-- [ ] **R7** Spezifikation 2.3 richtiggestellt
+- [x] **R7** Spezifikation 2.3 richtiggestellt
 - [ ] **R8** Spezifikation 4.4 richtiggestellt
 - [ ] **R9** Spezifikation F10 und Protokollzeile präzisiert
 - [ ] **R6** Spezifikation 6 erklärt den Ausfall-Test

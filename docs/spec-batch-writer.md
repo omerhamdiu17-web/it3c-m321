@@ -116,9 +116,15 @@ selbst hineinschreibt. Gäbe es die Queue nicht, verwürfe RabbitMQ diese Nachri
 3. Von Hand in die Queue gelegte Nachrichten (Szenario S5) haben nur `content_type` und keinen
    `__TypeId__`. Sie müssen genauso funktionieren.
 
-Nicht geprüft werden: ob der Raum existiert, wie lang die Texte sind und ob sie nur aus Leerzeichen
-bestehen. Das prüft der `chat-service` beim Annehmen (`SendMessageRequest.java:21-24`). Der
-batch-writer prüft nur, was die Datenbank sonst ablehnen würde: dass kein Feld fehlt.
+Nicht geprüft werden:
+- *ob der Raum existiert und wie lang die Texte sind.* Das prüft niemand. Räume gehören nicht zu
+  dieser Aufgabe, und der Vertrag kennt keine Höchstlänge (4.1).
+- *ob ein Text leer ist oder nur aus Leerzeichen besteht.* Das prüft schon der `chat-service` beim
+  Annehmen, mit `@NotNull` für den Raum und `@NotBlank` für die drei Texte
+  (`SendMessageRequest.java:21-24`). Liegt eine Nachricht mit leerem Text direkt in der Queue (wie
+  in S5), speichert der batch-writer sie trotzdem.
+
+Der batch-writer prüft nur, was die Datenbank sonst ablehnen würde: dass kein Feld fehlt.
 
 ### 2.4 Woher wir das wissen
 
