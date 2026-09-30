@@ -4235,6 +4235,37 @@ git commit -m "docs: Abnahme nach der Vereinfachung" \
   -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
+### Korrekturen aus der zweiten Probe-Bewertung
+
+**Warum an dieser Stelle:** Nach V4 hat ein zweiter, frischer KI-Prüfer den getaggten Stand
+`80958b3` nach dem Raster der Aufgabe bewertet. Das Ergebnis: A 8/8, B 5/6, C 24/24, D 6/6. Er fand
+keine Fehler im Code, aber Ungenauigkeiten in Spezifikation und Plan. Jede Korrektur ist ein
+eigener Doku-Commit, der Code bleibt unverändert. Danach zeigt der Tag `bewertung-1` auf den
+letzten dieser Commits.
+
+| # | Befund | Folge ohne Korrektur | Nachweis | Commit |
+|---|---|---|---|---|
+| Z1 | F4 nennt «rund 40 s nach dem Neustart» und «der Ausfall dauert bis gegen 30 s» | zwei Zahlen, die nicht zusammenpassen (A2) | eine Zeitangabe: 15 s Stopp plus bis zu rund 40 s, zusammen bis gegen 55 s | `docs: Spezifikation F4 mit einer einzigen Zeitangabe für den Ausfall` |
+| Z2 | Spezifikation 7, Zeile «Aufbau: gleich». `ChatMessageReader` gab es in der Vorarbeit aber nicht | ungenauer Vergleich mit der Vorarbeit (R1) | `git ls-tree` des Archiv-Branchs: kein `ChatMessageReader` | `docs: Spezifikation 7 nennt ChatMessageReader als neu` |
+| Z3 | «wie im Auftrag vorgegeben» (Spezifikation 1.3) und «Der Auftrag verlangt ausdrücklich» (Task 11) ohne Zitat | Behauptung nicht nachprüfbar | wörtliches Zitat aus dem Auftrag | `docs: Berufungen auf den Auftrag wörtlich belegt` |
+| Z4 | Task 8, Falle 3: «`PSQLException`, also `RuntimeException`» | Sachfehler: `PSQLException` ist eine `SQLException`, erst Spring macht daraus eine `RuntimeException` | Text richtiggestellt | `docs: Plan Task 8, PSQLException ist keine RuntimeException` |
+| Z5 | «Jede Aufgabe beginnt mit einem Test, der fehlschlägt»; Task 1, 2 und 10 nennen «Pushen» vor «Committen»; die Abschluss-Prüfung vom 29.09. sagt «ein Thema pro Commit» ohne Ausnahme | Arbeitsweise genauer beschrieben, als sie war (B2, B3) | Text gegen Commit-Übersicht und Probeläufe | `docs: Arbeitsweise im Plan so, wie sie lief` |
+| Z6 | Codeblöcke von Task 5, 7, 8, 11 und V1 zeigen ohne Hinweis einen anderen Stand als den des Task-Commits oder des Endstands; Dateistruktur «(bis 29.09.: + deliveryTag)» | Plan und Code scheinen sich zu widersprechen (B3) | Hinweis «Stand …» bei jedem betroffenen Block | `docs: Codeblöcke im Plan mit ihrem Stand markiert` |
+| Z7 | Die Commit-Übersicht endet mit «dieser Commit» und dem Tag, danach kamen Z1 bis Z6 | Übersicht nicht mehr vollständig (B3) | `git log --reverse --format=%s f8ea557..bewertung-1` ergibt die Spalte «Message» | `docs: Commit-Übersicht nach der zweiten Probe-Bewertung` |
+
+**Bewusst nicht geändert:**
+- *`ff5678c` mit zwei Themen; Befehle der Abnahme, die in `72293a5` und `8f724eb` mit angepasst wurden:* Die Geschichte wird nicht umgeschrieben, die Commit-Übersicht legt es offen.
+- *Test-Kommentar «nur mit content_type»* (`RabbitTemplate` setzt zusätzlich `delivery_mode 2`): Der Code bleibt genau der gemessene Stand. Das echte S5 ganz ohne `delivery_mode` prüft das Abnahmeskript, S5 bestanden.
+- *S6 mit einem Prüfskript, das sofort nach `--scale` sendet, und der gesperrte statt gestoppte Ausfall im Test:* Beides ist offengelegt (Spezifikation 6, R6), am Code lässt es sich nicht ändern.
+
+- [ ] **Z1** F4 mit einer Zeitangabe
+- [ ] **Z2** Vorarbeit-Tabelle nennt `ChatMessageReader` als neu
+- [ ] **Z3** Berufungen auf den Auftrag mit Zitat
+- [ ] **Z4** `PSQLException` richtiggestellt
+- [ ] **Z5** Arbeitsweise so, wie sie lief
+- [ ] **Z6** Codeblöcke mit ihrem Stand markiert
+- [ ] **Z7** Commit-Übersicht vollständig
+
 ---
 
 ## Commit-Übersicht
