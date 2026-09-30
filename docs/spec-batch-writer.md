@@ -50,7 +50,7 @@ damit die Stelle, an der die Queue als Puffer ihren Zweck erfüllt.
 | Login, Token prüfen | Der Dienst hat keinen Port und nimmt keine Anfragen an. Das Gateway ist der einzige Wachposten (PLANUNG.md 3.1) |
 | Exactly-once | Wir garantieren At-least-once und machen Duplikate harmlos (PLANUNG.md 3.6), siehe 3.2 |
 | Alte Nachrichten löschen | Offener Punkt 2 in PLANUNG.md, nicht Teil dieses Schritts |
-| Eigener Datenbank-Benutzer mit minimalen Rechten | Bewusst zurückgestellt. Der batch-writer meldet sich mit `POSTGRES_USER` an, wie im Auftrag vorgegeben. Der nächste Schritt wäre ein Benutzer, der nur `INSERT` auf `message` darf |
+| Eigener Datenbank-Benutzer mit minimalen Rechten | Bewusst zurückgestellt. Der batch-writer meldet sich mit `POSTGRES_USER` an, denn der Auftrag legt fest: «Zugangsdaten über POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB in .env.example». Der nächste Schritt wäre ein Benutzer, der nur `INSERT` auf `message` darf |
 | Webserver, Port, Health-Endpunkt | Niemand ruft den batch-writer auf. Ohne Webserver belegt er keinen Port und startet schneller |
 
 ---

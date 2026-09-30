@@ -3037,7 +3037,7 @@ git commit -m "chore: Postgres und batch-writer in docker-compose" \
 
 ## Task 11: Abnahmeskript für die Szenarien S2 bis S8
 
-**Warum an dieser Stelle:** Das Skript braucht den ganzen Stack (Task 10). Es prüft alles so, wie die Abnahme es tut: in derselben Reihenfolge, auf demselben Stack, ohne Aufräumen dazwischen, gemessen von innen mit `psql` und `rabbitmqctl`. Der Auftrag verlangt ausdrücklich, die Szenarien so nachzustellen, dass man sie selbst ausführen kann.
+**Warum an dieser Stelle:** Das Skript braucht den ganzen Stack (Task 10). Es prüft alles so, wie die Abnahme es tut: in derselben Reihenfolge, auf demselben Stack, ohne Aufräumen dazwischen, gemessen von innen mit `psql` und `rabbitmqctl`. Der Auftrag sagt dazu: «Sie so nachzustellen, dass du sie selbst ausführen kannst, gehört zu deiner Spezifikation und zu deinem Testen.»
 
 **Dateien:**
 - Anlegen: `scripts/abnahme.sh`
@@ -4260,7 +4260,7 @@ letzten dieser Commits.
 
 - [x] **Z1** F4 mit einer Zeitangabe
 - [x] **Z2** Vorarbeit-Tabelle nennt `ChatMessageReader` als neu
-- [ ] **Z3** Berufungen auf den Auftrag mit Zitat
+- [x] **Z3** Berufungen auf den Auftrag mit Zitat
 - [ ] **Z4** `PSQLException` richtiggestellt
 - [ ] **Z5** Arbeitsweise so, wie sie lief
 - [ ] **Z6** Codeblöcke mit ihrem Stand markiert
