@@ -4,7 +4,7 @@
 
 **Ziel:** Der `batch-writer` holt jede Nachricht aus `chat.persist`, schreibt sie stapelweise, eine Transaktion pro Stapel, dauerhaft in die Tabelle `message` und bestätigt sie erst nach dem COMMIT. Er übersteht doppelte Nachrichten, einen Rückstau, mehrere Instanzen und einen Datenbank-Ausfall ohne Verlust.
 
-**Architektur:** Schichtung wie beim `chat-service`: `config` richtet beim Start die Queues und das Lesen in Stapeln ein, `service` liest und bestätigt, `repository` schreibt, `dto` ist die eigene Kopie des Vertrags. Der Listener kennt kein SQL, das Repository kein RabbitMQ. Das Schema liegt nicht im Dienst, sondern in `postgres/init` und wird von PostgreSQL beim ersten Start ausgeführt.
+**Architektur:** Schichtung wie beim `chat-service`: `config` richtet beim Start die Queues und das Lesen in Stapeln ein, `service` liest, lässt schreiben und legt Unspeicherbares nach `chat.dlq` (bestätigt wird seit dem 30.09. von Spring), `repository` schreibt, `dto` ist die eigene Kopie des Vertrags. Der Listener kennt kein SQL, das Repository kein RabbitMQ. Das Schema liegt nicht im Dienst, sondern in `postgres/init` und wird von PostgreSQL beim ersten Start ausgeführt.
 
 **Tech-Stack:** Java 21, Spring Boot 3.5.16, Spring AMQP 3.2 (Stapel-Listener), Spring `JdbcTemplate`, PostgreSQL 16, RabbitMQ 3.13, JUnit 5, Testcontainers, Maven Multi-Modul, GitHub Actions.
 
@@ -3831,8 +3831,8 @@ DLQ-Zählung:
 
 - [x] **Schritt 4: Auf dem alten Stand laufen lassen**
 
-Run: `mvn -B clean test` (im CI, Branch `probe`)
-Expected: grün, im batch-writer 29 Tests.
+Ausführen: `mvn -B clean test` (im CI, Branch `probe`)
+Erwartet: grün, im batch-writer 29 Tests.
 
 **Warum grün und nicht rot:** Diese Tests sind der Massstab für V2, nicht für neuen Code. Auf dem
 alten Stand sind sie grün aus folgenden Gründen:
@@ -4132,13 +4132,13 @@ public class MessageBatchListener {
 
 - [x] **Schritt 4: Alle Tests laufen lassen, ohne einen zu ändern**
 
-Run: `mvn -B clean test` (im CI, Branch `probe`)
-Expected: grün, im batch-writer 29 Tests. Also dieselben Tests wie nach V1, keiner angepasst.
+Ausführen: `mvn -B clean test` (im CI, Branch `probe`)
+Erwartet: grün, im batch-writer 29 Tests. Also dieselben Tests wie nach V1, keiner angepasst.
 
 - [x] **Schritt 5: Nichts mehr von Hand bestätigen**
 
-Run: `grep -rn -E 'Channel|basicAck|basicNack|basicReject|deliveryTag' batch-writer/src/main`
-Expected: keine Ausgabe.
+Ausführen: `grep -rn -E 'Channel|basicAck|basicNack|basicReject|deliveryTag' batch-writer/src/main`
+Erwartet: keine Ausgabe.
 
 - [x] **Schritt 6: Committen**
 
@@ -4212,7 +4212,7 @@ Reihenfolge:
 - [x] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc
 - [x] **R11** keine `::` mehr in `batch-writer/src`
 - [x] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie
-- [ ] **R10** Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch
+- [x] **R10** Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch
 - [ ] **R3** Probeläufe und Nachweise verlinkt
 - [ ] **R2, R4** Commit-Übersicht
 
