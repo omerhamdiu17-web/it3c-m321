@@ -1,11 +1,12 @@
 # batch-writer — Spezifikation
 
-**Modul M321 · Klasse IT3c · Bewertung 1 · Omer Hamdiu · Stand 29.09.2026**
+**Modul M321 · Klasse IT3c · Bewertung 1 · Omer Hamdiu · Stand 30.09.2026**
 
 Der `batch-writer` ist der einzige Dienst, der Chat-Nachrichten in die Datenbank schreibt. Er
 holt die Nachrichten aus der Queue `chat.persist` in Stapeln von bis zu 500 Stück, schreibt jeden
 Stapel in **einer** Transaktion mit `INSERT … ON CONFLICT (id) DO NOTHING` in die Tabelle
-`message` und bestätigt die Nachrichten erst **nach** dem COMMIT.
+`message`. Bestätigt werden die Nachrichten erst **nach** dem COMMIT. Das ACK schickt Spring AMQP,
+sobald der Listener ohne Fehler fertig ist.
 
 Grundlagen: [`PLANUNG.md`](../PLANUNG.md) (Abschnitte 3.4 bis 3.7 und 4.1), [`CLAUDE.md`](../CLAUDE.md),
 der Auftrag «Bewertung 1» und der Code des `chat-service` im Stand `f8ea557e`.
@@ -30,11 +31,13 @@ damit die Stelle, an der die Queue als Puffer ihren Zweck erfüllt.
    (Competing Consumers, PLANUNG.md 3.5).
 2. Er liest aus jeder Nachricht nur den JSON-Body und macht daraus eine eigene `ChatMessage`.
 3. Er schreibt einen ganzen Stapel in einer einzigen Transaktion in die Tabelle `message`.
-4. Er bestätigt (ACK) die Nachrichten erst nach dem COMMIT.
-5. Nachrichten, die sich nicht lesen oder nicht speichern lassen, lehnt er ab. RabbitMQ legt sie
-   dann nach `chat.dlq`.
-6. Ist die Datenbank nicht erreichbar, gibt er den Stapel nach einer kurzen Pause an RabbitMQ
-   zurück (NACK mit requeue) und versucht es so lange wieder, bis die Datenbank antwortet.
+4. Bestätigt (ACK) wird der Stapel erst nach dem COMMIT. Das ACK schickt Spring AMQP für ihn, sobald
+   der Listener ohne Fehler zurückkehrt (Bestätigungsmodus `AUTO`).
+5. Nachrichten, die sich nicht lesen oder nicht speichern lassen, legt er am Ende ihres Stapels
+   selbst unverändert nach `chat.dlq`.
+6. Ist die Datenbank nicht erreichbar, wartet er kurz und wirft den Fehler weiter. Spring AMQP gibt
+   den Stapel dann an RabbitMQ zurück (NACK mit requeue). Das wiederholt sich, bis die Datenbank
+   antwortet.
 
 ### 1.3 Was er bewusst nicht tut
 
@@ -62,10 +65,11 @@ damit die Stelle, an der die Queue als Puffer ihren Zweck erfüllt.
 | `durable` | ja | ja |
 | `auto_delete` / `exclusive` | nein / nein | nein / nein |
 | Argumente | `x-dead-letter-exchange` = `""` (Standard-Exchange), `x-dead-letter-routing-key` = `chat.dlq` | keine |
-| Wer schreibt | `chat-service`, über den Standard-Exchange `""` mit Routing-Key `chat.persist` | RabbitMQ selbst, wenn eine Nachricht aus `chat.persist` abgelehnt wird |
+| Wer schreibt | `chat-service`, über den Standard-Exchange `""` mit Routing-Key `chat.persist` | der batch-writer, über den Standard-Exchange mit Routing-Key `chat.dlq` (3.3, F8 und F9). RabbitMQ selbst nur, wenn ein ganzer Stapel ohne requeue abgelehnt würde. Das sieht unser Code nicht vor, die Argumente sind ein Sicherheitsnetz |
 
 **Regel für den batch-writer:** Er deklariert beide Queues selbst, und zwar mit **genau denselben**
-Eigenschaften und Argumenten wie der `chat-service`.
+Eigenschaften und Argumenten wie der `chat-service`. `chat.dlq` braucht er schon deshalb, weil er
+selbst hineinschreibt. Gäbe es die Queue nicht, verwürfe RabbitMQ diese Nachrichten still.
 - Wer zuerst startet, legt die Queues an. Der `chat-service` tut das erst beim ersten Senden. Ohne
   eigene Deklaration würde der Verbraucher des batch-writer an einer fehlenden Queue scheitern.
 - Weicht eine Deklaration auch nur in einem Argument ab, lehnt RabbitMQ sie mit `406
@@ -193,12 +197,13 @@ Exit-Code 7 (Verbindung abgelehnt), kurz warten und wiederholen.
 ```mermaid
 flowchart TD
     Q[("chat.persist")] -->|"bis zu 500 Nachrichten<br/>oder 200 ms"| S["Stapel"]
-    S --> R{"Body lesbar<br/>und vollständig?"}
-    R -->|nein| X["basicReject<br/>→ RabbitMQ legt sie nach chat.dlq"]
-    R -->|ja| I["INSERT … ON CONFLICT (id) DO NOTHING<br/>alle lesbaren in EINER Transaktion"]
-    I -->|COMMIT ok| A["basicAck für den ganzen Stapel"]
-    I -->|Datenfehler einer Zeile| E["einzeln schreiben<br/>gute: ACK · abgelehnte: Reject → chat.dlq"]
-    I -->|Datenbank nicht erreichbar| N["2 s Pause, dann basicNack mit requeue"]
+    S --> L["1. Lesen: jeder Body wird eine ChatMessage<br/>unlesbare → Liste für chat.dlq"]
+    L --> I["2. Speichern: INSERT … ON CONFLICT (id) DO NOTHING<br/>alle lesbaren in EINER Transaktion"]
+    I -->|Datenfehler einer Zeile| E["einzeln schreiben<br/>abgelehnte → Liste für chat.dlq"]
+    I -->|COMMIT ok| D["3. Liste nach chat.dlq senden"]
+    E --> D
+    D --> A["onBatch kehrt zurück<br/>→ Spring: ACK für den ganzen Stapel"]
+    I -->|Datenbank nicht erreichbar| N["2 s Pause, Fehler weiterwerfen<br/>→ Spring: NACK mit requeue"]
     N --> Q
 ```
 
@@ -213,16 +218,20 @@ flowchart TD
 
    Im ungünstigsten Fall steht ein Stapel also rund 0,4 s nach seinem Beginn.
 3. **Lesen.** Jeder Body wird mit dem `ObjectMapper` von Spring Boot in eine `ChatMessage`
-   umgewandelt. Ist er nicht lesbar, siehe F8.
+   umgewandelt. Ist er nicht lesbar, kommt die Nachricht in die Liste für `chat.dlq` (F8).
 4. **Schreiben.** Alle lesbaren Nachrichten des Stapels gehen mit `JdbcTemplate.batchUpdate` und
    `INSERT INTO message (…) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING` in **einer**
    Transaktion (`@Transactional`) in die Datenbank. Mit `reWriteBatchedInserts=true` fasst der
    Treiber die Zeilen zu mehrzeiligen INSERTs zusammen, bis zu 128 Zeilen je Anweisung (500 Zeilen
    ergeben 7 Anweisungen). Am Ende steht genau ein COMMIT.
-5. **Bestätigen.** Erst nach dem COMMIT folgt `basicAck(tag, multiple = true)` mit dem Tag der
-   **letzten lesbaren** Nachricht. Das bestätigt alle noch offenen Nachrichten des Stapels auf
-   einmal (F12).
-6. **Protokoll.** Pro Stapel eine Zeile `Stored batch of N messages`. So zeigt
+5. **Aussortiertes nach `chat.dlq`.** Erst jetzt, nach dem Speichern, legt der batch-writer die
+   Nachrichten aus der Liste unverändert und persistent nach `chat.dlq` (F8, F9).
+6. **Bestätigen.** Das macht nicht unser Code, sondern Spring AMQP (Bestätigungsmodus `AUTO`, 4.5).
+   Kehrt `onBatch` ohne Fehler zurück, also nach dem COMMIT und nach dem Senden an `chat.dlq`,
+   schickt Spring **ein** ACK für den ganzen Stapel: `basicAck` mit dem höchsten Tag und
+   `multiple = true` (`BlockingQueueConsumer.commitIfNecessary`, Spring AMQP 3.2.12). Unser Code
+   kennt weder Channel noch Liefernummern (F12).
+7. **Protokoll.** Pro Stapel eine Zeile `Stored batch of N messages`. So zeigt
    `docker compose logs batch-writer` bei zwei Instanzen, dass beide arbeiten.
 
 **Mengengerüst:** 1'000 wartende Nachrichten ergeben 2 Stapel, also 2 schreibende Transaktionen.
@@ -230,8 +239,9 @@ Bei 1'667 Nachrichten pro Sekunde sind es rund 3,3 Stapel pro Sekunde.
 
 ### 3.2 Zustellgarantie
 
-**At-least-once.** Bestätigt wird erst nach dem COMMIT. Stürzt der batch-writer vorher ab, liefert
-RabbitMQ den Stapel erneut. Es geht nichts verloren, aber eine Nachricht kann zweimal ankommen.
+**At-least-once.** Bestätigt wird erst nach dem COMMIT, denn Spring schickt das ACK erst, wenn
+`onBatch` fertig ist. Stürzt der batch-writer vorher ab, liefert RabbitMQ den Stapel erneut. Es geht
+nichts verloren, aber eine Nachricht kann zweimal ankommen.
 
 **Duplikate sind harmlos.** `id` ist der Primärschlüssel und kommt vom `chat-service`.
 `ON CONFLICT (id) DO NOTHING` verwirft die zweite Zeile ohne Fehler. Wir behaupten damit **kein**
@@ -243,8 +253,8 @@ Jeder Fehler gehört in eine von zwei Klassen. Danach richtet sich die Reaktion:
 
 | Klasse | Erkennbar an | Reaktion | Grund |
 |---|---|---|---|
-| **Die Nachricht ist schuld** | Body nicht lesbar, Feld fehlt, oder die Datenbank lehnt genau diese Zeile ab (`DataIntegrityViolationException`) | sofort `basicReject` ohne requeue, RabbitMQ legt sie nach `chat.dlq` | Ein zweiter Versuch scheitert genauso |
-| **Die Umgebung ist schuld** | jede andere Exception beim Schreiben, z. B. keine Verbindung zur Datenbank | 2 s Pause, dann `basicNack` mit requeue für den ganzen Stapel | Die Nachricht ist in Ordnung. Sie muss nur warten, bis die Datenbank wieder da ist. Sie gehört **nie** in die DLQ |
+| **Die Nachricht ist schuld** | Body nicht lesbar, Feld fehlt, oder die Datenbank lehnt genau diese Zeile ab (`DataIntegrityViolationException`) | kommt in die Liste für `chat.dlq`. Am Ende des Stapels legt der batch-writer sie dorthin, das Original bestätigt Spring mit dem Stapel | Ein zweiter Versuch scheitert genauso |
+| **Die Umgebung ist schuld** | jede andere Exception, z. B. keine Verbindung zur Datenbank | 2 s Pause, dann den Fehler weiterwerfen. Spring schickt `basicNack` mit requeue für den ganzen Stapel | Die Nachricht ist in Ordnung. Sie muss nur warten, bis die Datenbank wieder da ist. Sie gehört **nie** in die DLQ |
 
 **F1 – Der batch-writer läuft nicht** (Szenario S4)
 - *Was passiert:* Die Nachrichten bleiben in `chat.persist`. Die Queue ist `durable` und die
@@ -279,9 +289,13 @@ Jeder Fehler gehört in eine von zwei Klassen. Danach richtet sich die Reaktion:
   - `DataAccessResourceFailureException`, wenn PostgreSQL eine Verbindung beim Herunterfahren
     trennt.
 
-  Der batch-writer protokolliert eine Warnung, wartet 2 s und gibt den Stapel mit
-  `basicNack(tag, multiple = true, requeue = true)` zurück. RabbitMQ stellt ihn wieder vorne in
-  die Queue und liefert ihn erneut. Das wiederholt sich etwa alle 7 s (5 s Verbindungs-Timeout plus
+  Der batch-writer protokolliert eine Warnung, wartet 2 s und wirft den Fehler weiter. Spring AMQP
+  antwortet darauf mit `basicNack(höchster Tag, multiple = true, requeue = true)`
+  (`BlockingQueueConsumer.rollbackOnExceptionIfNecessary`). `requeue` ist wahr wegen
+  `defaultRequeueRejected = true` (4.5). RabbitMQ stellt den Stapel wieder vorne in die Queue und
+  liefert ihn erneut. Spring schreibt dazu pro Fehlversuch eine Warnung mit Stacktrace
+  («Execution of Rabbit message listener failed.»). Die Zeile `Caused by:` darin nennt den Grund,
+  z. B. `UnknownHostException: postgres`, wenn der Container gestoppt ist. Das wiederholt sich etwa alle 7 s (5 s Verbindungs-Timeout plus
   2 s Pause), bis die Datenbank wieder antwortet. **Nichts geht in die DLQ, der Prozess läuft
   weiter**, niemand muss ihn neu starten.
 - *Wie schnell nach der Rückkehr:* Der nächste Versuch nach höchstens rund 7 s. Dazu kommt der
@@ -325,10 +339,22 @@ Jeder Fehler gehört in eine von zwei Klassen. Danach richtet sich die Reaktion:
 
 **F8 – Die Nachricht ist nicht lesbar**
 - *Beispiele:* kein JSON, JSON ohne Pflichtfeld, ein Feld mit falschem Typ.
-- *Was passiert:* `basicReject(tag, requeue = false)`. Über die Argumente der Queue (2.1) legt
-  RabbitMQ sie nach `chat.dlq`, mit dem Header `x-death` (Grund `rejected`). Der Rest des Stapels
-  wird normal geschrieben.
-- *Warum sofort:* Ein zweiter Versuch mit denselben Bytes scheitert genauso.
+- *Was passiert:* Die Nachricht kommt in die Liste für `chat.dlq`, der Rest des Stapels wird
+  normal geschrieben. Danach legt der batch-writer sie unverändert (gleicher Body, gleiche Header)
+  und persistent nach `chat.dlq`. Das Original in `chat.persist` bestätigt Spring mit dem Stapel.
+- *Warum beim ersten Versuch:* Ein zweiter Versuch mit denselben Bytes scheitert genauso.
+- *Warum erst nach dem Speichern:* Fällt vorher die Datenbank aus (F4), kommt der ganze Stapel
+  wieder. Läge die Kopie dann schon in `chat.dlq`, käme bei jedem Versuch eine weitere dazu.
+- *Warum `PERSISTENT` von Hand:* Beim Empfang merkt sich Spring nur, wie die Nachricht kam
+  (`receivedDeliveryMode`), und leert `deliveryMode` (`DefaultMessagePropertiesConverter`, Spring
+  AMQP 3.2.12). Ohne `setDeliveryMode(PERSISTENT)` wäre die Kopie nicht persistent, und ein
+  Neustart von RabbitMQ löschte sie aus `chat.dlq`.
+- *Warum nicht über die Argumente der Queue (DLX):* Spring lehnt immer den **ganzen** Stapel ab,
+  nie eine einzelne Nachricht darin. Eine Ablehnung ohne requeue schickte also mit der kaputten
+  auch 499 gute Nachrichten in die DLQ.
+- *Grenze:* Stürzt der batch-writer zwischen dem Senden an `chat.dlq` und dem ACK ab, kann eine
+  Kopie zweimal in `chat.dlq` liegen (At-least-once wie 3.2). Die Kopien tragen keinen Header
+  `x-death`.
 
 **F9 – Die Datenbank lehnt eine einzelne Nachricht ab**
 - *Beispiele:*
@@ -338,26 +364,31 @@ Jeder Fehler gehört in eine von zwei Klassen. Danach richtet sich die Reaktion:
 - *Was passiert:* Die Transaktion des Stapels scheitert mit `DataIntegrityViolationException` und
   wird zurückgerollt. Der batch-writer schreibt die Nachrichten dieses Stapels danach **einzeln**,
   jede in ihrer eigenen Transaktion:
-  - gute Nachrichten: ACK;
-  - die abgelehnte: Reject, sie landet in `chat.dlq`.
+  - gute Nachrichten werden gespeichert;
+  - die abgelehnte kommt in die Liste für `chat.dlq` und landet am Ende des Stapels dort (wie F8).
 
-  Fällt dabei die Datenbank aus (F4), geht der Rest des Stapels mit einem einzigen NACK zurück.
+  Fällt dabei die Datenbank aus (F4), wirft der batch-writer den Fehler weiter, und der ganze Stapel
+  kommt wieder. Schon gespeicherte Zeilen verwirft die Datenbank beim nächsten Mal (F2).
 - *Warum so:* Eine kaputte Nachricht darf nicht 499 gute mit in die DLQ reissen. Sie darf aber auch
   nicht ewig neu geliefert werden.
 
 **F10 – Unerwarteter Fehler** (Programmierfehler)
 - Wird wie F4 behandelt: Pause, NACK, erneuter Versuch. So geht nichts verloren. Der Fehler steht
-  bei jedem Durchlauf als Warnung im Protokoll.
+  bei jedem Durchlauf als Warnung im Protokoll. Das gilt auch, wenn das Senden an `chat.dlq`
+  scheitert: Der Stapel kommt wieder, schon gespeicherte Zeilen verwirft die Datenbank (F2).
 
 **F11 – Sehr langer Datenbank-Ausfall**
 - Wie F4, nur länger. Weil der Stapel alle rund 7 s zurückgegeben wird, stauen sich die Nachrichten
   in der Queue und nicht unbestätigt beim batch-writer.
 
-**F12 – Ein ACK darf nie einen schon abgelehnten Tag nennen**
-- Ein `basicAck` mit einem Tag, der nicht mehr offen ist, beantwortet RabbitMQ mit `406 unknown
-  delivery tag` und schliesst den Channel. Deshalb nennt das ACK des Stapels den Tag der letzten
-  **lesbaren** Nachricht, nie den einer abgelehnten. Mit `multiple = true` überspringt RabbitMQ die
-  schon abgelehnten.
+**F12 – Bestätigt wird an genau einer Stelle**
+- Das ACK und das NACK schickt nur Spring, jeweils einmal für den ganzen Stapel, wenn `onBatch`
+  fertig ist. Unser Code ruft `basicAck`, `basicNack` oder `basicReject` nie selbst auf und kennt
+  keine Liefernummern.
+- *Warum das wichtig ist:* Ein eigenes ACK zusätzlich zum ACK von Spring wäre ein doppeltes ACK.
+  RabbitMQ antwortete mit `406 PRECONDITION_FAILED` und schlösse den Channel.
+- Bis zum 29.09.2026 hat der Listener selbst bestätigt (`MANUAL`). Warum wir das vereinfacht haben,
+  steht in 7.
 
 ### 3.4 Start und Stopp
 
@@ -366,6 +397,8 @@ Jeder Fehler gehört in eine von zwei Klassen. Danach richtet sich die Reaktion:
 - **Start ohne RabbitMQ:** siehe F7.
 - **Stopp** (`docker compose stop batch-writer`): Spring beendet den Verbraucher. Ein laufender
   Stapel wird fertig geschrieben und bestätigt, oder er bleibt unbestätigt und kommt erneut (F5/F6).
+  Nachrichten, die nach dem Stopp-Signal noch ankommen, gibt Spring ungelesen zurück, immer mit
+  requeue.
 - **`restart: unless-stopped`** ist nur ein Sicherheitsnetz für unerwartete Abstürze. Keines der
   Szenarien braucht es: der Dienst stürzt bei F4 und F7 nicht ab.
 
@@ -462,8 +495,9 @@ Diese Werte ändern sich nicht pro Umgebung. Deshalb sind sie keine Umgebungsvar
 | `batchReceiveTimeout` | 200 ms | Listener-Konfiguration | «500 Stück oder 200 ms» aus PLANUNG.md 3.6 |
 | `receiveTimeout` | 200 ms | Listener-Konfiguration | Kommt so lange nichts, geht der angefangene Stapel sofort los |
 | Verbraucher pro Instanz | 1 | Listener-Konfiguration | Skaliert wird über Instanzen (PLANUNG.md 4.2) |
-| Bestätigung | `MANUAL` | Listener-Konfiguration | ACK erst nach dem COMMIT, Reject einzelner Nachrichten |
-| Pause vor dem NACK | 2'000 ms | Listener | Verhindert eine heisse Schleife bei Datenbank-Ausfall (F4) |
+| Bestätigung | `AUTO` | Listener-Konfiguration | Spring schickt das ACK, wenn `onBatch` ohne Fehler zurückkehrt (also nach dem COMMIT), und ein NACK, wenn es einen Fehler wirft. Dafür braucht unser Code keine eigene Zeile (F12) |
+| `defaultRequeueRejected` | `true` | Listener-Konfiguration | Das NACK heisst «zurück in die Queue» und nicht «in die DLQ». `true` ist auch die Vorgabe von Spring. Es steht trotzdem da, weil der Datenbank-Ausfall (S7) genau davon abhängt |
+| Pause vor dem Weiterwerfen | 2'000 ms | Listener | Verhindert eine heisse Schleife bei Datenbank-Ausfall (F4) |
 | JDBC-URL | `jdbc:postgresql://${POSTGRES_HOST}:5432/${POSTGRES_DB}?reWriteBatchedInserts=true&socketTimeout=30` | `application.yml` | mehrzeilige INSERTs; eine hängende Verbindung blockiert einen Stapel höchstens 30 s |
 | Pool `maximum-pool-size` / `minimum-idle` | 2 / 1 | `application.yml` | Ein Verbraucher braucht eine Verbindung. Die Vorgabe von 10 Verbindungen je Instanz kostete beim Start rund 30 Transaktionen, weil jede neue Verbindung ein paar Einstellungsbefehle schickt (S4) |
 | Pool `connection-timeout` | 5'000 ms | `application.yml` | Ein Ausfall wird nach 5 s erkannt statt nach 30 s |
@@ -512,8 +546,9 @@ Diese Werte ändern sich nicht pro Umgebung. Deshalb sind sie keine Umgebungsvar
 | Stelle in PLANUNG.md | Dort steht | Wir machen | Warum |
 |---|---|---|---|
 | 3.7 Datenmodell | `room_id` ist Fremdschlüssel auf `room` | kein Fremdschlüssel | Keine Räume in dieser Aufgabe. Ein Fremdschlüssel schickte gültige Nachrichten in die DLQ (4.1) |
-| 3.5 Queues | `chat.dlq`: «nach 3 fehlgeschlagenen Versuchen» | Unlesbare oder abgelehnte Nachricht **sofort** in die DLQ; bei Datenbank-Ausfall **nie** | Die Zahl 3 unterscheidet nicht nach Ursache. Klassische Queues zählen keine Versuche (3.3, F4, F8) |
-| 3.6 Ablauf | «NACK mit requeue» | NACK mit requeue **nach 2 s Pause** | ohne Pause eine heisse Schleife (F4) |
+| 3.5 Queues | `chat.dlq`: «nach 3 fehlgeschlagenen Versuchen» | Unlesbare oder abgelehnte Nachricht **beim ersten Versuch** in die DLQ (am Ende ihres Stapels); bei Datenbank-Ausfall **nie** | Die Zahl 3 unterscheidet nicht nach Ursache. Klassische Queues zählen keine Versuche (3.3, F4, F8) |
+| 3.5 Queues | Erzeuger von `chat.dlq` ist «RabbitMQ» (Dead Letter) | der batch-writer legt die Nachricht selbst hinein, über den Standard-Exchange | Nur so trifft es genau die eine Nachricht. Spring lehnt immer den ganzen Stapel ab (F8) |
+| 3.6 Ablauf | «NACK mit requeue» | NACK mit requeue **nach 2 s Pause**; das NACK schickt Spring, wenn der Listener den Fehler weiterwirft | ohne Pause eine heisse Schleife (F4) |
 | 3.4 / 3.6 | «ein Bulk-INSERT» | ein Stapel = **eine Transaktion**; der Treiber schreibt ihn als mehrzeilige INSERTs zu höchstens 128 Zeilen | Die Garantie, dass ein Stapel ganz oder gar nicht geschrieben wird, gibt die Transaktion, nicht die Zahl der Anweisungen |
 
 ---
@@ -562,8 +597,10 @@ Stack zwischen den Szenarien nicht aufgeräumt wird.
 | Kriterium | Test |
 |---|---|
 | S5, Duplikat | `MessageBatchListenerIntegrationTest`: dieselbe Nachricht 2× direkt in `chat.persist`, nur mit `content_type` → 1 Zeile, `chat.dlq` leer. Zusätzlich `MessageRepositoryIntegrationTest`: Duplikat über und innerhalb eines Stapels |
-| S7, Datenbank-Ausfall | `DatabaseOutageIntegrationTest`: Datenbank für Verbindungen sperren, bestehende Verbindungen trennen, Nachrichten senden, freigeben → alle gespeichert, `chat.dlq` leer, Verbraucher läuft noch |
+| S7, Datenbank-Ausfall | `DatabaseOutageIntegrationTest`: Datenbank für Verbindungen sperren, bestehende Verbindungen trennen, 50 gültige und mitten darin eine unlesbare Nachricht senden, freigeben → alle 50 gespeichert, in `chat.dlq` genau die unlesbare und nur **einmal**, Verbraucher läuft noch |
 | S4, Stapel | `MessageBatchListenerIntegrationTest`: 1000 wartende Nachrichten → alle gespeichert, höchstens 20 verschiedene `xmin` (erwartet 2) |
+| F8 und F9, DLQ | `MessageBatchListenerIntegrationTest`: eine unlesbare bzw. eine von der Datenbank abgelehnte Nachricht landet in `chat.dlq`, und zwar persistent; die übrigen des Stapels sind gespeichert |
+| Vertrag (2.2) | `MessageBatchListenerIntegrationTest`: Umlaute und Emoji kommen unverändert in `content` an; ein unbekanntes Zusatzfeld stört nicht. Dieser Test läuft mit dem `ObjectMapper` von Spring Boot, wie im Betrieb |
 | Schema | `SchemaIntegrationTest`: Spalten und Typen wie 4.1, Primärschlüssel, Index, **kein** Fremdschlüssel |
 
 Alle Kriterien S2 bis S8 prüft zusätzlich das Skript `scripts/abnahme.sh` automatisch, in dieser
@@ -618,7 +655,8 @@ Repositorys sichtbar.
    ist keine `DataAccessException`. Die Exception verliess den Listener. Im Modus `MANUAL` schickt
    Spring AMQP dann kein NACK (`BlockingQueueConsumer.rollbackOnExceptionIfNecessary`, Spring AMQP
    3.2). Der Stapel blieb unbestätigt hängen. Jetzt gilt: jede Exception, die kein Datenfehler ist,
-   führt zum NACK (F4, F10).
+   führt zum NACK (F4, F10). Das galt für den Modus `MANUAL`. Seit der Vereinfachung vom 30.09.
+   schickt Spring das NACK selbst (siehe unten).
 3. *«200 ms» (Vorarbeit):* umgesetzt als «200 ms lang nichts Neues» (`receiveTimeout`). Unter
    gleichmässiger Last wird ein Stapel damit nie fertig, bevor er voll ist. Jetzt zusätzlich
    `batchReceiveTimeout`, wie in PLANUNG.md 3.6 gemeint (3.1).
@@ -630,6 +668,14 @@ Repositorys sichtbar.
    kann `Instant` nicht binden, jeder Stapel wäre gescheitert. Jetzt `OffsetDateTime` (4.1).
 6. *Eine KI-Prüfung behauptete, das Image `rabbitmq:3.13-management` enthalte kein `rabbitmqadmin`
    mehr.* Der Mitschnitt (2.4) zeigt `rabbitmqadmin 3.13.7`. Die Behauptung war falsch.
+7. *Erster Entwurf der Vereinfachung:* Die Kopie für `chat.dlq` einfach mit `rabbitTemplate.send`
+   weiterschicken. Beim Prüfen am Quelltext von Spring AMQP gefunden: Beim Empfang leert Spring
+   `deliveryMode`. Die Kopie wäre nicht persistent gewesen und hätte einen Neustart von RabbitMQ
+   nicht überlebt. Jetzt setzt der Listener `PERSISTENT`, und ein Test prüft es (F8).
+8. *Erster Entwurf der Vereinfachung:* Eine von der Datenbank abgelehnte Nachricht (F9) sofort nach
+   `chat.dlq` schicken. Fällt danach im selben Stapel die Datenbank aus, käme der Stapel wieder und
+   die Kopie ein zweites Mal. Jetzt gehen alle Kopien erst am Schluss weg, und der S7-Test prüft
+   «genau einmal» (F8).
 
 **Abschluss-Review.** Ein unabhängiges Code-Review (KI, frischer Kontext, gegen diese Spezifikation und
 CLAUDE.md) fand keine kritischen Fehler. Fünf Stellen wurden danach korrigiert, jede mit eigenem
@@ -637,11 +683,35 @@ Commit (Umsetzungsplan, «Korrekturen aus dem Abschluss-Review»). Die lehrreich
 `docker compose up` ohne `--build` erstellt die gebauten Dienste neu, auch den `chat-service`. In S6
 ist das genau das `up --scale`, deshalb wartet das Abnahmeskript dort, bis er wieder antwortet.
 
+**Vereinfachung am 30.09.2026.**
+- *Vorher:* Bis zum 29.09. hat der Listener selbst bestätigt (`MANUAL`), mit Channel, Liefernummern,
+  `basicAck`, `basicNack` und `basicReject` und mit der Falle «406 unknown delivery tag». Das war
+  richtig, aber schwer zu lesen und zu erklären.
+- *Jetzt:* Seit dem 30.09. bestätigt Spring (`AUTO`), genau wie in PLANUNG.md 3.6 gezeichnet. Ist
+  der Listener fertig, kommt ein ACK für den ganzen Stapel. Wirft er einen Fehler, kommt ein NACK
+  mit requeue. Nach aussen verhält sich der Dienst gleich wie vorher (3.3).
+- *Wie geprüft:*
+  - am Quelltext von Spring AMQP 3.2.12 (`BlockingQueueConsumer.commitIfNecessary` und
+    `rollbackOnExceptionIfNecessary`);
+  - mit Tests, die schon auf dem alten Stand grün waren und auf dem neuen grün bleiben mussten
+    (Umsetzungsplan, «Vereinfachung vom 30.09.2026»).
+
 **Von mir entschieden** (29.09.2026):
 - alten Stand archivieren und neu beginnen;
 - diese Spezifikation dem Lehrer zeigen und parallel mit dem Umsetzungsplan weitermachen;
 - für das Code-Review einen Stack in GitHub Codespaces vorbereiten;
 - den Entwurf mit den zwei Fehlerklassen aus 3.3 übernehmen.
+
+**Von mir entschieden** (30.09.2026):
+- den Listener vereinfachen: Spring bestätigt (`AUTO`), der Listener braucht weder Channel noch
+  Liefernummern;
+- die neuen Tests zuerst auf dem alten Stand laufen lassen und erst dann den Code ändern;
+- den Stack für das Code-Review auf meinem eigenen Rechner mit Docker Desktop starten, Codespaces
+  nur als Reserve.
+
+**Offen gesagt:** Den Link zu dieser Spezifikation habe ich dem Lehrer am 29.09. nicht geschickt,
+obwohl ich das so entschieden hatte. Die Spezifikation lag aber vor Plan und Code im Repository
+(siehe `git log`). Ich schicke sie mit dem Stand vom 30.09.
 
 Analyse, Belege, Entwurf und Text dieser Spezifikation entstanden mit Claude (KI). Die
 Entscheidungen oben habe ich getroffen.
