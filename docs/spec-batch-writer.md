@@ -65,7 +65,7 @@ damit die Stelle, an der die Queue als Puffer ihren Zweck erfüllt.
 | `durable` | ja | ja |
 | `auto_delete` / `exclusive` | nein / nein | nein / nein |
 | Argumente | `x-dead-letter-exchange` = `""` (Standard-Exchange), `x-dead-letter-routing-key` = `chat.dlq` | keine |
-| Wer schreibt | `chat-service`, über den Standard-Exchange `""` mit Routing-Key `chat.persist` | der batch-writer, über den Standard-Exchange mit Routing-Key `chat.dlq` (3.3, F8 und F9). RabbitMQ selbst nur, wenn ein ganzer Stapel ohne requeue abgelehnt würde. Das sieht unser Code nicht vor, die Argumente sind ein Sicherheitsnetz |
+| Wer schreibt | `chat-service`, über den Standard-Exchange `""` mit Routing-Key `chat.persist` | der batch-writer, über den Standard-Exchange mit Routing-Key `chat.dlq` (3.3, F8 und F9). RabbitMQ selbst nur, wenn Spring einen ganzen Stapel ohne requeue ablehnt. Das geschieht nur bei «fatalen» Fehlern (3.3, F10), die Argumente sind ein Sicherheitsnetz |
 
 **Regel für den batch-writer:** Er deklariert beide Queues selbst, und zwar mit **genau denselben**
 Eigenschaften und Argumenten wie der `chat-service`. `chat.dlq` braucht er schon deshalb, weil er
@@ -237,8 +237,10 @@ flowchart TD
    schickt Spring **ein** ACK für den ganzen Stapel: `basicAck` mit dem höchsten Tag und
    `multiple = true` (`BlockingQueueConsumer.commitIfNecessary`, Spring AMQP 3.2.12). Unser Code
    kennt weder Channel noch Liefernummern (F12).
-7. **Protokoll.** Pro Stapel eine Zeile `Stored batch of N messages`. So zeigt
-   `docker compose logs batch-writer` bei zwei Instanzen, dass beide arbeiten.
+7. **Protokoll.** Pro Stapel, der in einer Transaktion gespeichert wurde, eine Zeile
+   `Stored batch of N messages`. So zeigt `docker compose logs batch-writer` bei zwei Instanzen,
+   dass beide arbeiten. Beim Einzelschreiben (F9) fehlt diese Zeile. Dort steht stattdessen je
+   abgelehnte Nachricht eine Warnung.
 
 **Mengengerüst:** 1'000 wartende Nachrichten ergeben 2 Stapel, also 2 schreibende Transaktionen.
 Bei 1'667 Nachrichten pro Sekunde sind es rund 3,3 Stapel pro Sekunde.
@@ -382,6 +384,14 @@ Jeder Fehler gehört in eine von zwei Klassen. Danach richtet sich die Reaktion:
 - Wird wie F4 behandelt: Pause, NACK, erneuter Versuch. So geht nichts verloren. Der Fehler steht
   bei jedem Durchlauf als Warnung im Protokoll. Das gilt auch, wenn das Senden an `chat.dlq`
   scheitert: Der Stapel kommt wieder, schon gespeicherte Zeilen verwirft die Datenbank (F2).
+- *Ausnahme, «fatale» Fehler:*
+  - Einige Fehler stuft Spring als «fatal» ein, weil ein neuer Versuch sicher wieder scheitert:
+    `ClassCastException`, `MessageConversionException`, `MethodArgumentResolutionException` und
+    `NoSuchMethodException` (`ConditionalRejectingErrorHandler`, Spring AMQP 3.2.12).
+  - Dann lehnt Spring den ganzen Stapel **ohne** requeue ab, und die Argumente der Queue (2.1)
+    legen ihn nach `chat.dlq`. Dort ist er wenigstens nicht verloren.
+  - Unser Listener löst solche Fehler praktisch nicht aus: Er bekommt rohe Bytes, benutzt keinen
+    Message-Converter und castet nichts.
 
 **F11 – Sehr langer Datenbank-Ausfall**
 - Wie F4, nur länger. Weil der Stapel alle rund 7 s zurückgegeben wird, stauen sich die Nachrichten
