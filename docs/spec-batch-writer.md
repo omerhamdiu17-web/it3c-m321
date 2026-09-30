@@ -480,11 +480,11 @@ Die echten Werte stehen in `.env` (in `.gitignore`), im Repository steht nur `.e
 |---|---|---|---|---|---|
 | `RABBITMQ_USER` | `.env` | rabbitmq, chat-service, batch-writer | `chat` | `guest` | Benutzer am Broker |
 | `RABBITMQ_PASSWORD` | `.env` | rabbitmq, chat-service, batch-writer | `bitte-lokal-aendern` | `guest` | Passwort am Broker |
-| `RABBITMQ_HOST` | `docker-compose.yml` | chat-service, batch-writer | `rabbitmq` | `localhost` | Name des Brokers im Netz `chat-net` |
+| `RABBITMQ_HOST` | `docker-compose.yml` | chat-service, batch-writer | — (steht nicht dort; `docker-compose.yml` setzt `rabbitmq`) | `localhost` | Name des Brokers im Netz `chat-net` |
 | `POSTGRES_DB` | `.env` | postgres (legt die Datenbank an), batch-writer | `chat` | `chat` | Name der Datenbank |
 | `POSTGRES_USER` | `.env` | postgres (legt den Benutzer an), batch-writer | `chat` | `chat` | Benutzer der Datenbank |
 | `POSTGRES_PASSWORD` | `.env` | postgres, batch-writer | `bitte-lokal-aendern` | `chat` | Passwort der Datenbank |
-| `POSTGRES_HOST` | `docker-compose.yml` | batch-writer | `postgres` | `localhost` | Name der Datenbank im Netz `chat-net` |
+| `POSTGRES_HOST` | `docker-compose.yml` | batch-writer | — (steht nicht dort; `docker-compose.yml` setzt `postgres`) | `localhost` | Name der Datenbank im Netz `chat-net` |
 
 Die Vorgaben greifen nur, wenn der batch-writer ausserhalb von Docker startet (wie beim
 `chat-service`). Weil `POSTGRES_USER` und `POSTGRES_DB` beide `chat` heissen, klappt auch ein
