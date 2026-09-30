@@ -113,7 +113,7 @@ Testklassen heissen `...Test` oder `...IntegrationTest`, damit Surefire sie ohne
 - **Test zuerst.** Jede Aufgabe beginnt mit einem Test, der fehlschlägt. Erst dann kommt der Code.
 - **Lokal und im CI.** Übersetzen und die Tests ohne Container laufen lokal mit Maven. Die Tests mit Containern laufen ab Task 1 bei jedem Push in GitHub Actions. Ein Stand geht erst auf `main`, wenn dieser Lauf grün ist.
 - **Ein Thema pro Commit.** Jede Aufgabe endet mit genau einem Commit, die Message steht im Plan.
-- **Rot sichtbar gemacht.** Wo der rote Schritt echte Container braucht (Task 3, 8, 9, 10), lief der Test ohne den Code als Wegwerf-Commit auf dem Branch `probe`. Diese roten Läufe stehen in GitHub Actions; auf `main` kamen nur grüne Commits. In der Vereinfachung (V3) bauen Wegwerf-Branches absichtlich einen Fehler in den fertigen Code ein und zeigen so, dass die neuen Tests anschlagen.
+- **Rot sichtbar gemacht.** Wo der rote Schritt echte Container braucht (Task 3, 8, 9, 10), lief der Test ohne den Code als Wegwerf-Commit auf dem Branch `probe`. Diese roten Läufe stehen in GitHub Actions; auf `main` kamen nur grüne Commits. Rote Läufe: Task 3 [36584285994](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584285994), Task 8 [36585879535](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585879535), Task 9 [36586760971](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36586760971), Task 10 [36587770805](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36587770805). Die Befehle der README (Task 12) liefen in einem Wegwerf-Workflow: [36592784897](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36592784897). In der Vereinfachung (V3) bauen Wegwerf-Branches absichtlich einen Fehler in den fertigen Code ein und zeigen so, dass die neuen Tests anschlagen.
 - **Plan und `git log` bleiben deckungsgleich.** Das Häkchen einer Aufgabe und jede beim Bauen entdeckte Falle kommen **im selben Commit** wie die Aufgabe in diesen Plan.
 
 ## Reihenfolge und warum
@@ -3609,6 +3609,7 @@ Jeder Push läuft in GitHub Actions durch `mvn clean test`, den Bau aller Images
 
 Die Befehle aus Schritt 1 einmal am laufenden Stack ausführen.
 Erwartet: `psql -U chat` zeigt die Nachricht, `rabbitmqctl` zeigt `chat.persist 0 1`.
+Gelaufen in einem Wegwerf-Workflow auf dem Branch `probe-readme`: [36592784897](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36592784897).
 
 - [x] **Schritt 5: Committen**
 
@@ -3632,7 +3633,7 @@ rot war. Das Häkchen kommt im selben Commit wie die Korrektur.
 | K2 | Das erste `docker compose up` ohne `--build` erstellt die gebauten Dienste neu, auch den `chat-service`. In S6 ist das genau das `up --scale`. Das Skript sendete direkt danach und verlangte nicht, dass beide Instanzen gearbeitet haben | falsches FAIL auf einem langsamen Rechner; S6 bestünde auch, wenn nur eine Instanz arbeitete | S6 wartet auf den `chat-service`, `Instanzen mit Stapeln: 2` ist Bedingung | `fix: Abnahme wartet in S6 auf den neu erstellten chat-service` |
 | K3 | S8 sucht `.env` im Verlauf, im CI aber auf einem flachen Checkout mit einem einzigen Commit | die Prüfung sah den Verlauf gar nicht | Checkout mit `--depth=1` → ganzer Verlauf; S8 meldet die Zahl der geprüften Commits | `ci: Abnahme prüft .env im ganzen Verlauf` |
 | K4 | Die Testberichte unter `batch-writer/target/` enthalten die Protokolle bestandener Tests | ein `grep -ri stream batch-writer/` nach `mvn clean test` könnte Wörter aus Protokollen finden (S8) | `grep -c '<system-out>'` im Bericht eines bestandenen Tests: `1` → `0` | `chore: Testberichte des batch-writer ohne Protokolle` |
-| K5 | README und Kommentar in `MessageRepository` sprachen von «einem INSERT pro Stapel». Richtig ist, was die Spezifikation in Abschnitt 5 sagt: eine Transaktion, mehrzeilige INSERTs zu höchstens 128 Zeilen | Widerspruch zwischen den Dokumenten | Text stimmt mit Spezifikation 5 überein | `docs: ein Stapel ist eine Transaktion, nicht ein INSERT` |
+| K5 | README und Kommentar in `MessageRepository` sprachen von «einem INSERT pro Stapel». Richtig ist, was die Spezifikation in Abschnitt 5 sagt: eine Transaktion, mehrzeilige INSERTs zu höchstens 128 Zeilen | Widerspruch zwischen den Dokumenten | Text stimmt mit Spezifikation 5 überein; `grep -rn 'einem INSERT pro' README.md batch-writer/src`: keine Ausgabe | `docs: ein Stapel ist eine Transaktion, nicht ein INSERT` |
 
 - [x] **K1** `.env.example` mit LF
 - [x] **K2** S6 wartet auf den neu erstellten `chat-service` und prüft beide Instanzen
@@ -3833,6 +3834,7 @@ DLQ-Zählung:
 
 Ausführen: `mvn -B clean test` (im CI, Branch `probe`)
 Erwartet: grün, im batch-writer 29 Tests.
+Gelaufen auf dem alten Stand: [36690264883](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690264883), grün, 29 Tests im batch-writer.
 
 **Warum grün und nicht rot:** Diese Tests sind der Massstab für V2, nicht für neuen Code. Auf dem
 alten Stand sind sie grün aus folgenden Gründen:
@@ -4134,6 +4136,7 @@ public class MessageBatchListener {
 
 Ausführen: `mvn -B clean test` (im CI, Branch `probe`)
 Erwartet: grün, im batch-writer 29 Tests. Also dieselben Tests wie nach V1, keiner angepasst.
+Gelaufen: [36690643644](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690643644), grün, 29 Tests, Abnahme S2 bis S8 bestanden.
 
 - [x] **Schritt 5: Nichts mehr von Hand bestätigen**
 
@@ -4167,11 +4170,11 @@ Tests aus V1 schützen, gibt es erst im Code aus V2.
 | P4 | `ChatMessageReader` liest den Body als ISO-8859-1 statt UTF-8 | `storesUmlautsAndEmojiUnchanged` |
 | P5 | `spring.jackson.deserialization.fail-on-unknown-properties: true` in `application.yml` | `storesMessageWithUnknownField`. Der Unit-Test des Readers bleibt grün |
 
-- [ ] **P1** rot, Lauf verlinkt
-- [ ] **P2** rot, Lauf verlinkt
-- [ ] **P3** rot, Lauf verlinkt
-- [ ] **P4** rot, Lauf verlinkt
-- [ ] **P5** rot, Lauf verlinkt
+- [x] **P1** rot: [36690689122](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690689122), beide DLQ-Tests: `PERSISTENT` erwartet, `null` erhalten. Alle anderen Tests grün
+- [x] **P2** rot: [36690694286](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690694286), `storesEverythingOnceTheDatabaseIsBack`: zweite Kopie in `chat.dlq`. Alle anderen Tests grün
+- [x] **P3** rot: [36690698071](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690698071), `storesEverythingOnceTheDatabaseIsBack`: 50 erwartet, 0 gespeichert. Alle anderen Tests grün
+- [x] **P4** rot: [36690699970](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690699970), `storesUmlautsAndEmojiUnchanged`: «GrÃ¼ezi …» statt «Grüezi …». Alle anderen Tests grün
+- [x] **P5** rot: [36690705364](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36690705364), `storesMessageWithUnknownField`: 1 erwartet, 0 gespeichert. Alle anderen Tests grün
 
 ### Korrekturen aus der Probe-Bewertung
 
@@ -4209,11 +4212,11 @@ Reihenfolge:
 - [x] **R9** Spezifikation F10 und Protokollzeile präzisiert
 - [x] **R6** Spezifikation 6 erklärt den Ausfall-Test
 - [x] **R1** Spezifikation 7 zeigt Vorarbeit und Änderungen
-- [x] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc
+- [x] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc: [36694483541](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694483541) meldet `MessageBatchListener.java:188` und endet mit Exit-Code 1
 - [x] **R11** keine `::` mehr in `batch-writer/src`
-- [x] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie
+- [x] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie: [36694486410](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36694486410), `storesDuplicateOnlyOnce` und `storesMessageWithUnknownField` finden die falsche Kopie, ebenso die zwei anderen Tests, die `chat.dlq` prüfen
 - [x] **R10** Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch
-- [ ] **R3** Probeläufe und Nachweise verlinkt
+- [x] **R3** Probeläufe und Nachweise verlinkt
 - [ ] **R2, R4** Commit-Übersicht
 
 ### V4: Abnahme nach der Vereinfachung
