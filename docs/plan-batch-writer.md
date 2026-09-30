@@ -34,10 +34,10 @@ Diese Punkte gelten für **jede** Aufgabe in diesem Plan:
 
 Fälle, die kein Szenario direkt prüft, die aber jemanden treffen würden, der den Dienst benutzt. Jeder hat einen Test in der Aufgabe, die den Code dazu baut:
 
-1. **Umlaute und Emoji im Text** kommen unverändert in der Datenbank an → Task 5, `storesAllFieldsUnchanged`.
+1. **Umlaute und Emoji im Text** kommen unverändert in der Datenbank an → Task 5, `storesAllFieldsUnchanged`; über den ganzen Weg von der Queue bis in die Spalte: Vereinfachung V1, `storesUmlautsAndEmojiUnchanged`.
 2. **Nanosekunden in `sentAt`** (so schickt sie der `chat-service`) werden auf Mikrosekunden gerundet und nicht abgelehnt → Task 5, `storesAllFieldsUnchanged`; Task 4, `readsCapturedMessageFromBodyAlone`.
 3. **Ein Zeitpunkt mit anderer Zeitzone** (`+02:00` statt `Z`) ist derselbe Zeitpunkt → Task 4, `readsTimestampWithOffset`.
-4. **Ein zusätzliches, unbekanntes Feld** im JSON bricht nichts → Task 4, `ignoresUnknownField`.
+4. **Ein zusätzliches, unbekanntes Feld** im JSON bricht nichts → Task 4, `ignoresUnknownField`; im laufenden Dienst mit dem `ObjectMapper` von Spring Boot: Vereinfachung V1, `storesMessageWithUnknownField`. Nur dieser zweite Test bemerkt eine geänderte Jackson-Einstellung in `application.yml`, denn der Unit-Test des Readers baut seinen `ObjectMapper` selbst.
 5. **Der batch-writer startet, bevor RabbitMQ oder PostgreSQL bereit sind**, und stürzt nicht ab → Task 2, `BatchWriterApplicationTest`.
 
 ## Abgrenzung
@@ -78,8 +78,8 @@ batch-writer/
     │   │   └── MessageRepository.java        # INSERT ... ON CONFLICT DO NOTHING, eine Transaktion
     │   └── service/
     │       ├── ChatMessageReader.java        # Body → ChatMessage, Header egal
-    │       ├── ReceivedMessage.java          # Nachricht + Lieferschein (deliveryTag)
-    │       └── MessageBatchListener.java     # lesen, schreiben, bestätigen, zurückgeben
+    │       ├── ReceivedMessage.java          # Original-Nachricht + gelesener Inhalt (bis 29.09.: + deliveryTag)
+    │       └── MessageBatchListener.java     # lesen, schreiben, Unspeicherbares nach chat.dlq; bestätigen macht Spring
     ├── main/resources/application.yml
     └── test/java/ch/benedict/m321/batchwriter/
         ├── BatchWriterApplicationTest.java
@@ -100,6 +100,8 @@ RabbitMQ ──► MessageBatchListener ──ruft auf──► ChatMessageReade
                       │
                       └────────ruft auf──► MessageRepository ──► PostgreSQL
                       │
+                      └────────ruft auf──► RabbitTemplate ──► chat.dlq   (seit der Vereinfachung, 30.09.)
+                      │
                       └── kennt dto (ChatMessage, ReceivedMessage) und config (QueueNames, RabbitConfig)
 ```
 
@@ -110,7 +112,7 @@ Testklassen heissen `...Test` oder `...IntegrationTest`, damit Surefire sie ohne
 - **Test zuerst.** Jede Aufgabe beginnt mit einem Test, der fehlschlägt. Erst dann kommt der Code.
 - **Lokal und im CI.** Übersetzen und die Tests ohne Container laufen lokal mit Maven. Die Tests mit Containern laufen ab Task 1 bei jedem Push in GitHub Actions. Ein Stand geht erst auf `main`, wenn dieser Lauf grün ist.
 - **Ein Thema pro Commit.** Jede Aufgabe endet mit genau einem Commit, die Message steht im Plan.
-- **Rot sichtbar gemacht.** Wo der rote Schritt echte Container braucht (Task 3, 8, 9, 10), lief der Test ohne den Code als Wegwerf-Commit auf dem Branch `probe`. Diese roten Läufe stehen in GitHub Actions; auf `main` kamen nur grüne Commits.
+- **Rot sichtbar gemacht.** Wo der rote Schritt echte Container braucht (Task 3, 8, 9, 10), lief der Test ohne den Code als Wegwerf-Commit auf dem Branch `probe`. Diese roten Läufe stehen in GitHub Actions; auf `main` kamen nur grüne Commits. In der Vereinfachung (V3) bauen Wegwerf-Branches absichtlich einen Fehler in den fertigen Code ein und zeigen so, dass die neuen Tests anschlagen.
 - **Plan und `git log` bleiben deckungsgleich.** Das Häkchen einer Aufgabe und jede beim Bauen entdeckte Falle kommen **im selben Commit** wie die Aufgabe in diesen Plan.
 
 ## Reihenfolge und warum
@@ -131,6 +133,10 @@ Von innen nach aussen: erst der Prüfstand, dann was ohne Broker testbar ist, da
 | 10 | Postgres und batch-writer in docker-compose | Erst wenn der Dienst allein richtig arbeitet, lohnt der Betrieb im Stack (S2) |
 | 11 | Abnahmeskript S2 bis S8 | Braucht den ganzen Stack. Prüft alles so, wie die Abnahme es tut |
 | 12 | README | Beschreibt, was es jetzt wirklich gibt, deshalb zuletzt |
+| V1 | Vereinfachung: Tests, die festhalten, was heute gilt | Bevor sich der Code ändert. Sie müssen auf dem alten und auf dem neuen Stand grün sein |
+| V2 | Vereinfachung: Spring bestätigt die Stapel | Erst wenn V1 den heutigen Stand festhält, darf sich der Code ändern |
+| V3 | Vereinfachung: absichtlich eingebaute Fehler | Ein Test, der nie rot war, beweist nichts. Die Fehler, gegen die er schützt, gibt es erst im neuen Code |
+| V4 | Vereinfachung: Abnahme | Die Messwerte gelten nur für den Stand, der abgegeben wird, deshalb zuletzt |
 
 ---
 
@@ -1489,6 +1495,9 @@ git commit -m "feat: Queues wie im chat-service anlegen" \
 
 ## Task 7: Stapel aus chat.persist lesen und nach dem COMMIT bestätigen
 
+> **Stand 29.09.2026:** Bestätigung von Hand (`MANUAL`). Seit dem 30.09. bestätigt Spring, siehe
+> «Vereinfachung vom 30.09.2026» am Ende dieses Plans.
+
 **Warum an dieser Stelle:** Setzt Lesen (Task 4), Schreiben (Task 5) und die Queues (Task 6) zusammen. Erst jetzt gibt es den Weg von der Queue in die Tabelle und damit die Szenarien S3, S4 und S5. Die Fehlerwege kommen bewusst erst in Task 8 und 9.
 
 **Dateien:**
@@ -2004,6 +2013,9 @@ git commit -m "feat: Stapel aus chat.persist lesen und nach dem COMMIT bestätig
 
 ## Task 8: Stapel bei Datenbankausfall zurück in die Queue
 
+> **Stand 29.09.2026:** NACK von Hand (`MANUAL`). Seit dem 30.09. schickt Spring das NACK, siehe
+> «Vereinfachung vom 30.09.2026» am Ende dieses Plans.
+
 **Warum an dieser Stelle:** Ein Fehlerweg setzt den Normalweg voraus (Task 7). Von den Fehlerwegen kommt dieser zuerst, weil Szenario S7 das grösste Risiko trägt: Ohne ihn bleibt ein Stapel bei einem Ausfall unbestätigt hängen, und der batch-writer arbeitet bis zu einem Neustart nicht weiter.
 
 **Dateien:**
@@ -2491,6 +2503,9 @@ git commit -m "feat: Stapel bei Datenbankausfall zurück in die Queue" \
 ---
 
 ## Task 9: Nicht speicherbare Nachricht einzeln in die DLQ
+
+> **Stand 29.09.2026:** Reject von Hand (`MANUAL`). Seit dem 30.09. legt der Listener die Nachricht
+> selbst nach `chat.dlq`, siehe «Vereinfachung vom 30.09.2026» am Ende dieses Plans.
 
 **Warum an dieser Stelle:** Der seltenere Fehlerweg (Spezifikation 3.3, F9). Er setzt die Fehlerbehandlung aus Task 8 voraus: Sein `catch (DataIntegrityViolationException …)` muss **über** dem `catch (RuntimeException …)` stehen, sonst schickte ein Datenfehler den Stapel endlos zurück in die Queue.
 
@@ -3664,3 +3679,511 @@ Gemessen in GitHub Actions, Lauf [36598446488](https://github.com/omerhamdiu17-w
 die der `chat-service` annimmt, landet dauerhaft in der Datenbank, auch bei Duplikaten,
 Rückstau, mehreren Instanzen und einem Datenbank-Ausfall. Der Lesepfad (Historie) ist der
 nächste Schritt und nicht Teil dieses Plans.
+
+---
+
+## Vereinfachung vom 30.09.2026
+
+**Warum:** Bis hier bestätigt der Listener selbst (`MANUAL`). Dafür braucht er den Channel, die
+Liefernummern, `basicAck`, `basicNack` und `basicReject`, und er muss die Falle «406 unknown delivery
+tag» kennen. Das ist richtig, aber schwer zu lesen und zu erklären. CLAUDE.md verlangt: «Der
+langweilige Weg ist der richtige Weg.»
+
+Der langweilige Weg heisst hier: Spring bestätigt (`AUTO`). Genau so zeichnet es PLANUNG.md 3.6:
+- Kehrt der Listener ohne Fehler zurück, kommt ein ACK für den ganzen Stapel.
+- Wirft er einen Fehler, kommt ein NACK mit requeue.
+
+Nach aussen verhält sich der Dienst gleich wie vorher.
+
+**Geprüft am Quelltext von Spring AMQP 3.2.12:**
+- `BlockingQueueConsumer.commitIfNecessary`: ein `basicAck(höchster Tag, multiple)` nach dem Listener.
+- `BlockingQueueConsumer.rollbackOnExceptionIfNecessary`: ein `basicNack(höchster Tag, multiple, requeue)`, wenn er wirft.
+- `ContainerUtils.shouldRequeue`: requeue, solange keine `AmqpRejectAndDontRequeueException` in der Kette steckt.
+- `ConditionalRejectingErrorHandler`: Datenbankfehler gelten nicht als «fatal».
+
+Die Spezifikation ist schon angepasst (Commit `docs: Spezifikation – Spring bestätigt die Stapel`).
+Die Reihenfolge V1 bis V4 und ihre Gründe stehen oben in «Reihenfolge und warum».
+
+**Danach eine Probe-Bewertung:** Ein frischer KI-Prüfer bewertet den Stand streng nach dem Raster der
+Aufgabe (Abschnitt 05). Jeder Befund bekommt wie K1 bis K5 eine eigene Zeile und einen eigenen Commit.
+
+### V1: Tests, die festhalten, was heute gilt
+
+**Warum an dieser Stelle:** Bevor sich der Code ändert. Diese Tests müssen auf dem **alten** Stand
+grün sein, und auf dem neuen müssen sie grün bleiben. Sie halten genau das fest, was eine
+Vereinfachung kaputt machen könnte.
+
+**Dateien:**
+- Ändern: `batch-writer/src/test/java/ch/benedict/m321/batchwriter/service/MessageBatchListenerIntegrationTest.java`
+- Ändern: `batch-writer/src/test/java/ch/benedict/m321/batchwriter/service/DatabaseOutageIntegrationTest.java`
+
+**Schnittstellen:**
+- Verbraucht: `MessageBatchListener.LISTENER_ID`, `QueueNames`, die Hilfsmethoden der beiden Testklassen
+- Stellt bereit: 2 neue und 3 geschärfte Tests. Danach 29 statt 27 Tests im batch-writer
+
+- [ ] **Schritt 1: Die Kopien in `chat.dlq` müssen persistent sein (F8, F9)**
+
+In `MessageBatchListenerIntegrationTest` den Import `org.springframework.amqp.core.MessageDeliveryMode`
+ergänzen. Am Ende von `rejectsUnreadableMessageAndStoresTheRest` und von
+`rejectsOnlyTheMessageTheDatabaseRefuses` je eine Zeile `assertPersistent(deadLetter);` einfügen,
+dazu im Javadoc den Satz «Die Kopie in chat.dlq ist persistent: ein Neustart von RabbitMQ darf sie
+nicht löschen.» Die Hilfsmethode:
+
+```java
+    /**
+     * Prüft, dass eine Nachricht aus chat.dlq persistent ist (delivery_mode 2):
+     * nur dann übersteht sie einen Neustart von RabbitMQ. Beim Empfang meldet
+     * Spring das als receivedDeliveryMode.
+     */
+    private void assertPersistent(Message deadLetter) {
+        MessageProperties properties = deadLetter.getMessageProperties();
+        MessageDeliveryMode deliveryMode = properties.getReceivedDeliveryMode();
+        assertEquals(MessageDeliveryMode.PERSISTENT, deliveryMode, "die Nachricht in chat.dlq ist nicht persistent");
+    }
+```
+
+- [ ] **Schritt 2: Umlaute, Emoji und ein unbekanntes Feld über den ganzen Weg**
+
+Neue Konstante und zwei neue Tests in `MessageBatchListenerIntegrationTest`:
+
+```java
+    /** Text mit Umlaut und Emoji, wie im Test des Repository. */
+    private static final String UMLAUT_AND_EMOJI = "Grüezi mitenand 👋";
+
+    /**
+     * Umlaute und Emoji kommen über die Queue unverändert in der Tabelle an.
+     * Der Test des Repository prüft nur das Schreiben; dieser den ganzen Weg
+     * vom Body über den Listener bis in die Spalte content.
+     */
+    @Test
+    void storesUmlautsAndEmojiUnchanged() throws InterruptedException {
+        UUID id = UUID.randomUUID();
+        String body = json(id, UMLAUT_AND_EMOJI);
+
+        publish(body);
+
+        int stored = waitForCount(1, "SELECT count(*) FROM message WHERE id = ?", id);
+        assertEquals(1, stored);
+        String content = jdbcTemplate.queryForObject("SELECT content FROM message WHERE id = ?", String.class, id);
+        assertEquals(UMLAUT_AND_EMOJI, content);
+    }
+
+    /**
+     * Ein zusätzliches, unbekanntes Feld im JSON stört auch im laufenden
+     * Dienst nicht (Spezifikation 2.2). Der Unit-Test des Readers baut seinen
+     * ObjectMapper selbst; dieser Test benutzt den von Spring Boot, so wie
+     * der batch-writer im Betrieb.
+     */
+    @Test
+    void storesMessageWithUnknownField() throws InterruptedException {
+        UUID id = UUID.randomUUID();
+        String body = json(id, "mit Zusatzfeld");
+        String bodyWithUnknownField = body.replace("{\"id\"", "{\"priority\":\"hoch\",\"id\"");
+
+        publish(bodyWithUnknownField);
+
+        int stored = waitForCount(1, "SELECT count(*) FROM message WHERE id = ?", id);
+        int deadLetters = messageCount(QueueNames.DEAD_LETTER_QUEUE);
+        assertEquals(1, stored);
+        assertEquals(0, deadLetters);
+    }
+```
+
+- [ ] **Schritt 3: Der Ausfall-Test (S7) bekommt eine unlesbare Nachricht**
+
+In `DatabaseOutageIntegrationTest` kommt mitten unter die 50 gültigen Nachrichten eine unlesbare.
+Ihr Stapel kommt während des Ausfalls mehrmals zurück. Trotzdem muss sie **genau einmal** in
+`chat.dlq` liegen, und keine gültige darf dort landen.
+- *Warum `receive` statt Zählen:* Die Kopie kommt kurz nach dem COMMIT. `receive(30 s)` wartet auf
+  sie, danach muss `receive(2 s)` leer bleiben. Eine falsche zweite Kopie entstünde schon während
+  des Ausfalls und läge längst dort.
+- `RabbitAdmin` und `messageCount` fallen weg, denn nichts braucht sie mehr.
+
+```java
+    /** Dieser Body ist kein JSON: der batch-writer kann ihn nie speichern. */
+    private static final String UNREADABLE_BODY = "das ist kein JSON";
+
+    /**
+     * So lange warten wir auf eine zweite Nachricht in chat.dlq, die es nicht
+     * geben darf. Eine falsche zweite Kopie entstünde schon während des
+     * Ausfalls und läge längst dort.
+     */
+    private static final int SECOND_COPY_WAIT_MILLISECONDS = 2000;
+```
+
+Im Test: beim Senden nach der 25. gültigen `publish(UNREADABLE_BODY);`. Am Ende statt der
+DLQ-Zählung:
+
+```java
+        int stored = waitForCount(MESSAGE_COUNT, "SELECT count(*) FROM message WHERE content LIKE 'S7 %'");
+        Message deadLetter = rabbitTemplate.receive(QueueNames.DEAD_LETTER_QUEUE, WAIT_MILLISECONDS);
+        Message secondDeadLetter = rabbitTemplate.receive(QueueNames.DEAD_LETTER_QUEUE, SECOND_COPY_WAIT_MILLISECONDS);
+        MessageListenerContainer container = listenerRegistry.getListenerContainer(MessageBatchListener.LISTENER_ID);
+        assertEquals(MESSAGE_COUNT, stored);
+        assertNotNull(deadLetter, "die unlesbare Nachricht ist nicht in chat.dlq");
+        byte[] deadBytes = deadLetter.getBody();
+        String deadBody = new String(deadBytes, StandardCharsets.UTF_8);
+        assertEquals(UNREADABLE_BODY, deadBody);
+        assertNull(secondDeadLetter, "in chat.dlq liegt mehr als die eine unlesbare Nachricht");
+        assertTrue(container.isRunning(), "der Verbraucher läuft nicht mehr");
+```
+
+- [ ] **Schritt 4: Auf dem alten Stand laufen lassen**
+
+Run: `mvn -B clean test` (im CI, Branch `probe`)
+Expected: grün, im batch-writer 29 Tests.
+
+**Warum grün und nicht rot:** Diese Tests sind der Massstab für V2, nicht für neuen Code. Auf dem
+alten Stand sind sie grün aus folgenden Gründen:
+- `basicReject` entfernt die unlesbare Nachricht schon bei der ersten Zustellung, deshalb liegt sie
+  nur einmal in `chat.dlq`.
+- RabbitMQ behält beim Dead-Lettering `delivery_mode 2`.
+- Der Reader kennt Umlaute und unbekannte Felder schon.
+
+Dass die Tests beissen, zeigt V3.
+
+- [ ] **Schritt 5: Committen**
+
+```bash
+git add batch-writer/src/test docs/plan-batch-writer.md
+git commit -m "test: DLQ-Kopien persistent und nur einmal, Umlaute und Zusatzfelder" \
+  -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+### V2: Spring bestätigt die Stapel
+
+**Warum an dieser Stelle:** Erst jetzt, wo V1 den heutigen Stand festhält, darf sich der Code
+ändern. Kein Test wird angepasst. Bleiben alle grün, hat sich das Verhalten nicht geändert.
+
+**Dateien:**
+- Ändern: `batch-writer/src/main/java/ch/benedict/m321/batchwriter/config/RabbitConfig.java` (Factory und zwei Javadocs)
+- Ändern: `batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/ReceivedMessage.java`
+- Ändern: `batch-writer/src/main/java/ch/benedict/m321/batchwriter/service/MessageBatchListener.java` (neu geschrieben)
+
+**Schnittstellen:**
+- Verbraucht: `ChatMessageReader.read(byte[])`, `MessageRepository.insertBatch(List<ChatMessage>)`, `RabbitTemplate` von Spring Boot
+- Stellt bereit: `onBatch(List<Message>)` ohne `Channel`; `ReceivedMessage(Message original, ChatMessage chatMessage)`; unverändert `LISTENER_ID` und die Log-Zeile `Stored batch of N messages` (S6 sucht sie)
+
+- [ ] **Schritt 1: `ReceivedMessage` trägt das Original statt der Liefernummer**
+
+```java
+/**
+ * Eine gelesene Nachricht: das Original aus der Queue und der Inhalt daraus.
+ *
+ * In die Datenbank geht nur der Inhalt. Das Original brauchen wir, falls die
+ * Datenbank die Nachricht ablehnt: dann legen wir genau dieses Original,
+ * Body und Header unverändert, nach chat.dlq (Spezifikation 3.3, F9).
+ *
+ * @param original    die Nachricht, wie sie aus chat.persist kam
+ * @param chatMessage der Inhalt, schon aus dem JSON gelesen
+ */
+public record ReceivedMessage(Message original, ChatMessage chatMessage) {
+}
+```
+
+- [ ] **Schritt 2: `RabbitConfig`: `AUTO` und `defaultRequeueRejected`**
+
+In `batchListenerFactory` die letzte Einstellung ersetzen und eine ergänzen:
+
+```java
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
+        factory.setDefaultRequeueRejected(true);
+```
+
+Im Javadoc der Factory statt «MANUAL: wir bestätigen selbst …»:
+
+```
+ * - AUTO: Spring bestätigt für uns. Kehrt der Listener ohne Fehler zurück,
+ *   also nach dem COMMIT, schickt Spring EIN ACK für den ganzen Stapel.
+ *   Wirft er einen Fehler, schickt Spring ein NACK für den ganzen Stapel.
+ * - defaultRequeueRejected: dieses NACK heisst "zurück in die Queue" und
+ *   nicht "in die DLQ". true ist auch die Vorgabe von Spring; es steht
+ *   trotzdem hier, weil der Datenbank-Ausfall (S7) genau davon abhängt.
+```
+
+Im Javadoc von `deadLetterQueue()`: «Auch der batch-writer legt es an, denn er legt selbst Nachrichten
+hinein: gäbe es die Queue noch nicht, würde RabbitMQ sie still verwerfen.»
+
+- [ ] **Schritt 3: `MessageBatchListener` neu schreiben**
+
+```java
+package ch.benedict.m321.batchwriter.service;
+
+import ch.benedict.m321.batchwriter.config.QueueNames;
+import ch.benedict.m321.batchwriter.config.RabbitConfig;
+import ch.benedict.m321.batchwriter.dto.ChatMessage;
+import ch.benedict.m321.batchwriter.repository.MessageRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageDeliveryMode;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Holt Stapel aus chat.persist und schreibt sie in die Datenbank
+ * (PLANUNG.md 3.6, Spezifikation 3.1).
+ *
+ * Bestätigen muss diese Klasse nichts selbst, das macht Spring (AUTO, siehe
+ * RabbitConfig):
+ * - onBatch endet ohne Fehler: Spring schickt EIN ACK für den ganzen Stapel.
+ *   Dann ist der COMMIT schon passiert.
+ * - onBatch wirft einen Fehler: Spring schickt ein NACK mit requeue, und
+ *   RabbitMQ liefert den ganzen Stapel später noch einmal.
+ *
+ * Stürzt der batch-writer vor dem ACK ab, kommt der Stapel ebenfalls noch
+ * einmal: At-least-once. Das zweite Mal verwirft die Datenbank die Zeilen
+ * (ON CONFLICT DO NOTHING).
+ *
+ * Fehler gehören in eine von zwei Klassen (Spezifikation 3.3):
+ * - Die Nachricht ist schuld: sie kommt nach chat.dlq, ein zweiter Versuch
+ *   würde genauso scheitern. Der Rest des Stapels wird gespeichert.
+ * - Die Umgebung ist schuld, z. B. die Datenbank ist weg: nach einer Pause
+ *   geht der Fehler an Spring, und der Stapel kommt später wieder.
+ */
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class MessageBatchListener {
+
+    /** Unter diesem Namen findet man den Listener, z. B. im Test, um ihn anzuhalten. */
+    public static final String LISTENER_ID = "messageBatchListener";
+
+    /** Pause, bevor ein Stapel zurückgeht. Ohne sie kreiste er ohne Halt zwischen Queue und Listener. */
+    private static final long PAUSE_BEFORE_RETRY_MILLISECONDS = 2000;
+
+    private final ChatMessageReader chatMessageReader;
+    private final MessageRepository messageRepository;
+    private final RabbitTemplate rabbitTemplate;
+
+    /**
+     * Wird von Spring für jeden Stapel aufgerufen: bis zu 500 Nachrichten oder
+     * was innerhalb von 200 ms kam (siehe RabbitConfig).
+     *
+     * Drei Schritte: lesen, speichern, Unspeicherbares nach chat.dlq. In die
+     * Liste deadLetters kommt alles, was nach chat.dlq gehört. Wir schicken sie
+     * erst am Schluss ab: fällt vorher die Datenbank aus, kommt der ganze
+     * Stapel wieder, und jede dieser Nachrichten läge sonst nach jedem Versuch
+     * ein weiteres Mal in chat.dlq.
+     */
+    @RabbitListener(id = LISTENER_ID, queues = QueueNames.PERSIST_QUEUE,
+            containerFactory = RabbitConfig.BATCH_LISTENER_FACTORY)
+    public void onBatch(List<Message> batch) {
+        try {
+            List<Message> deadLetters = new ArrayList<>();
+            List<ReceivedMessage> readableMessages = readAll(batch, deadLetters);
+            store(readableMessages, deadLetters);
+            sendToDeadLetterQueue(deadLetters);
+        } catch (RuntimeException exception) {
+            String reason = exception.getMessage();
+            log.warn("Could not process batch, returning it to {} after {} ms: {}",
+                    QueueNames.PERSIST_QUEUE, PAUSE_BEFORE_RETRY_MILLISECONDS, reason);
+            pauseBeforeRetry();
+            // Weiterwerfen ist Absicht: nur daran erkennt Spring, dass der
+            // Stapel zurück in die Queue muss (PLANUNG.md 3.6: NACK mit requeue).
+            throw exception;
+        }
+    }
+
+    /**
+     * Liest jede Nachricht des Stapels. Was sich nicht lesen lässt, kommt in
+     * die Liste für chat.dlq: ein zweiter Versuch würde genauso scheitern (F8).
+     */
+    private List<ReceivedMessage> readAll(List<Message> batch, List<Message> deadLetters) {
+        List<ReceivedMessage> readableMessages = new ArrayList<>();
+        for (Message message : batch) {
+            byte[] body = message.getBody();
+            ChatMessage chatMessage = chatMessageReader.read(body);
+
+            if (chatMessage == null) {
+                log.warn("Message is not a readable chat message, moving it to {}", QueueNames.DEAD_LETTER_QUEUE);
+                deadLetters.add(message);
+            } else {
+                ReceivedMessage receivedMessage = new ReceivedMessage(message, chatMessage);
+                readableMessages.add(receivedMessage);
+            }
+        }
+        return readableMessages;
+    }
+
+    /**
+     * Schreibt alle lesbaren Nachrichten in EINER Transaktion. Lehnt die
+     * Datenbank eine Zeile ab, schreiben wir den Stapel einzeln (F9). Jede
+     * andere Exception, z. B. "Datenbank nicht erreichbar", fliegt weiter bis
+     * in onBatch.
+     */
+    private void store(List<ReceivedMessage> readableMessages, List<Message> deadLetters) {
+        // Waren alle unlesbar, gibt es nichts zu schreiben. Dann auch keine
+        // Transaktion, die bei einem Datenbank-Ausfall scheitern könnte.
+        if (readableMessages.isEmpty()) {
+            return;
+        }
+        List<ChatMessage> chatMessages = toChatMessages(readableMessages);
+        int batchSize = chatMessages.size();
+
+        try {
+            messageRepository.insertBatch(chatMessages);
+        } catch (DataIntegrityViolationException exception) {
+            log.warn("Database refused a message in a batch of {}, storing the batch one by one", batchSize);
+            storeOneByOne(readableMessages, deadLetters);
+            return;
+        }
+        log.info("Stored batch of {} messages", batchSize);
+    }
+
+    /**
+     * Die Datenbank hat eine Zeile des Stapels abgelehnt, z. B. wegen des
+     * Zeichens NUL. Jetzt schreiben wir jede Nachricht in ihrer eigenen
+     * Transaktion. Nur die abgelehnte kommt in die Liste für chat.dlq (F9).
+     * Fällt dabei die Datenbank aus, fliegt die Exception weiter bis in
+     * onBatch, und der ganze Stapel kommt wieder. Schon gespeicherte verwirft
+     * die Datenbank beim nächsten Mal (ON CONFLICT DO NOTHING).
+     */
+    private void storeOneByOne(List<ReceivedMessage> readableMessages, List<Message> deadLetters) {
+        for (ReceivedMessage receivedMessage : readableMessages) {
+            ChatMessage chatMessage = receivedMessage.chatMessage();
+            List<ChatMessage> single = List.of(chatMessage);
+            try {
+                messageRepository.insertBatch(single);
+            } catch (DataIntegrityViolationException exception) {
+                UUID messageId = chatMessage.id();
+                log.warn("Database refused message {}, moving it to {}", messageId, QueueNames.DEAD_LETTER_QUEUE);
+                Message original = receivedMessage.original();
+                deadLetters.add(original);
+            }
+        }
+    }
+
+    /**
+     * Legt jede Nachricht, die wir nie speichern können, unverändert nach
+     * chat.dlq: gleicher Body, gleiche Header. Ohne Exchange-Namen geht sie
+     * über den Standard-Exchange direkt in die Queue mit diesem Namen, wie
+     * im chat-service. Scheitert das Senden, fliegt die Exception bis in
+     * onBatch: der Stapel kommt wieder, und die schon gespeicherten Zeilen
+     * verwirft die Datenbank dann (ON CONFLICT DO NOTHING).
+     */
+    private void sendToDeadLetterQueue(List<Message> deadLetters) {
+        for (Message deadLetter : deadLetters) {
+            // Beim Empfang merkt sich Spring nur, WIE die Nachricht kam
+            // (receivedDeliveryMode), und lässt deliveryMode leer. Ohne diese
+            // Zeile wäre die Kopie nicht persistent, und ein Neustart von
+            // RabbitMQ löschte sie aus chat.dlq.
+            MessageProperties properties = deadLetter.getMessageProperties();
+            properties.setDeliveryMode(MessageDeliveryMode.PERSISTENT);
+            rabbitTemplate.send(QueueNames.DEAD_LETTER_QUEUE, deadLetter);
+        }
+    }
+
+    /**
+     * Wartet, bevor der Stapel zurückgeht. Wird der Thread dabei unterbrochen,
+     * weil der batch-writer herunterfährt, hören wir sofort auf zu warten und
+     * merken uns die Unterbrechung für Spring.
+     */
+    private void pauseBeforeRetry() {
+        try {
+            Thread.sleep(PAUSE_BEFORE_RETRY_MILLISECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Nimmt aus den gelesenen Nachrichten den Inhalt, der in die Datenbank geht. */
+    private List<ChatMessage> toChatMessages(List<ReceivedMessage> readableMessages) {
+        List<ChatMessage> chatMessages = new ArrayList<>();
+        for (ReceivedMessage receivedMessage : readableMessages) {
+            ChatMessage chatMessage = receivedMessage.chatMessage();
+            chatMessages.add(chatMessage);
+        }
+        return chatMessages;
+    }
+}
+```
+
+> **Falle 1 – Persistenz geht beim Weiterschicken verloren:**
+> - Beim Empfang setzt Spring `deliveryMode` auf `null` und merkt sich den Wert nur als
+>   `receivedDeliveryMode` (`DefaultMessagePropertiesConverter`, Spring AMQP 3.2.12).
+> - Schickt man die Nachricht unverändert weiter, ist die Kopie in `chat.dlq` nicht persistent.
+> - Deshalb die Zeile `setDeliveryMode(PERSISTENT)`. Der Test aus V1, Schritt 1, prüft sie.
+>
+> **Falle 2 – Kopien für `chat.dlq` erst am Schluss:** Schickt man sie gleich beim Lesen weg, liegt
+> jede bei einem Datenbank-Ausfall nach jedem Versuch ein weiteres Mal in `chat.dlq`. Der Test aus
+> V1, Schritt 3, prüft das.
+>
+> **Falle 3 – nie selbst bestätigen:**
+> - Ein eigenes `basicAck` zusätzlich zum ACK von Spring wäre ein doppeltes ACK.
+> - RabbitMQ antwortet darauf mit `406 PRECONDITION_FAILED` und schliesst den Channel.
+> - Der Listener hat deshalb keinen Parameter `Channel` mehr.
+>
+> **Falle 4 – das `try` umfasst den ganzen Körper von `onBatch`:**
+> - Nur so bekommt jeder Fehler die 2 s Pause, auch einer beim Senden an `chat.dlq`.
+> - Ohne Pause liefert RabbitMQ den Stapel sofort wieder, und es entsteht eine heisse Schleife.
+>
+> **Neu im Protokoll:** Pro Fehlversuch schreibt Spring zusätzlich eine Warnung mit Stacktrace
+> («Execution of Rabbit message listener failed.»). Das ist gewollt, die Zeile `Caused by:` darin
+> nennt den Grund.
+
+- [ ] **Schritt 4: Alle Tests laufen lassen, ohne einen zu ändern**
+
+Run: `mvn -B clean test` (im CI, Branch `probe`)
+Expected: grün, im batch-writer 29 Tests. Also dieselben Tests wie nach V1, keiner angepasst.
+
+- [ ] **Schritt 5: Nichts mehr von Hand bestätigen**
+
+Run: `grep -rn -E 'Channel|basicAck|basicNack|basicReject|deliveryTag' batch-writer/src/main`
+Expected: keine Ausgabe.
+
+- [ ] **Schritt 6: Committen**
+
+```bash
+git add batch-writer/src/main docs/plan-batch-writer.md
+git commit -m "refactor: Spring bestätigt die Stapel, der Listener braucht keinen Channel mehr" \
+  -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+### V3: Absichtlich eingebaute Fehler zeigen, dass die neuen Tests anschlagen
+
+**Warum an dieser Stelle:** Ein Test, der nie rot war, beweist nichts. Die Fehler, gegen die die
+Tests aus V1 schützen, gibt es erst im Code aus V2.
+
+**So läuft es:**
+- Je ein Wegwerf-Branch auf dem Stand nach V2 mit genau einem absichtlichen Fehler.
+- Dazu eine `build.yml`, die nur `mvn -B clean test` laufen lässt.
+- Die roten Läufe bleiben in GitHub Actions sichtbar, die Branches werden danach gelöscht.
+- Auf `main` kommt davon nichts.
+
+| # | Absichtlicher Fehler | Muss rot werden |
+|---|---|---|
+| P1 | in `sendToDeadLetterQueue` die zwei Zeilen mit `setDeliveryMode(PERSISTENT)` löschen | `rejectsUnreadableMessageAndStoresTheRest` und `rejectsOnlyTheMessageTheDatabaseRefuses`: `PERSISTENT` erwartet, `null` erhalten |
+| P2 | in `readAll` die unlesbare Nachricht sofort nach `chat.dlq` schicken statt in die Liste | `storesEverythingOnceTheDatabaseIsBack`: zweite Kopie in `chat.dlq` |
+| P3 | in `RabbitConfig` `setDefaultRequeueRejected(false)` | `storesEverythingOnceTheDatabaseIsBack`: der Stapel geht beim ersten Fehler über die Argumente der Queue nach `chat.dlq`, 0 statt 50 Zeilen |
+| P4 | `ChatMessageReader` liest den Body als ISO-8859-1 statt UTF-8 | `storesUmlautsAndEmojiUnchanged` |
+| P5 | `spring.jackson.deserialization.fail-on-unknown-properties: true` in `application.yml` | `storesMessageWithUnknownField`. Der Unit-Test des Readers bleibt grün |
+
+- [ ] **P1** rot, Lauf verlinkt
+- [ ] **P2** rot, Lauf verlinkt
+- [ ] **P3** rot, Lauf verlinkt
+- [ ] **P4** rot, Lauf verlinkt
+- [ ] **P5** rot, Lauf verlinkt
+
+### V4: Abnahme nach der Vereinfachung
+
+**Warum an dieser Stelle:** Die Messwerte gelten nur für den Stand, der abgegeben wird.
+
+- [ ] CI auf `main` grün: `mvn -B clean test` (chat-service 14, batch-writer 29), alle Images, `bash scripts/abnahme.sh` S2 bis S8 `PASS`
+- [ ] Probelauf in der Reihenfolge des Lehrers, im **selben** Checkout: `mvn -B clean test`, danach `grep -rli stream batch-writer/` **mit** `target/` ohne Treffer, danach `bash scripts/abnahme.sh`
+- [ ] Abnahmeprotokoll in Spezifikation 6 durch die neuen Werte ersetzt (Lauf, Commit, S1 bis S8)
+- [ ] `git log --oneline`: die Spezifikation, dieser Abschnitt, V1, V2, die Korrekturen aus der Probe-Bewertung und dieser Abschluss, in dieser Reihenfolge, ein Thema pro Commit
+- [ ] **Committen**
+
+```bash
+git add docs/spec-batch-writer.md docs/plan-batch-writer.md
+git commit -m "docs: Abnahme nach der Vereinfachung" \
+  -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
