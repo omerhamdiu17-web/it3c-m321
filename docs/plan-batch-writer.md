@@ -2474,7 +2474,9 @@ public class MessageBatchListener {
 > trotzdem der NACK-Zweig greift, liegt daran, dass auch das Zurückrollen scheitert: Spring
 > meldet «Application exception overridden by rollback exception» und reicht die
 > `DataAccessResourceFailureException` des Zurückrollens weiter. Im Betrieb läuft Java ohne
-> `-ea`; dort meldet der Treiber den Fehler als `PSQLException`, also als `RuntimeException`.
+> `-ea`; dort meldet der Treiber den Fehler als `PSQLException`. Das ist eine `SQLException`, also
+> keine `RuntimeException`. Erst Spring übersetzt sie in eine `DataAccessException`, und die ist
+> eine `RuntimeException`, die der `catch` fängt.
 >
 > **Warum Pause und NACK statt einer Warteschleife im Listener:** Spring AMQP unterbricht die
 > Verbraucher-Threads 5 s nach dem Stopp-Signal. Eine Schleife, die bis zur Rückkehr der
@@ -4261,7 +4263,7 @@ letzten dieser Commits.
 - [x] **Z1** F4 mit einer Zeitangabe
 - [x] **Z2** Vorarbeit-Tabelle nennt `ChatMessageReader` als neu
 - [x] **Z3** Berufungen auf den Auftrag mit Zitat
-- [ ] **Z4** `PSQLException` richtiggestellt
+- [x] **Z4** `PSQLException` richtiggestellt
 - [ ] **Z5** Arbeitsweise so, wie sie lief
 - [ ] **Z6** Codeblöcke mit ihrem Stand markiert
 - [ ] **Z7** Commit-Übersicht vollständig
