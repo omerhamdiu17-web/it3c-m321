@@ -623,22 +623,27 @@ Alle Kriterien S2 bis S8 prüft zusätzlich das Skript `scripts/abnahme.sh` auto
 Reihenfolge und auf demselben Stack wie die Abnahme. Es läuft bei jedem Push in GitHub Actions
 (siehe Umsetzungsplan).
 
-### Abnahmeprotokoll vom 29.09.2026
+### Abnahmeprotokoll vom 30.09.2026
 
-Gemessen mit `mvn -B clean test` und `scripts/abnahme.sh` in GitHub Actions: frischer Checkout, `.env`
-aus `.env.example`, Lauf [36598446488](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36598446488)
-auf Commit `2452cb2`.
+Gemessen in GitHub Actions in der Reihenfolge des Prüfskripts, Lauf
+[36695032988](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36695032988):
+1. frischer Checkout, zuerst `mvn -B clean test` (S1);
+2. danach im selben Ordner `.env` aus `.env.example` und `scripts/abnahme.sh` (S2 bis S8).
+
+Der Code in diesem Lauf ist derselbe wie beim Tag `bewertung-1`. Danach kamen nur noch
+Doku-Commits. Derselbe Stand lief auch im normalen CI auf `main` grün
+([36695028771](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36695028771)).
 
 | Nr | Ergebnis | gemessen |
 |---|---|---|
-| S1 | bestanden | chat-service 14 Tests, batch-writer 27 Tests, 0 Fehler |
+| S1 | bestanden | chat-service 14 Tests, batch-writer 29 Tests, 0 Fehler, in einem Lauf |
 | S2 | bestanden | 4 Dienste laufen, 0 veröffentlichte Ports |
-| S3 | bestanden | 1000 × `202`, 1000 Zeilen, `chat.persist` leer nach 3 s |
+| S3 | bestanden | 1000 × `202`, 1000 Zeilen, `chat.persist` leer schon bei der ersten Messung nach dem Senden |
 | S4 | bestanden | 1000 Zeilen, **17 Transaktionen**, davon 2 schreibend |
 | S5 | bestanden | 1 Zeile mit dieser `id`, `chat.dlq` leer |
 | S6 | bestanden | 2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, 1000 verschiedene `id` |
-| S7 | bestanden | alle 300 Zeilen **6 s** nach dem Neustart von PostgreSQL, `chat.dlq` leer, 0 Neustarts |
-| S8 | bestanden | 0 × «stream», 0 fehlende Kommentare, `.env` weder im Repository noch in einem der 81 Commits |
+| S7 | bestanden | alle 300 Zeilen **7 s** nach dem Neustart von PostgreSQL, `chat.dlq` leer, 0 Neustarts |
+| S8 | bestanden | 0 × «stream» in `batch-writer/`, auch in `target/` nach S1; `bash scripts/kommentare.sh batch-writer/src`: 0 fehlende Kommentare; `.env` weder im Repository noch in einem der 97 Commits |
 
 ---
 

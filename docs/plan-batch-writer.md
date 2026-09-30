@@ -4223,11 +4223,11 @@ Reihenfolge:
 
 **Warum an dieser Stelle:** Die Messwerte gelten nur für den Stand, der abgegeben wird.
 
-- [ ] CI auf `main` grün: `mvn -B clean test` (chat-service 14, batch-writer 29), alle Images, `bash scripts/abnahme.sh` S2 bis S8 `PASS`
-- [ ] Probelauf in der Reihenfolge des Lehrers, im **selben** Checkout: `mvn -B clean test`, danach `grep -rli stream batch-writer/` **mit** `target/` ohne Treffer, danach `bash scripts/abnahme.sh`
-- [ ] Abnahmeprotokoll in Spezifikation 6 durch die neuen Werte ersetzt (Lauf, Commit, S1 bis S8)
-- [ ] `git log --oneline`: die Spezifikation, dieser Abschnitt, V1, V2, die Korrekturen aus der Probe-Bewertung und dieser Abschluss, in dieser Reihenfolge, ein Thema pro Commit
-- [ ] **Committen**
+- [x] CI auf `main` grün ([36695028771](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36695028771)): `mvn -B clean test` (chat-service 14, batch-writer 29), alle Images, `bash scripts/abnahme.sh` S2 bis S8 `PASS`
+- [x] Probelauf in der Reihenfolge des Lehrers ([36695032988](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36695032988): 0 Treffer, 0 fehlende Kommentare, S2 bis S8 bestanden), im **selben** Checkout: `mvn -B clean test`, danach `grep -rli stream batch-writer/` **mit** `target/` ohne Treffer, danach `bash scripts/abnahme.sh`
+- [x] Abnahmeprotokoll in Spezifikation 6 durch die neuen Werte ersetzt (Lauf, Commit, S1 bis S8)
+- [x] `git log --oneline`: die Spezifikation, dieser Abschnitt, V1, V2, die Korrekturen aus der Probe-Bewertung und dieser Abschluss, in dieser Reihenfolge, ein Thema pro Commit
+- [x] **Committen**
 
 ```bash
 git add docs/spec-batch-writer.md docs/plan-batch-writer.md
