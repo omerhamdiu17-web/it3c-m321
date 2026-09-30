@@ -664,6 +664,31 @@ der Reihenfolge Spezifikation, Plan, Code neu aufzubauen. Der alte Stand ist nic
 sondern archiviert. Das Zurücksetzen war ein Force-Push auf `main` und ist in der Aktivität des
 Repositorys sichtbar.
 
+**Was aus der Vorarbeit blieb und was diese Spezifikation geändert hat** (Vergleich des
+Archiv-Branchs mit dem heutigen Stand):
+
+| Thema | Vorarbeit (23.09.) | Heute | Grund |
+|---|---|---|---|
+| Aufbau | `MessageBatchListener`, `ReceivedMessage`, `MessageRepository`, `RabbitConfig`, `QueueNames`, `record ChatMessage` | gleich | Schichtung wie im `chat-service`, sie hat sich bewährt |
+| Duplikate | `ON CONFLICT (id) DO NOTHING` | gleich | F2 |
+| Fremdschlüssel `room_id` | ja, auf eine Tabelle `room` | **keiner** | Sonst landen gültige Nachrichten in der DLQ (4.1, 5) |
+| `sent_at` in Java | `Instant`, im Repository in `Timestamp` umgewandelt | `OffsetDateTime`, direkt gebunden | Eine Umwandlung weniger, der Treiber bindet `OffsetDateTime` an `timestamptz` (4.1) |
+| Stapel fertig | 200 ms lang keine neue Nachricht (`receiveTimeout`) | 500 Stück **oder** 200 ms ab Beginn (dazu `batchReceiveTimeout`) | PLANUNG.md 3.6 meint «spätestens nach 200 ms» (3.1) |
+| Fehler beim Schreiben | nur `DataAccessException` führte zum NACK, bei anderen blieb der Stapel hängen | jede Exception, die kein Datenfehler ist: Pause und NACK | F4, F10 (Punkt 2 unten) |
+| Pause vor dem NACK | 1 s | 2 s | F4 |
+| Bestätigen | von Hand (`MANUAL`) | Spring (`AUTO`), seit 30.09. | F12, Vereinfachung unten |
+| Unlesbare Nachricht | `basicReject`, weiter über die Argumente der Queue | am Ende des Stapels selbst nach `chat.dlq`, persistent | F8 |
+| Tests | 3 Testklassen mit 7 Tests, kein Test für einen Datenbank-Ausfall | 7 Testklassen mit 29 Tests, darunter S5 und S7 | 6 |
+| Abnahme | – | `scripts/abnahme.sh` für S2 bis S8, bei jedem Push | 6 |
+
+Im `git log` liegen die Commits der Tasks 1 bis 12 nur Minuten auseinander. Der Umsetzungsplan
+enthielt wie sein Vorbild `docs/plan-chat-service.md` schon den ganzen Code. Umsetzen hiess deshalb:
+- den Test übernehmen und rot sehen;
+- den Code übernehmen und grün sehen;
+- erst nach einem grünen Lauf in GitHub Actions auf `main` pushen.
+
+Die Läufe stehen im Umsetzungsplan (Commit-Übersicht).
+
 **KI-Vorschläge, die korrigiert wurden** (jeweils mit Beleg):
 1. *Fremdschlüssel `room_id` (Vorarbeit):* entfernt, siehe 4.1 und 5.
 2. *Fehlerbehandlung (Vorarbeit):* Sie fing nur `DataAccessException`. Kommt der Pool 30 s lang an
