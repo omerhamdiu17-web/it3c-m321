@@ -6,8 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.core.QueueInformation;
-import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.MessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.RabbitListenerEndpointRegistry;
@@ -29,12 +27,15 @@ import java.sql.Statement;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Szenario S7 im Kleinen: die Datenbank fällt aus, während Nachrichten
- * ankommen. Danach muss jede Nachricht in der Tabelle stehen, keine in der
- * Dead-Letter-Queue, und der Verbraucher muss noch laufen – ohne Neustart.
+ * ankommen. Danach muss jede gültige Nachricht in der Tabelle stehen, keine
+ * gültige in der Dead-Letter-Queue, und der Verbraucher muss noch laufen –
+ * ohne Neustart.
  *
  * So entsteht der Ausfall: Wir sperren die Datenbank für neue Verbindungen
  * und trennen alle bestehenden. Für den batch-writer sieht das aus wie ein
@@ -47,8 +48,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @DirtiesContext
 class DatabaseOutageIntegrationTest {
 
-    /** So viele Nachrichten kommen während des Ausfalls an. */
+    /** So viele gültige Nachrichten kommen während des Ausfalls an. */
     private static final int MESSAGE_COUNT = 50;
+
+    /** Dieser Body ist kein JSON: der batch-writer kann ihn nie speichern. */
+    private static final String UNREADABLE_BODY = "das ist kein JSON";
 
     /**
      * So lange ist die Datenbank weg: länger als die 30 s, die der
@@ -57,8 +61,15 @@ class DatabaseOutageIntegrationTest {
      */
     private static final int OUTAGE_MILLISECONDS = 35000;
 
-    /** So lange warten wir höchstens auf Zeilen in der Tabelle. */
+    /** So lange warten wir höchstens auf Zeilen in der Tabelle und auf chat.dlq. */
     private static final int WAIT_MILLISECONDS = 30000;
+
+    /**
+     * So lange warten wir auf eine zweite Nachricht in chat.dlq, die es nicht
+     * geben darf. Eine falsche zweite Kopie entstünde schon während des
+     * Ausfalls und läge längst dort.
+     */
+    private static final int SECOND_COPY_WAIT_MILLISECONDS = 2000;
 
     /** Ein beliebiger Raum: der batch-writer prüft Räume bewusst nicht. */
     private static final String ROOM_ID = "3f2b1c4e-0000-0000-0000-000000000001";
@@ -77,18 +88,19 @@ class DatabaseOutageIntegrationTest {
     private RabbitTemplate rabbitTemplate;
 
     @Autowired
-    private RabbitAdmin rabbitAdmin;
-
-    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private RabbitListenerEndpointRegistry listenerRegistry;
 
     /**
-     * Nachrichten während des Ausfalls: alle kommen an, keine in der DLQ, der
+     * Nachrichten während des Ausfalls: alle gültigen kommen an, der
      * Verbraucher lebt. Wie in der Abnahme läuft vorher schon etwas durch,
      * damit der Verbindungspool Verbindungen hält, die der Ausfall dann trennt.
+     *
+     * Mitten unter den gültigen steckt eine unlesbare Nachricht. Ihr Stapel
+     * kommt während des Ausfalls mehrmals zurück. Trotzdem muss sie GENAU
+     * EINMAL in chat.dlq liegen, und keine gültige darf dort landen.
      */
     @Test
     void storesEverythingOnceTheDatabaseIsBack() throws Exception {
@@ -104,6 +116,9 @@ class DatabaseOutageIntegrationTest {
                 UUID id = UUID.randomUUID();
                 String body = json(id, "S7 " + i);
                 publish(body);
+                if (i == MESSAGE_COUNT / 2) {
+                    publish(UNREADABLE_BODY);
+                }
             }
             Thread.sleep(OUTAGE_MILLISECONDS);
         } finally {
@@ -111,10 +126,15 @@ class DatabaseOutageIntegrationTest {
         }
 
         int stored = waitForCount(MESSAGE_COUNT, "SELECT count(*) FROM message WHERE content LIKE 'S7 %'");
-        int deadLetters = messageCount(QueueNames.DEAD_LETTER_QUEUE);
+        Message deadLetter = rabbitTemplate.receive(QueueNames.DEAD_LETTER_QUEUE, WAIT_MILLISECONDS);
+        Message secondDeadLetter = rabbitTemplate.receive(QueueNames.DEAD_LETTER_QUEUE, SECOND_COPY_WAIT_MILLISECONDS);
         MessageListenerContainer container = listenerRegistry.getListenerContainer(MessageBatchListener.LISTENER_ID);
         assertEquals(MESSAGE_COUNT, stored);
-        assertEquals(0, deadLetters);
+        assertNotNull(deadLetter, "die unlesbare Nachricht ist nicht in chat.dlq");
+        byte[] deadBytes = deadLetter.getBody();
+        String deadBody = new String(deadBytes, StandardCharsets.UTF_8);
+        assertEquals(UNREADABLE_BODY, deadBody);
+        assertNull(secondDeadLetter, "in chat.dlq liegt mehr als die eine unlesbare Nachricht");
         assertTrue(container.isRunning(), "der Verbraucher läuft nicht mehr");
     }
 
@@ -197,11 +217,5 @@ class DatabaseOutageIntegrationTest {
                 .setContentType(MessageProperties.CONTENT_TYPE_JSON)
                 .build();
         rabbitTemplate.send(QueueNames.PERSIST_QUEUE, message);
-    }
-
-    /** Wie viele Nachrichten gerade in einer Queue warten. */
-    private int messageCount(String queueName) {
-        QueueInformation information = rabbitAdmin.getQueueInfo(queueName);
-        return information.getMessageCount();
     }
 }

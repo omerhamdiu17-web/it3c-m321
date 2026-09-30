@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
+import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.QueueInformation;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
@@ -46,6 +47,9 @@ class MessageBatchListenerIntegrationTest {
 
     /** Der Header, den der chat-service mitschickt und den wir ignorieren. */
     private static final String TYPE_ID_OF_CHAT_SERVICE = "ch.benedict.m321.chatservice.dto.ChatMessage";
+
+    /** Text mit Umlaut und Emoji, wie im Test des Repository. */
+    private static final String UMLAUT_AND_EMOJI = "Grüezi mitenand 👋";
 
     /** RabbitMQ wie in docker-compose.yml; @ServiceConnection setzt Host und Port. */
     @Container
@@ -94,7 +98,11 @@ class MessageBatchListenerIntegrationTest {
         assertEquals(1, stored);
     }
 
-    /** Eine unlesbare Nachricht landet in chat.dlq, die gute daneben wird trotzdem gespeichert (F8). */
+    /**
+     * Eine unlesbare Nachricht landet in chat.dlq, die gute daneben wird
+     * trotzdem gespeichert (F8). Die Kopie in chat.dlq ist persistent: ein
+     * Neustart von RabbitMQ darf sie nicht löschen.
+     */
     @Test
     void rejectsUnreadableMessageAndStoresTheRest() throws InterruptedException {
         UUID goodId = UUID.randomUUID();
@@ -110,6 +118,7 @@ class MessageBatchListenerIntegrationTest {
         byte[] deadBytes = deadLetter.getBody();
         String deadBody = new String(deadBytes, StandardCharsets.UTF_8);
         assertEquals("das ist kein JSON", deadBody);
+        assertPersistent(deadLetter);
     }
 
     /**
@@ -163,8 +172,8 @@ class MessageBatchListenerIntegrationTest {
     /**
      * Eine Nachricht, die die Datenbank ablehnt (Zeichen NUL im Text), reisst
      * die anderen im selben Stapel nicht mit: sie werden gespeichert, nur die
-     * abgelehnte landet in chat.dlq (F9). Der Verbraucher ist beim Senden aus,
-     * damit alle drei sicher im selben Stapel ankommen.
+     * abgelehnte landet in chat.dlq (F9), und zwar persistent. Der Verbraucher
+     * ist beim Senden aus, damit alle drei sicher im selben Stapel ankommen.
      */
     @Test
     void rejectsOnlyTheMessageTheDatabaseRefuses() throws InterruptedException {
@@ -194,6 +203,45 @@ class MessageBatchListenerIntegrationTest {
         String deadBody = new String(deadBytes, StandardCharsets.UTF_8);
         String refusedIdText = refusedId.toString();
         assertTrue(deadBody.contains(refusedIdText), deadBody);
+        assertPersistent(deadLetter);
+    }
+
+    /**
+     * Umlaute und Emoji kommen über die Queue unverändert in der Tabelle an.
+     * Der Test des Repository prüft nur das Schreiben; dieser den ganzen Weg
+     * vom Body über den Listener bis in die Spalte content.
+     */
+    @Test
+    void storesUmlautsAndEmojiUnchanged() throws InterruptedException {
+        UUID id = UUID.randomUUID();
+        String body = json(id, UMLAUT_AND_EMOJI);
+
+        publish(body);
+
+        int stored = waitForCount(1, "SELECT count(*) FROM message WHERE id = ?", id);
+        assertEquals(1, stored);
+        String content = jdbcTemplate.queryForObject("SELECT content FROM message WHERE id = ?", String.class, id);
+        assertEquals(UMLAUT_AND_EMOJI, content);
+    }
+
+    /**
+     * Ein zusätzliches, unbekanntes Feld im JSON stört auch im laufenden
+     * Dienst nicht (Spezifikation 2.2). Der Unit-Test des Readers baut seinen
+     * ObjectMapper selbst; dieser Test benutzt den von Spring Boot, so wie
+     * der batch-writer im Betrieb.
+     */
+    @Test
+    void storesMessageWithUnknownField() throws InterruptedException {
+        UUID id = UUID.randomUUID();
+        String body = json(id, "mit Zusatzfeld");
+        String bodyWithUnknownField = body.replace("{\"id\"", "{\"priority\":\"hoch\",\"id\"");
+
+        publish(bodyWithUnknownField);
+
+        int stored = waitForCount(1, "SELECT count(*) FROM message WHERE id = ?", id);
+        int deadLetters = messageCount(QueueNames.DEAD_LETTER_QUEUE);
+        assertEquals(1, stored);
+        assertEquals(0, deadLetters);
     }
 
     /** Baut den Body einer Nachricht im Format des chat-service (Spezifikation 2.2). */
@@ -260,6 +308,17 @@ class MessageBatchListenerIntegrationTest {
     private int messageCount(String queueName) {
         QueueInformation information = rabbitAdmin.getQueueInfo(queueName);
         return information.getMessageCount();
+    }
+
+    /**
+     * Prüft, dass eine Nachricht aus chat.dlq persistent ist (delivery_mode 2):
+     * nur dann übersteht sie einen Neustart von RabbitMQ. Beim Empfang meldet
+     * Spring das als receivedDeliveryMode.
+     */
+    private void assertPersistent(Message deadLetter) {
+        MessageProperties properties = deadLetter.getMessageProperties();
+        MessageDeliveryMode deliveryMode = properties.getReceivedDeliveryMode();
+        assertEquals(MessageDeliveryMode.PERSISTENT, deliveryMode, "die Nachricht in chat.dlq ist nicht persistent");
     }
 
     /** Der Verbraucher des batch-writer, so wie Spring ihn unter seiner id führt. */

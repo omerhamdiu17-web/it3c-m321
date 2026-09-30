@@ -3721,7 +3721,7 @@ Vereinfachung kaputt machen könnte.
 - Verbraucht: `MessageBatchListener.LISTENER_ID`, `QueueNames`, die Hilfsmethoden der beiden Testklassen
 - Stellt bereit: 2 neue und 3 geschärfte Tests. Danach 29 statt 27 Tests im batch-writer
 
-- [ ] **Schritt 1: Die Kopien in `chat.dlq` müssen persistent sein (F8, F9)**
+- [x] **Schritt 1: Die Kopien in `chat.dlq` müssen persistent sein (F8, F9)**
 
 In `MessageBatchListenerIntegrationTest` den Import `org.springframework.amqp.core.MessageDeliveryMode`
 ergänzen. Am Ende von `rejectsUnreadableMessageAndStoresTheRest` und von
@@ -3742,7 +3742,7 @@ nicht löschen.» Die Hilfsmethode:
     }
 ```
 
-- [ ] **Schritt 2: Umlaute, Emoji und ein unbekanntes Feld über den ganzen Weg**
+- [x] **Schritt 2: Umlaute, Emoji und ein unbekanntes Feld über den ganzen Weg**
 
 Neue Konstante und zwei neue Tests in `MessageBatchListenerIntegrationTest`:
 
@@ -3789,7 +3789,7 @@ Neue Konstante und zwei neue Tests in `MessageBatchListenerIntegrationTest`:
     }
 ```
 
-- [ ] **Schritt 3: Der Ausfall-Test (S7) bekommt eine unlesbare Nachricht**
+- [x] **Schritt 3: Der Ausfall-Test (S7) bekommt eine unlesbare Nachricht**
 
 In `DatabaseOutageIntegrationTest` kommt mitten unter die 50 gültigen Nachrichten eine unlesbare.
 Ihr Stapel kommt während des Ausfalls mehrmals zurück. Trotzdem muss sie **genau einmal** in
@@ -3828,7 +3828,7 @@ DLQ-Zählung:
         assertTrue(container.isRunning(), "der Verbraucher läuft nicht mehr");
 ```
 
-- [ ] **Schritt 4: Auf dem alten Stand laufen lassen**
+- [x] **Schritt 4: Auf dem alten Stand laufen lassen**
 
 Run: `mvn -B clean test` (im CI, Branch `probe`)
 Expected: grün, im batch-writer 29 Tests.
@@ -3842,7 +3842,7 @@ alten Stand sind sie grün aus folgenden Gründen:
 
 Dass die Tests beissen, zeigt V3.
 
-- [ ] **Schritt 5: Committen**
+- [x] **Schritt 5: Committen**
 
 ```bash
 git add batch-writer/src/test docs/plan-batch-writer.md
