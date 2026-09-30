@@ -110,7 +110,11 @@ Testklassen heissen `...Test` oder `...IntegrationTest`, damit Surefire sie ohne
 
 ## Arbeitsweise
 
-- **Test zuerst.** Jede Aufgabe beginnt mit einem Test, der fehlschlägt. Erst dann kommt der Code.
+- **Test zuerst.** Jede Aufgabe mit Code beginnt mit einem Test, der fehlschlägt. Erst dann kommt der Code. Das Rot sieht je nach Aufgabe anders aus:
+  - *Task 2 und 4 bis 7:* ein Übersetzungsfehler, weil das Modul oder die Klasse noch fehlt; lokal ohne Container prüfbar.
+  - *Task 3, 8, 9 und 10:* ein roter Probelauf (siehe «Rot sichtbar gemacht»).
+  - *Task 1, 11 und 12 (CI, Abnahmeskript, README):* Hier ist der Lauf selbst der Test.
+- **Erst committen, dann pushen.** In Task 1, 2 und 10 steht «Pushen» vor «Committen». Ausgeführt wurde es umgekehrt: erst committen, dann auf `probe` pushen und nach grünem Lauf auf `main`, denn ein CI-Lauf braucht einen Commit. Die Commit-Übersicht am Ende nennt zu jedem Commit beide Läufe.
 - **Lokal und im CI.** Übersetzen und die Tests ohne Container laufen lokal mit Maven. Die Tests mit Containern laufen ab Task 1 bei jedem Push in GitHub Actions. Ein Stand geht erst auf `main`, wenn dieser Lauf grün ist.
 - **Ein Thema pro Commit.** Jede Aufgabe endet mit genau einem Commit, die Message steht im Plan.
 - **Rot sichtbar gemacht.** Wo der rote Schritt echte Container braucht (Task 3, 8, 9, 10), lief der Test ohne den Code als Wegwerf-Commit auf dem Branch `probe`. Diese roten Läufe stehen in GitHub Actions; auf `main` kamen nur grüne Commits. Rote Läufe: Task 3 [36584285994](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36584285994), Task 8 [36585879535](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36585879535), Task 9 [36586760971](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36586760971), Task 10 [36587770805](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36587770805). Die Befehle der README (Task 12) liefen in einem Wegwerf-Workflow: [36592784897](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/36592784897). In der Vereinfachung (V3) bauen Wegwerf-Branches absichtlich einen Fehler in den fertigen Code ein und zeigen so, dass die neuen Tests anschlagen.
@@ -3676,7 +3680,7 @@ Gemessen in GitHub Actions, Lauf [36598446488](https://github.com/omerhamdiu17-w
   - S8: sauber über 81 Commits
 - [x] `grep -nE '^\s+ports:' docker-compose.yml`: keine Treffer. Gesucht wird nur nach eingerückten Schlüsseln, denn der Kommentar «KEIN ports:-Eintrag» am Ende der Datei ist kein Eintrag
 - [x] `git ls-files .env`: keine Ausgabe
-- [x] `git log --oneline`: Spezifikation, dieser Plan, die Tasks 1 bis 12 und die Korrekturen K1 bis K5 in dieser Reihenfolge, ein Thema pro Commit
+- [x] `git log --oneline`: Spezifikation, dieser Plan, die Tasks 1 bis 12 und die Korrekturen K1 bis K5 in dieser Reihenfolge, ein Thema pro Commit. Der Abschluss-Commit `ff5678c` selbst enthält zwei Themen (Commit-Übersicht, Zeile 21)
 - [x] Jede Aufgabe oben ist abgehakt, und jede beim Bauen entdeckte Falle steht bei ihrer Aufgabe
 
 **Damit ist Schritt 4 der Umsetzungsreihenfolge für den Schreibweg erreicht:** Jede Nachricht,
@@ -4264,7 +4268,7 @@ letzten dieser Commits.
 - [x] **Z2** Vorarbeit-Tabelle nennt `ChatMessageReader` als neu
 - [x] **Z3** Berufungen auf den Auftrag mit Zitat
 - [x] **Z4** `PSQLException` richtiggestellt
-- [ ] **Z5** Arbeitsweise so, wie sie lief
+- [x] **Z5** Arbeitsweise so, wie sie lief
 - [ ] **Z6** Codeblöcke mit ihrem Stand markiert
 - [ ] **Z7** Commit-Übersicht vollständig
 
