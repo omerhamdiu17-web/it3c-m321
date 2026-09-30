@@ -62,6 +62,7 @@ docker-compose.yml                       # + postgres, + batch-writer, + Volume 
 .github/workflows/build.yml              # mvn clean test, Images bauen, Abnahme
 postgres/init/01-schema.sql              # Tabelle message und Index
 scripts/abnahme.sh                       # Szenarien S2 bis S8 nachgestellt
+scripts/kommentare.sh                    # Kommentar über jeder Klasse und Methode (S8), einzeln aufrufbar
 README.md                                # Stand, Starten, Testen, Abnahme
 batch-writer/
 ├── pom.xml
@@ -4208,7 +4209,7 @@ Reihenfolge:
 - [x] **R9** Spezifikation F10 und Protokollzeile präzisiert
 - [x] **R6** Spezifikation 6 erklärt den Ausfall-Test
 - [x] **R1** Spezifikation 7 zeigt Vorarbeit und Änderungen
-- [ ] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc
+- [x] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc
 - [ ] **R11** keine `::` mehr in `batch-writer/src`
 - [ ] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie
 - [ ] **R10** Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch

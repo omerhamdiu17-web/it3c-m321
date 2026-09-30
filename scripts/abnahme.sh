@@ -136,48 +136,6 @@ consumers_are() {
   [ "$(queue_value chat.persist consumers)" = "$1" ]
 }
 
-# Findet Klassen und Methoden in batch-writer/src ohne Kommentar direkt
-# darüber. Annotationen und ihre Fortsetzungszeilen dürfen dazwischen stehen.
-check_comments() {
-  find batch-writer/src -name '*.java' | sort | while read -r file; do
-    awk -v file="$file" '
-      function is_declaration(text,    trimmed) {
-        trimmed = text
-        sub(/^[ \t]+/, "", trimmed)
-        if (trimmed ~ /^(public |protected |private )?(static )?(final )?(abstract )?(class|record|interface|enum) /) return 1
-        if (text !~ /^    [^ ]/) return 0
-        if (trimmed ~ /;[ \t]*$/) return 0
-        if (trimmed ~ /^(return|if|for|while|switch|catch|try|else|throw|new|do)[ (]/) return 0
-        if (trimmed ~ /^(public |protected |private )?(static )?(final )?(synchronized )?[A-Za-z0-9_<>?,. \[\]]+ [a-zA-Z0-9_]+\(/) return 1
-        if (trimmed ~ /^(public |protected |private )?[A-Z][A-Za-z0-9_]*\(/) return 1
-        return 0
-      }
-      function is_comment_end(trimmed) {
-        return trimmed ~ /\*\/[ \t]*$/ || trimmed ~ /^\/\//
-      }
-      { sub(/\r$/, ""); lines[NR] = $0 }
-      END {
-        for (n = 1; n <= NR; n++) {
-          if (!is_declaration(lines[n])) continue
-          indent = match(lines[n], /[^ ]/) - 1
-          k = n - 1
-          above = ""
-          while (k > 0) {
-            above = lines[k]
-            sub(/^[ \t]+/, "", above)
-            above_indent = match(lines[k], /[^ ]/) - 1
-            if (is_comment_end(above)) break
-            if (above == "" || substr(above, 1, 1) == "@" || above_indent > indent) { k--; continue }
-            break
-          }
-          if (k == 0 || !is_comment_end(above)) {
-            print file ":" n ": " lines[n]
-          }
-        }
-      }
-    ' "$file"
-  done
-}
 
 # ---------------------------------------------------------------- Szenarien
 
@@ -332,8 +290,8 @@ scenario_s8() {
   local stream_hits
   stream_hits=$(grep -rin --exclude-dir=target 'stream' batch-writer/ | count_lines)
   local missing
-  missing=$(check_comments | count_lines)
-  check_comments
+  missing=$(bash scripts/kommentare.sh batch-writer/src | count_lines)
+  bash scripts/kommentare.sh batch-writer/src || true
   local env_tracked
   env_tracked=$(git ls-files .env | count_lines)
   local env_history
