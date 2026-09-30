@@ -135,7 +135,7 @@ class MessageRepositoryIntegrationTest {
         messageRepository.insertBatch(batch);
 
         int rows = countRows("SELECT count(*) FROM message");
-        int transactions = countRows("SELECT count(DISTINCT xmin::text) FROM message");
+        int transactions = countRows("SELECT count(DISTINCT CAST(xmin AS text)) FROM message");
         assertEquals(500, rows);
         assertEquals(1, transactions);
     }

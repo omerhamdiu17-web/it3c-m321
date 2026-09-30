@@ -164,7 +164,7 @@ class MessageBatchListenerIntegrationTest {
         container.start();
 
         int stored = waitForCount(1000, "SELECT count(*) FROM message");
-        int transactions = countRows("SELECT count(DISTINCT xmin::text) FROM message");
+        int transactions = countRows("SELECT count(DISTINCT CAST(xmin AS text)) FROM message");
         assertEquals(1000, stored);
         assertTrue(transactions <= 20, "zu viele Transaktionen: " + transactions);
     }
