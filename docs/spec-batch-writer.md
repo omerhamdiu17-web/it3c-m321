@@ -613,7 +613,7 @@ Stack zwischen den Szenarien nicht aufgeräumt wird.
 | Kriterium | Test |
 |---|---|
 | S5, Duplikat | `MessageBatchListenerIntegrationTest`: dieselbe Nachricht 2× direkt in `chat.persist`, nur mit `content_type` → 1 Zeile, `chat.dlq` leer. Zusätzlich `MessageRepositoryIntegrationTest`: Duplikat über und innerhalb eines Stapels |
-| S7, Datenbank-Ausfall | `DatabaseOutageIntegrationTest`: Datenbank für Verbindungen sperren, bestehende Verbindungen trennen, 50 gültige und mitten darin eine unlesbare Nachricht senden, freigeben → alle 50 gespeichert, in `chat.dlq` genau die unlesbare und nur **einmal**, Verbraucher läuft noch |
+| S7, Datenbank-Ausfall | `DatabaseOutageIntegrationTest`: Datenbank für Verbindungen sperren, bestehende Verbindungen trennen, 50 gültige und mitten darin eine unlesbare Nachricht senden, freigeben → alle 50 gespeichert, in `chat.dlq` genau die unlesbare und nur **einmal**, Verbraucher läuft noch. *Warum sperren statt stoppen:* Ein gestoppter Test-Container käme mit einem anderen Port zurück, und der batch-writer fände ihn nicht mehr. Den echten Stopp, bei dem sogar der Name `postgres` nicht mehr auflösbar ist, prüft S7 im Abnahmeskript |
 | S4, Stapel | `MessageBatchListenerIntegrationTest`: 1000 wartende Nachrichten → alle gespeichert, höchstens 20 verschiedene `xmin` (erwartet 2) |
 | F8 und F9, DLQ | `MessageBatchListenerIntegrationTest`: eine unlesbare bzw. eine von der Datenbank abgelehnte Nachricht landet in `chat.dlq`, und zwar persistent; die übrigen des Stapels sind gespeichert |
 | Vertrag (2.2) | `MessageBatchListenerIntegrationTest`: Umlaute und Emoji kommen unverändert in `content` an; ein unbekanntes Zusatzfeld stört nicht. Dieser Test läuft mit dem `ObjectMapper` von Spring Boot, wie im Betrieb |

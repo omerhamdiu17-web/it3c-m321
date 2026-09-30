@@ -4206,7 +4206,7 @@ Reihenfolge:
 - [x] **R7** Spezifikation 2.3 richtiggestellt
 - [x] **R8** Spezifikation 4.4 richtiggestellt
 - [x] **R9** Spezifikation F10 und Protokollzeile präzisiert
-- [ ] **R6** Spezifikation 6 erklärt den Ausfall-Test
+- [x] **R6** Spezifikation 6 erklärt den Ausfall-Test
 - [ ] **R1** Spezifikation 7 zeigt Vorarbeit und Änderungen
 - [ ] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc
 - [ ] **R11** keine `::` mehr in `batch-writer/src`
