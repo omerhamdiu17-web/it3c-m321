@@ -8,7 +8,6 @@ import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.core.QueueInformation;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.MessageListenerContainer;
@@ -28,6 +27,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -41,6 +41,14 @@ class MessageBatchListenerIntegrationTest {
 
     /** So lange warten wir höchstens darauf, dass der batch-writer etwas tut. */
     private static final int WAIT_MILLISECONDS = 30000;
+
+    /**
+     * So lange warten wir auf eine Nachricht in chat.dlq, die es nicht geben
+     * darf. Der Listener schickt Kopien für chat.dlq erst nach dem COMMIT, also
+     * kurz nachdem die Zeile in der Tabelle steht. Wer sofort zählt, könnte
+     * eine falsche Kopie übersehen.
+     */
+    private static final int NO_COPY_WAIT_MILLISECONDS = 2000;
 
     /** Ein beliebiger Raum: der batch-writer prüft Räume bewusst nicht. */
     private static final String ROOM_ID = "3f2b1c4e-0000-0000-0000-000000000001";
@@ -125,6 +133,8 @@ class MessageBatchListenerIntegrationTest {
      * Szenario S5: dieselbe Nachricht zweimal direkt in chat.persist, nur mit
      * content_type. Danach eine Markierung: steht sie in der Tabelle, sind die
      * beiden davor sicher verarbeitet, denn ein Verbraucher arbeitet der Reihe nach.
+     * In chat.dlq darf danach nichts liegen. Das prüfen wir mit Wartezeit, denn
+     * eine falsche Kopie ginge erst nach dem COMMIT weg.
      */
     @Test
     void storesDuplicateOnlyOnce() throws InterruptedException {
@@ -139,9 +149,9 @@ class MessageBatchListenerIntegrationTest {
 
         waitForCount(1, "SELECT count(*) FROM message WHERE id = ?", markerId);
         int duplicates = countRows("SELECT count(*) FROM message WHERE id = ?", duplicateId);
-        int deadLetters = messageCount(QueueNames.DEAD_LETTER_QUEUE);
+        Message deadLetter = rabbitTemplate.receive(QueueNames.DEAD_LETTER_QUEUE, NO_COPY_WAIT_MILLISECONDS);
         assertEquals(1, duplicates);
-        assertEquals(0, deadLetters);
+        assertNull(deadLetter, "in chat.dlq liegt eine Nachricht, die dort nicht hingehört");
     }
 
     /**
@@ -239,9 +249,9 @@ class MessageBatchListenerIntegrationTest {
         publish(bodyWithUnknownField);
 
         int stored = waitForCount(1, "SELECT count(*) FROM message WHERE id = ?", id);
-        int deadLetters = messageCount(QueueNames.DEAD_LETTER_QUEUE);
+        Message deadLetter = rabbitTemplate.receive(QueueNames.DEAD_LETTER_QUEUE, NO_COPY_WAIT_MILLISECONDS);
         assertEquals(1, stored);
-        assertEquals(0, deadLetters);
+        assertNull(deadLetter, "in chat.dlq liegt eine Nachricht, die dort nicht hingehört");
     }
 
     /** Baut den Body einer Nachricht im Format des chat-service (Spezifikation 2.2). */
@@ -302,12 +312,6 @@ class MessageBatchListenerIntegrationTest {
     private int countRows(String sql, Object... arguments) {
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, arguments);
         return count;
-    }
-
-    /** Wie viele Nachrichten gerade in einer Queue warten. */
-    private int messageCount(String queueName) {
-        QueueInformation information = rabbitAdmin.getQueueInfo(queueName);
-        return information.getMessageCount();
     }
 
     /**

@@ -4211,7 +4211,7 @@ Reihenfolge:
 - [x] **R1** Spezifikation 7 zeigt Vorarbeit und Änderungen
 - [x] **R5** Kommentarprüfung als eigenes Skript, rot bei fehlendem Javadoc
 - [x] **R11** keine `::` mehr in `batch-writer/src`
-- [ ] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie
+- [x] **R12** S5- und Zusatzfeld-Test warten auf eine falsche Kopie, rot bei falscher Kopie
 - [ ] **R10** Plan ohne Reste des alten Ablaufs, Stichworte auf Deutsch
 - [ ] **R3** Probeläufe und Nachweise verlinkt
 - [ ] **R2, R4** Commit-Übersicht
