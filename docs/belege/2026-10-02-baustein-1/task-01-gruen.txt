@@ -1,0 +1,219 @@
+Beleg Task 1, grün (nach dem Code, vor dem Commit)
+Datum/Uhrzeit: 2026-10-02 15:22:40
+Branch: baustein/web-gateway
+Commit (HEAD): 75c0905, dazu im Arbeitsbaum die Änderungen dieser Aufgabe:
+  scripts/env-pruefen.sh (neu), scripts/abnahme.sh, docs/spec-batch-writer.md, README.md
+Rechner: Windows 11, Git Bash, MSYS_NO_PATHCONV=1, Docker 29.3.1, Docker Compose version v5.1.1
+
+== Teil A: scripts/env-pruefen.sh (Plan Task 1, Schritt 4)
+$ bash scripts/env-pruefen.sh target/env-test/ohne-db; echo "Exit: $?"
+$ bash scripts/env-pruefen.sh target/env-test/voll; echo "Exit: $?"
+In target/env-test/ohne-db fehlen Schlüssel aus .env.example: POSTGRES_DB
+Die Zeilen aus .env.example übernehmen und einen Wert setzen.
+Exit: 1
+Exit: 0
+
+Zusätzlich: Windows-Zeilenenden (CRLF) in der .env und in der Beispieldatei
+Vorbereitung: sed 's/$/\r/' .env.example > target/env-test/beispiel-crlf (ebenso voll-crlf); grep -v '^POSTGRES_DB=' target/env-test/voll-crlf > target/env-test/ohne-db-crlf
+$ bash scripts/env-pruefen.sh target/env-test/voll-crlf; echo "Exit: $?"
+Exit: 0
+$ bash scripts/env-pruefen.sh target/env-test/ohne-db-crlf; echo "Exit: $?"
+In target/env-test/ohne-db-crlf fehlen Schlüssel aus .env.example: POSTGRES_DB
+Die Zeilen aus .env.example übernehmen und einen Wert setzen.
+Exit: 1
+$ bash scripts/env-pruefen.sh target/env-test/voll target/env-test/beispiel-crlf; echo "Exit: $?"
+Exit: 0
+$ bash scripts/env-pruefen.sh target/env-test/ohne-db target/env-test/beispiel-crlf 2>&1 | cat -A   (ein CR erschiene als ^M)
+In target/env-test/ohne-db fehlen SchlM-CM-<ssel aus target/env-test/beispiel-crlf: POSTGRES_DB$
+Die Zeilen aus target/env-test/beispiel-crlf M-CM-<bernehmen und einen Wert setzen.$
+
+Echte .env (enthält Geheimnisse; ausgegeben wird nur der Exit-Code):
+$ bash scripts/env-pruefen.sh >/dev/null 2>&1; echo "Exit: $?"
+Exit: 0
+
+Kommentarprüfung der Skripte (Globale Vorgaben):
+$ bash scripts/kommentare.sh scripts; echo "Exit: $?"
+Exit: 0
+
+== Teil B: neues scripts/abnahme.sh, Dummy-Dienst NOCH lokal in docker-compose.yml (Plan Task 1, Schritt 7)
+Der Dummy (busybox:1.36, Port 127.0.0.1:18080:80, siehe task-01-rot.txt) steht noch in der Datei.
+Vor dem Lauf lief er noch aus dem roten Lauf:
+$ docker compose ps --format "{{.Service}} {{.Ports}}"
+batch-writer 
+chat-service 8080/tcp
+dummy 127.0.0.1:18080->80/tcp
+postgres 5432/tcp
+rabbitmq 4369/tcp, 5671-5672/tcp, 15671-15672/tcp, 15691-15692/tcp, 25672/tcp
+
+$ bash scripts/abnahme.sh; echo "Exit: $?"
+Ausgabe (gekürzt: Zeilen des Image-Baus und der Pulls weggelassen, alles andere vollständig):
+start: 2026-10-02 15:17:02
+== S2: frischer Start, .env aus .env.example, docker compose up -d --build rabbitmq chat-service postgres batch-writer
+ Network chat-net Creating 
+ Network chat-net Created 
+ Volume it3c-m321_chat-history Creating 
+ Volume it3c-m321_chat-history Created 
+ Container it3c-m321-postgres-1 Creating 
+ Container it3c-m321-rabbitmq-1 Creating 
+ Container it3c-m321-rabbitmq-1 Created 
+ Container it3c-m321-chat-service-1 Creating 
+ Container it3c-m321-postgres-1 Created 
+ Container it3c-m321-batch-writer-1 Creating 
+ Container it3c-m321-chat-service-1 Created 
+ Container it3c-m321-batch-writer-1 Created 
+ Container it3c-m321-rabbitmq-1 Starting 
+ Container it3c-m321-postgres-1 Starting 
+ Container it3c-m321-rabbitmq-1 Started 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-postgres-1 Started 
+ Container it3c-m321-postgres-1 Waiting 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-postgres-1 Healthy 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-chat-service-1 Starting 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-batch-writer-1 Starting 
+ Container it3c-m321-chat-service-1 Started 
+ Container it3c-m321-batch-writer-1 Started 
+S2  PASS gemessen: laufend: batch-writer chat-service postgres rabbitmq | veröffentlichte Ports: 0 | erwartet: 4 Dienste laufen, 0 veröffentlichte Ports
+== S3: 1000 Nachrichten über POST /messages
+S3  PASS gemessen: 202: 1000, Zeilen: 1000, chat.persist: 0, nach 3 s | erwartet: 1000 Zeilen, Queue leer, höchstens 60 s
+== S4: batch-writer gestoppt, 1000 Nachrichten, dann gestartet
+ Container it3c-m321-batch-writer-1 Stopping 
+ Container it3c-m321-batch-writer-1 Stopped 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-postgres-1 Waiting 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-postgres-1 Healthy 
+ Container it3c-m321-batch-writer-1 Starting 
+ Container it3c-m321-batch-writer-1 Started 
+S4  PASS gemessen: 202: 1000, wartend: 1000, Zeilen: 1000, Transaktionen: 18 (schreibend: 2) | erwartet: 1000 Zeilen, höchstens 100 Transaktionen
+== S5: dieselbe Nachricht zweimal direkt in chat.persist, nur content_type
+Message published
+Message published
+S5  PASS gemessen: Zeilen mit dieser id: 1, chat.dlq: 0 | erwartet: 1 Zeile, chat.dlq 0
+== S6: zwei Instanzen, 1000 Nachrichten
+ Container it3c-m321-postgres-1 Running 
+ Container it3c-m321-rabbitmq-1 Running 
+ Container it3c-m321-batch-writer-1 Running 
+ Container it3c-m321-batch-writer-2 Creating 
+ Container it3c-m321-batch-writer-2 Created 
+ Container it3c-m321-postgres-1 Waiting 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-postgres-1 Healthy 
+ Container it3c-m321-batch-writer-2 Starting 
+ Container it3c-m321-batch-writer-2 Started 
+S6  PASS gemessen: 202: 1000, Verbraucher: 2, Instanzen mit Stapeln: 2, Zeilen: 1000, verschiedene ids: 1000 | erwartet: 2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, keine doppelt
+== S7: Postgres gestoppt, 300 Nachrichten, nach 15 s wieder gestartet
+ Container it3c-m321-postgres-1 Stopping 
+ Container it3c-m321-postgres-1 Stopped 
+ Container it3c-m321-postgres-1 Starting 
+ Container it3c-m321-postgres-1 Started 
+S7  PASS gemessen: 202: 300, Zeilen: 300 nach 14 s, chat.dlq: 0, Neustarts: 0 , Zustand: running  | erwartet: 300 Zeilen in höchstens 90 s, chat.dlq 0, kein Neustart
+== S8: Quelltext von batch-writer/
+S8  PASS gemessen: Treffer 'stream': 0, ohne Kommentar: 0, .env im Repo: 0, .env im Verlauf: 0 (geprüft: 116 Commits) | erwartet: alles 0, ganzer Verlauf
+================================ Ergebnis ================================
+S2  PASS gemessen: laufend: batch-writer chat-service postgres rabbitmq | veröffentlichte Ports: 0 | erwartet: 4 Dienste laufen, 0 veröffentlichte Ports
+S3  PASS gemessen: 202: 1000, Zeilen: 1000, chat.persist: 0, nach 3 s | erwartet: 1000 Zeilen, Queue leer, höchstens 60 s
+S4  PASS gemessen: 202: 1000, wartend: 1000, Zeilen: 1000, Transaktionen: 18 (schreibend: 2) | erwartet: 1000 Zeilen, höchstens 100 Transaktionen
+S5  PASS gemessen: Zeilen mit dieser id: 1, chat.dlq: 0 | erwartet: 1 Zeile, chat.dlq 0
+S6  PASS gemessen: 202: 1000, Verbraucher: 2, Instanzen mit Stapeln: 2, Zeilen: 1000, verschiedene ids: 1000 | erwartet: 2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, keine doppelt
+S7  PASS gemessen: 202: 300, Zeilen: 300 nach 14 s, chat.dlq: 0, Neustarts: 0 , Zustand: running  | erwartet: 300 Zeilen in höchstens 90 s, chat.dlq 0, kein Neustart
+S8  PASS gemessen: Treffer 'stream': 0, ohne Kommentar: 0, .env im Repo: 0, .env im Verlauf: 0 (geprüft: 116 Commits) | erwartet: alles 0, ganzer Verlauf
+Alle Szenarien bestanden.
+Exit: 0
+ende: 2026-10-02 15:19:16
+
+Danach, alle Container des Projekts (auch gestoppte):
+$ docker compose ps -a --format "{{.Service}} {{.State}} {{.Ports}}"
+batch-writer running 
+batch-writer running 
+chat-service running 8080/tcp
+postgres running 5432/tcp
+rabbitmq running 4369/tcp, 5671-5672/tcp, 15671-15672/tcp, 15691-15692/tcp, 25672/tcp
+-> Kein Container "dummy": "down -v --remove-orphans" in S2 hat den alten entfernt, und weder
+   S2 (up ... $SERVICES) noch S6 (up ... batch-writer) hat ihn wieder gestartet.
+
+== Teil C: Endstand, so wie er committet wird (Dummy wieder entfernt)
+$ git diff --quiet -- docker-compose.yml && echo "docker-compose.yml unverändert gegenüber HEAD"
+docker-compose.yml unverändert gegenüber HEAD
+$ bash scripts/abnahme.sh; echo "Exit: $?"
+Ausgabe (gekürzt wie oben):
+start: 2026-10-02 15:19:48
+== S2: frischer Start, .env aus .env.example, docker compose up -d --build rabbitmq chat-service postgres batch-writer
+ Network chat-net Creating 
+ Network chat-net Created 
+ Volume it3c-m321_chat-history Creating 
+ Volume it3c-m321_chat-history Created 
+ Container it3c-m321-postgres-1 Creating 
+ Container it3c-m321-rabbitmq-1 Creating 
+ Container it3c-m321-postgres-1 Created 
+ Container it3c-m321-rabbitmq-1 Created 
+ Container it3c-m321-batch-writer-1 Creating 
+ Container it3c-m321-chat-service-1 Creating 
+ Container it3c-m321-batch-writer-1 Created 
+ Container it3c-m321-chat-service-1 Created 
+ Container it3c-m321-postgres-1 Starting 
+ Container it3c-m321-rabbitmq-1 Starting 
+ Container it3c-m321-rabbitmq-1 Started 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-postgres-1 Started 
+ Container it3c-m321-postgres-1 Waiting 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-postgres-1 Healthy 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-chat-service-1 Starting 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-batch-writer-1 Starting 
+ Container it3c-m321-chat-service-1 Started 
+ Container it3c-m321-batch-writer-1 Started 
+S2  PASS gemessen: laufend: batch-writer chat-service postgres rabbitmq | veröffentlichte Ports: 0 | erwartet: 4 Dienste laufen, 0 veröffentlichte Ports
+== S3: 1000 Nachrichten über POST /messages
+S3  PASS gemessen: 202: 1000, Zeilen: 1000, chat.persist: 0, nach 3 s | erwartet: 1000 Zeilen, Queue leer, höchstens 60 s
+== S4: batch-writer gestoppt, 1000 Nachrichten, dann gestartet
+ Container it3c-m321-batch-writer-1 Stopping 
+ Container it3c-m321-batch-writer-1 Stopped 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-postgres-1 Waiting 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-postgres-1 Healthy 
+ Container it3c-m321-batch-writer-1 Starting 
+ Container it3c-m321-batch-writer-1 Started 
+S4  PASS gemessen: 202: 1000, wartend: 1000, Zeilen: 1000, Transaktionen: 18 (schreibend: 2) | erwartet: 1000 Zeilen, höchstens 100 Transaktionen
+== S5: dieselbe Nachricht zweimal direkt in chat.persist, nur content_type
+Message published
+Message published
+S5  PASS gemessen: Zeilen mit dieser id: 1, chat.dlq: 0 | erwartet: 1 Zeile, chat.dlq 0
+== S6: zwei Instanzen, 1000 Nachrichten
+ Container it3c-m321-rabbitmq-1 Running 
+ Container it3c-m321-postgres-1 Running 
+ Container it3c-m321-batch-writer-1 Running 
+ Container it3c-m321-batch-writer-2 Creating 
+ Container it3c-m321-batch-writer-2 Created 
+ Container it3c-m321-rabbitmq-1 Waiting 
+ Container it3c-m321-postgres-1 Waiting 
+ Container it3c-m321-rabbitmq-1 Healthy 
+ Container it3c-m321-postgres-1 Healthy 
+ Container it3c-m321-batch-writer-2 Starting 
+ Container it3c-m321-batch-writer-2 Started 
+S6  PASS gemessen: 202: 1000, Verbraucher: 2, Instanzen mit Stapeln: 2, Zeilen: 1000, verschiedene ids: 1000 | erwartet: 2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, keine doppelt
+== S7: Postgres gestoppt, 300 Nachrichten, nach 15 s wieder gestartet
+ Container it3c-m321-postgres-1 Stopping 
+ Container it3c-m321-postgres-1 Stopped 
+ Container it3c-m321-postgres-1 Starting 
+ Container it3c-m321-postgres-1 Started 
+S7  PASS gemessen: 202: 300, Zeilen: 300 nach 13 s, chat.dlq: 0, Neustarts: 0 , Zustand: running  | erwartet: 300 Zeilen in höchstens 90 s, chat.dlq 0, kein Neustart
+== S8: Quelltext von batch-writer/
+S8  PASS gemessen: Treffer 'stream': 0, ohne Kommentar: 0, .env im Repo: 0, .env im Verlauf: 0 (geprüft: 116 Commits) | erwartet: alles 0, ganzer Verlauf
+================================ Ergebnis ================================
+S2  PASS gemessen: laufend: batch-writer chat-service postgres rabbitmq | veröffentlichte Ports: 0 | erwartet: 4 Dienste laufen, 0 veröffentlichte Ports
+S3  PASS gemessen: 202: 1000, Zeilen: 1000, chat.persist: 0, nach 3 s | erwartet: 1000 Zeilen, Queue leer, höchstens 60 s
+S4  PASS gemessen: 202: 1000, wartend: 1000, Zeilen: 1000, Transaktionen: 18 (schreibend: 2) | erwartet: 1000 Zeilen, höchstens 100 Transaktionen
+S5  PASS gemessen: Zeilen mit dieser id: 1, chat.dlq: 0 | erwartet: 1 Zeile, chat.dlq 0
+S6  PASS gemessen: 202: 1000, Verbraucher: 2, Instanzen mit Stapeln: 2, Zeilen: 1000, verschiedene ids: 1000 | erwartet: 2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, keine doppelt
+S7  PASS gemessen: 202: 300, Zeilen: 300 nach 13 s, chat.dlq: 0, Neustarts: 0 , Zustand: running  | erwartet: 300 Zeilen in höchstens 90 s, chat.dlq 0, kein Neustart
+S8  PASS gemessen: Treffer 'stream': 0, ohne Kommentar: 0, .env im Repo: 0, .env im Verlauf: 0 (geprüft: 116 Commits) | erwartet: alles 0, ganzer Verlauf
+Alle Szenarien bestanden.
+Exit: 0
+ende: 2026-10-02 15:22:08

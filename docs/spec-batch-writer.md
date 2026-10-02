@@ -646,6 +646,10 @@ Doku-Commits. Derselbe Stand lief auch im normalen CI auf `main` grün
 | S7 | bestanden | alle 300 Zeilen **7 s** nach dem Neustart von PostgreSQL, `chat.dlq` leer, 0 Neustarts |
 | S8 | bestanden | 0 × «stream» in `batch-writer/`, auch in `target/` nach S1; `bash scripts/kommentare.sh batch-writer/src`: 0 fehlende Kommentare; `.env` weder im Repository noch in einem der 97 Commits |
 
+**Nachtrag vom 02.10.2026:** Seit Baustein 1 startet `scripts/abnahme.sh` nur die vier Dienste
+von Bewertung 1 (`SERVICES`), siehe [spec-web-gateway.md 6.3](spec-web-gateway.md#63-auswirkung-auf-bewertung-1).
+Die Kriterien S1 bis S8 bleiben gleich.
+
 ---
 
 ## 7. Verlauf

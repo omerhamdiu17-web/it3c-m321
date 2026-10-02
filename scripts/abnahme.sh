@@ -3,6 +3,10 @@
 # nach, in derselben Reihenfolge und auf demselben Stack, ohne Aufräumen
 # dazwischen. S1 ist "mvn clean test" und läuft getrennt davon.
 #
+# Seit Baustein 1 startet das Skript nur die vier Dienste von Bewertung 1
+# (SERVICES). Keycloak und web-gateway prüft scripts/abnahme-system.sh
+# (spec-web-gateway.md 6.3).
+#
 # Gemessen wird wie in der Abnahme von innen: psql im Postgres-Container,
 # rabbitmqctl im RabbitMQ-Container. Gesendet wird über einen curl-Container
 # im Netz chat-net, wie im Plan des chat-service.
@@ -22,9 +26,15 @@ export MSYS_NO_PATHCONV=1
 
 cd "$(dirname "$0")/.." || exit 1
 
+# Die vier Dienste von Bewertung 1; Keycloak und Gateway prüft abnahme-system.sh.
+SERVICES="rabbitmq chat-service postgres batch-writer"
+
 if [ ! -f .env ]; then
   cp .env.example .env
 fi
+# Fehlt einer älteren .env ein neuer Schlüssel, scheitert sonst jeder
+# docker-compose-Befehl mit einer schwer lesbaren Meldung (spec-web-gateway.md 4.1).
+bash scripts/env-pruefen.sh || exit 1
 # Die .env Zeile für Zeile übernehmen. Ein Windows-Zeilenende (CR) wird
 # abgeschnitten, sonst hinge es an jedem Wert: psql -U "chat\r" fände den
 # Benutzer nicht. Leere Zeilen und Kommentare werden übersprungen.
@@ -140,9 +150,10 @@ consumers_are() {
 # ---------------------------------------------------------------- Szenarien
 
 scenario_s2() {
-  echo "== S2: frischer Start, .env aus .env.example, docker compose up -d --build"
+  echo "== S2: frischer Start, .env aus .env.example, docker compose up -d --build $SERVICES"
   docker compose down -v --remove-orphans >/dev/null 2>&1
-  docker compose up -d --build
+  # $SERVICES ohne Anführungszeichen: Jeder Dienst wird ein eigenes Argument.
+  docker compose up -d --build $SERVICES
   wait_until 180 services_are_running
   local ok=$?
   wait_until 120 chat_service_answers
@@ -228,10 +239,11 @@ scenario_s5() {
 
 scenario_s6() {
   echo "== S6: zwei Instanzen, 1000 Nachrichten"
-  docker compose up -d --scale batch-writer=2
+  # Nur den batch-writer nennen, sonst startete "up" auch Keycloak und Gateway.
+  docker compose up -d --scale batch-writer=2 batch-writer
   wait_until 90 consumers_are 2
-  # Das erste "up" ohne --build erstellt die gebauten Dienste neu, auch den
-  # chat-service. Gesendet wird erst, wenn er wieder antwortet.
+  # Bis Bewertung 1 erstellte dieses "up" auch den chat-service neu. Das Warten,
+  # bis er antwortet, schadet nicht und bleibt als Sicherheit.
   wait_until 120 chat_service_answers
   local consumers
   consumers=$(queue_value chat.persist consumers)

@@ -27,7 +27,7 @@ Alle Aufgaben werden in **deinem Fork** gelöst. Das Original-Repository bleibt 
 mvn clean test                   # alle Tests, RabbitMQ und PostgreSQL kommen per Testcontainers
 docker compose up -d --build     # RabbitMQ, chat-service, PostgreSQL und batch-writer im Netz chat-net
 docker compose down -v           # alles stoppen UND die Datenbank löschen (frischer Start)
-bash scripts/abnahme.sh          # Szenarien S2 bis S8 nachstellen (beginnt mit "down -v"!)
+bash scripts/abnahme.sh          # S2 bis S8 von Bewertung 1, nur deren vier Dienste (beginnt mit "down -v"!)
 ```
 
 Kein Dienst veröffentlicht einen Port auf den Host. Der einzige offene Port des Gesamtsystems
