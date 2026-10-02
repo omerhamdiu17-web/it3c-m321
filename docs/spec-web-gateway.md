@@ -1252,19 +1252,42 @@ Alle Befehle laufen in `bash` im Wurzelverzeichnis (unter Windows Git Bash mit
 `MSYS_NO_PATHCONV=1`). Voraussetzungen: Java 21, Maven, Docker mit Compose v2, Node 22 (nur für
 W12), `curl` und `openssl`. **Kein `jq`**, kein Python: JSON wird mit `grep` und `sed` gelesen.
 `.env` ist eine Kopie von `.env.example`. Zwischendateien landen in `target/abnahme-system/`
-(`target/` steht in `.gitignore`). Zeitangaben sind Obergrenzen.
+(`target/` steht in `.gitignore`). Auch Antworten, die niemand liest, schreibt `curl` dorthin und
+nicht ins Null-Gerät: Natives `curl` unter Git Bash mit `MSYS_NO_PATHCONV=1` kann `/dev/null` nicht
+öffnen und bricht mit Exit-Code 23 ab. Zeitangaben sind Obergrenzen.
 
 ```bash
-set -a; . ./.env; set +a
+# .env laden wie scripts/abnahme.sh (Z. 28-37): Zeile für Zeile, ein Windows-Zeilenende (CR)
+# wird abgeschnitten, leere Zeilen und Kommentare werden übersprungen
+while IFS= read -r line; do
+  line=${line%$'\r'}
+  case "$line" in
+    '' | '#'*) continue ;;
+  esac
+  export "$line"
+done < .env
 G=http://localhost:8080
 T=target/abnahme-system; mkdir -p "$T"
 LOBBY=00000000-0000-0000-0000-000000000001
 M=$(date +%s)                                   # Marke, macht Texte je Lauf eindeutig
 PW_ALICE=${DEMO_PASSWORD_ALICE:-alice-demo}; PW_BOB=${DEMO_PASSWORD_BOB:-bob-demo}
 PW_ADMIN=${DEMO_PASSWORD_ADMIN:-admin-demo}
+# wait_until SEKUNDEN BEFEHL...: wie scripts/abnahme.sh (Z. 87-97), prüft alle 2 s.
+# chat_service_answers übernimmt abnahme-system.sh unverändert aus scripts/abnahme.sh (Z. 120-125).
+wait_until() {
+  local deadline=$((SECONDS + $1))
+  shift
+  while [ "$SECONDS" -lt "$deadline" ]; do
+    if "$@"; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
 sql() { docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$1"; }
 # status PFAD [CURL-OPTIONEN]: Status und Ziel einer Umleitung, ohne ihr zu folgen
-status() { local p=$1; shift; curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "$@" "$G$p"; }
+status() { local p=$1; shift; curl -s -o "$T/status.txt" -w '%{http_code} %{redirect_url}\n' "$@" "$G$p"; }
 # login BENUTZER PASSWORT: Login über das Formular von Keycloak, Cookies in $T/BENUTZER.jar.
 # Erwartete Ausgabe: "200 http://localhost:8080/"
 login() {
@@ -1272,7 +1295,7 @@ login() {
   rm -f "$jar"
   action=$(curl -s -L -c "$jar" -b "$jar" "$G/oauth2/authorization/keycloak" \
     | grep -o 'action="[^"]*"' | head -1 | sed -e 's/^action="//' -e 's/"$//' -e 's/&amp;/\&/g')
-  curl -s -L -c "$jar" -b "$jar" -o /dev/null -w '%{http_code} %{url_effective}\n' \
+  curl -s -L -c "$jar" -b "$jar" -o "$T/login.html" -w '%{http_code} %{url_effective}\n' \
     --data-urlencode "username=$1" --data-urlencode "password=$2" "$action"
 }
 # me BENUTZER: GET /api/me mit der Session dieses Benutzers, dahinter der Status
@@ -1287,7 +1310,7 @@ pkce_token() {
   challenge=$(printf '%s' "$verifier" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
   action=$(curl -s -c "$jar" -b "$jar" "$G/auth/realms/chat/protocol/openid-connect/auth?client_id=desktop-client&response_type=code&scope=openid&redirect_uri=$ENC&code_challenge=$challenge&code_challenge_method=S256" \
     | grep -o 'action="[^"]*"' | head -1 | sed -e 's/^action="//' -e 's/"$//' -e 's/&amp;/\&/g')
-  location=$(curl -s -c "$jar" -b "$jar" -o /dev/null -w '%{redirect_url}' \
+  location=$(curl -s -c "$jar" -b "$jar" -o "$T/pkce.html" -w '%{redirect_url}' \
     --data-urlencode "username=$1" --data-urlencode "password=$2" "$action")
   code=$(printf '%s' "$location" | sed -n 's/.*[?&]code=\([^&]*\).*/\1/p')
   curl -s -X POST "$G/auth/realms/chat/protocol/openid-connect/token" -d grant_type=authorization_code \
@@ -1295,6 +1318,16 @@ pkce_token() {
     | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p'
 }
 probe() { java scripts/WebSocketProbe.java "$@"; }
+# Bedingungen für wait_until: alle sechs Dienste laufen, keycloak und rabbitmq sind gesund (W1);
+# genau eine Zeile mit diesem Text in der Tabelle message (W6)
+system_up() {
+  [ "$(docker compose ps --status running --services | sort | tr '\n' ' ')" = \
+    "batch-writer chat-service keycloak postgres rabbitmq web-gateway " ] &&
+  [ "$(docker compose ps --format '{{.Service}} {{.Health}}' | grep -cE '^(keycloak|rabbitmq) healthy$')" = "2" ]
+}
+stored_once() { [ "$(sql "SELECT count(*) FROM message WHERE content = '$1'")" = "1" ]; }
+# ms DATEI MUSTER: Zeitstempel (ms) der ersten Zeile von probe, die MUSTER enthält
+ms() { grep -m1 -- "$2" "$1" | cut -d' ' -f1; }
 ```
 
 **`scripts/WebSocketProbe.java`** ist das Werkzeug für alle WebSocket-Kriterien. Es läuft ohne
@@ -1318,21 +1351,25 @@ zwei Prozessen vergleichen lassen: `HANDSHAKE <Status>` (abgelehnt), `OPEN`, `SE
 
 Die Reihenfolge ist die des Skripts `scripts/abnahme-system.sh`. Es läuft auf demselben Stack ohne
 Aufräumen dazwischen und gibt wie `scripts/abnahme.sh` eine Tabelle «gemessen / erwartet» aus.
+- *Startpunkt der Zeit in W1:* das Ende von `docker compose up -d --build`. Das Bauen zählt nicht
+  mit, wie bei S2.
+- *Eine Ausnahme in der Reihenfolge:* W6 prüft das Skript direkt nach W4. W6 zählt die Nachricht
+  aus W4, und seine 60 s laufen ab ihrem Senden.
 
 | Nr | Kriterium (messbar) | Befehl, der es misst |
 |---|---|---|
-| W1 | Höchstens 180 s nach dem Start: 6 Dienste `running` (rabbitmq, chat-service, postgres, batch-writer, keycloak, web-gateway), `keycloak` und `rabbitmq` `healthy`. **Genau eine** Zeile mit `->`, und zwar `web-gateway 127.0.0.1:8080->8080/tcp` | `docker compose down -v --remove-orphans`; `docker compose up -d --build`; `docker compose ps --format '{{.Service}} {{.Status}}'`; `docker compose ps --format '{{.Service}} {{.Ports}}' \| grep -- '->'` |
+| W1 | Höchstens 180 s nach `up`: 6 Dienste `running` (batch-writer, chat-service, keycloak, postgres, rabbitmq, web-gateway), `keycloak` und `rabbitmq` `healthy`. **Genau eine** Zeile mit `->`, und zwar `web-gateway 127.0.0.1:8080->8080/tcp` | `docker compose down -v --remove-orphans`; `docker compose up -d --build`; `wait_until 180 system_up` (Exit-Code 0); zur Anzeige `docker compose ps --status running --services \| sort` und `docker compose ps --format '{{.Service}} {{.Health}}'`; `docker compose ps --format '{{.Service}} {{.Ports}}' \| grep -- '->'` → genau diese eine Zeile |
 | W2 | Ohne Anmeldung: `/` → `302 http://localhost:8080/oauth2/authorization/keycloak`; diese → `302` auf `http://localhost:8080/auth/realms/chat/protocol/openid-connect/auth?…` mit `code_challenge_method=S256`; `/api/me` → `401`; Discovery → `"issuer":"http://localhost:8080/auth/realms/chat"` | `status /`; `status /oauth2/authorization/keycloak`; `status /api/me`; `curl -s $G/auth/realms/chat/.well-known/openid-configuration \| grep -o '"issuer":"[^"]*"'` |
 | W3 | Login: `login` gibt `200 http://localhost:8080/` aus. `/api/me` → `{"username":"alice","displayName":"Alice Muster","admin":false} 200`, für admin `{"username":"admin","displayName":"Ada Admin","admin":true} 200`. Für den Pfad `/` steht im Cookie-Jar nur `JSESSIONID`; keine Antwort des Gateways auf `/` oder `/api/me` enthält `eyJ` (so beginnt jedes JWT) | `login alice "$PW_ALICE"`; `me alice`; `login admin "$PW_ADMIN"`; `me admin`; `awk '$3 == "/" {print $6}' $T/alice.jar` → `JSESSIONID`; `curl -s -b $T/alice.jar $G/ $G/api/me \| grep -c eyJ` → `0` |
-| W4 | bob in der Lobby bekommt die Nachricht von alice höchstens **5 s** nach `SENT` (`"senderName":"Alice Muster"`, `"content":"W4 <Marke>"`). alice bekommt `accepted` und ihr Echo. bob in einem anderen Raum bekommt **keine** `message` | `login bob "$PW_BOB"`; `probe --jar $T/bob.jar --room $LOBBY --wait 15 > $T/w4-bob.txt &`; `probe --jar $T/bob.jar --room 00000000-0000-0000-0000-000000000002 --wait 15 > $T/w4-anderer.txt &`; `sleep 3`; `probe --jar $T/alice.jar --room $LOBBY --send "W4 $M" --wait 5 > $T/w4-alice.txt`; `wait`; `grep -c "W4 $M"` → bob `1`, anderer Raum `0`, alice `1`; `grep -c '"type":"accepted"' $T/w4-alice.txt` → `1`; Zeit der `EVENT`-Zeile bei bob minus Zeit von `SENT` bei alice ≤ 5000 |
-| W5 | `chat-service` gestoppt: alice bekommt höchstens 10 s nach `SENT` ein `error` mit `"reason":"nicht gesendet"` und `"content":"W5 <Marke>"`, ohne `CLOSE` vor dem Ende von `--wait`. Nach dem Start kommt wieder `accepted` | `docker compose stop chat-service`; `probe --jar $T/alice.jar --room $LOBBY --send "W5 $M" --wait 10`; `docker compose start chat-service`; warten, bis er antwortet (wie S6 in `abnahme.sh`); `probe --jar $T/alice.jar --room $LOBBY --send "W5b $M" --wait 5` → `"type":"accepted"` |
-| W6 | Höchstens 60 s nach W4: die Nachricht genau **einmal** in `message`, mit `sender_id` = `a11ce000-0000-4000-8000-000000000001` und `sender_name` = `Alice Muster`; `chat.persist` leer | `sql "SELECT count(*), min(sender_id), min(sender_name) FROM message WHERE content = 'W4 $M'"` → `1\|a11ce000-0000-4000-8000-000000000001\|Alice Muster`; `docker compose exec -T rabbitmq rabbitmqctl list_queues -q name messages` → `chat.persist 0` |
-| W7 | (a) Token aus `desktop-client` mit PKCE: `/api/me` → `200` mit `"username":"alice"`, ein WebSocket mit diesem Token bekommt `accepted`. (b) `Bearer kaputt` → `401`. (c) Password-Grant über `admin-cli`: Gibt Keycloak ein Token heraus, liefert `/api/me` damit `401`; sonst wird der Status von Keycloak festgehalten (P7). (d) Login-Anfrage für `desktop-client` **ohne** `code_challenge`: Keycloak lehnt ab (Umleitung mit `error=invalid_request` oder Status `400`), kein Login-Formular | (a) `AT=$(pkce_token alice "$PW_ALICE")`; `curl -s -H "Authorization: Bearer $AT" -w ' %{http_code}' $G/api/me`; `probe --origin '' --bearer "$AT" --room $LOBBY --send "W7 $M"`; (b) `curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer kaputt' $G/api/me`; (c) `curl -s -X POST $G/auth/realms/chat/protocol/openid-connect/token -d grant_type=password -d client_id=admin-cli -d username=alice --data-urlencode "password=$PW_ALICE"`, bei `access_token` damit `/api/me`; (d) `curl -s -w '%{http_code} %{redirect_url}' "$G/auth/realms/chat/protocol/openid-connect/auth?client_id=desktop-client&response_type=code&scope=openid&redirect_uri=$ENC" \| grep -c kc-form-login` → `0` |
+| W4 | bob in der Lobby bekommt die Nachricht von alice höchstens **5 s** nach `SENT` (`"senderName":"Alice Muster"`, `"content":"W4 <Marke>"`). alice bekommt `accepted` und ihr Echo. bob in einem anderen Raum bekommt **keine** `message` | `login bob "$PW_BOB"`; `probe --jar $T/bob.jar --room $LOBBY --wait 25 > $T/w4-bob.txt &`; `probe --jar $T/bob.jar --room 00000000-0000-0000-0000-000000000002 --wait 25 > $T/w4-anderer.txt &`; erst wenn beide offen sind, sendet alice: `wait_until 20 grep -q OPEN $T/w4-bob.txt`, `wait_until 20 grep -q OPEN $T/w4-anderer.txt`; `probe --jar $T/alice.jar --room $LOBBY --send "W4 $M" --wait 5 > $T/w4-alice.txt`; `wait`; je Datei `grep -c '"type":"message".*"content":"W4 '"$M"'"'` → bob `1`, anderer Raum `0`, alice `1` (ihr Echo; die Zeile `SENT` zählt so nicht mit); `grep -c '"type":"accepted"' $T/w4-alice.txt` → `1`; `echo $(( $(ms $T/w4-bob.txt '"type":"message"') - $(ms $T/w4-alice.txt ' SENT ') ))` → höchstens `5000` |
+| W5 | `chat-service` gestoppt: alice bekommt höchstens 10 s nach `SENT` ein `error` mit `"reason":"nicht gesendet"` und `"content":"W5 <Marke>"`, ohne `CLOSE` vor dem Ende von `--wait`. Nach dem Start kommt wieder `accepted` | `docker compose stop chat-service`; `probe --jar $T/alice.jar --room $LOBBY --send "W5 $M" --wait 10`; `docker compose start chat-service`; `wait_until 120 chat_service_answers` (wie S6 in `abnahme.sh`); `probe --jar $T/alice.jar --room $LOBBY --send "W5b $M" --wait 5` → `"type":"accepted"` |
+| W6 | Höchstens 60 s nach dem `SENT` von W4 (das Skript prüft W6 direkt nach W4): die Nachricht genau **einmal** in `message`, mit `sender_id` = `a11ce000-0000-4000-8000-000000000001` und `sender_name` = `Alice Muster`; `chat.persist` leer | `wait_until 60 stored_once "W4 $M"` (Exit-Code 0); `sql "SELECT count(*), min(sender_id), min(sender_name) FROM message WHERE content = 'W4 $M'"` → `1\|a11ce000-0000-4000-8000-000000000001\|Alice Muster`; `docker compose exec -T rabbitmq rabbitmqctl list_queues -q name messages` → `chat.persist 0` |
+| W7 | (a) Token aus `desktop-client` mit PKCE: `/api/me` → `200` mit `"username":"alice"`, ein WebSocket mit diesem Token bekommt `accepted`. (b) `Bearer kaputt` → `401`. (c) Password-Grant über `admin-cli`: **bestanden**, wenn Keycloak kein `access_token` herausgibt **oder** `/api/me` mit diesem Token `401` liefert; festgehalten wird, welcher Fall eintrat (P7). (d) Login-Anfrage für `desktop-client` **ohne** `code_challenge`: Keycloak lehnt ab, also `302` mit `error=invalid_request` im Ziel oder Status `400`, und kein Login-Formular | (a) `AT=$(pkce_token alice "$PW_ALICE")`; `curl -s -H "Authorization: Bearer $AT" -w ' %{http_code}' $G/api/me`; `probe --origin '' --bearer "$AT" --room $LOBBY --send "W7 $M"`; (b) `curl -s -o "$T/w7b.txt" -w '%{http_code}' -H 'Authorization: Bearer kaputt' $G/api/me` → `401`; (c) `curl -s -o "$T/w7c.json" -X POST $G/auth/realms/chat/protocol/openid-connect/token -d grant_type=password -d client_id=admin-cli -d username=alice --data-urlencode "password=$PW_ALICE"`; enthält `$T/w7c.json` ein `access_token`, dann damit `curl -s -o "$T/w7c-me.txt" -w '%{http_code}' -H "Authorization: Bearer <Token>" $G/api/me` → `401`; (d) `curl -s -o "$T/w7d.txt" -w '%{http_code} %{redirect_url}' "$G/auth/realms/chat/protocol/openid-connect/auth?client_id=desktop-client&response_type=code&scope=openid&redirect_uri=$ENC"` → `302 …error=invalid_request…` oder `400 `; `grep -c kc-form-login "$T/w7d.txt"` → `0` |
 | W8 | `/auth/admin/`, `/auth/admin/master/console/`, `/auth/realms/master/.well-known/openid-configuration`, `/auth/` und `/auth` → je `404`, ohne und mit Anmeldung (10 × `404`) | `for p in /auth/admin/ /auth/admin/master/console/ /auth/realms/master/.well-known/openid-configuration /auth/ /auth; do status "$p"; status "$p" -b $T/admin.jar; done` |
 | W9 | Ohne Anmeldung → `HANDSHAKE 401`. alice mit `Origin: http://evil.example` → `HANDSHAKE 403`. alice ohne `roomId` → `OPEN`, dann `CLOSE 1008`. alice mit `roomId=keine-uuid` → `CLOSE 1008`. alice richtig → `OPEN`, nach 2 s `CLOSE 1000` | `probe --room $LOBBY`; `probe --jar $T/alice.jar --origin http://evil.example --room $LOBBY`; `probe --jar $T/alice.jar`; `probe --jar $T/alice.jar --room keine-uuid`; `probe --jar $T/alice.jar --room $LOBBY --wait 2` |
-| W10 | Frisch angemeldet, dann `GET /logout` → `302` auf `http://localhost:8080/auth/realms/chat/protocol/openid-connect/logout?…` mit `post_logout_redirect_uri`. Wer der Kette folgt, landet beim Login-Formular (`kc-form-login`), also **ohne** stilles Wiederanmelden. Danach `/api/me` mit dem alten Cookie → `401` | `login alice "$PW_ALICE"`; `cp $T/alice.jar $T/alt.jar`; `status /logout -b $T/alice.jar`; `curl -s -L -b $T/alice.jar -c $T/alice.jar $G/logout \| grep -c kc-form-login` → mindestens `1`; `curl -s -o /dev/null -w '%{http_code}' -b $T/alt.jar $G/api/me` → `401` |
-| W11 | Kein «stream» im Quelltext des Gateways und der Web-UI (CLAUDE.md: lieber eine `for`-Schleife). Kommentar über jeder Java-Klasse und -Methode. In der Realm-Datei nur Platzhalter als Secret und Passwörter. `.env` nie im Repository | `grep -rin stream web-gateway/src web-gateway/ui/src` (keine Ausgabe); `bash scripts/kommentare.sh web-gateway/src` (Exit-Code 0); `grep -o '"secret": "[^"]*"' keycloak/realm-chat.json` → nur `${KEYCLOAK_CLIENT_SECRET}`; `grep -c '"value": "\${DEMO_PASSWORD_' keycloak/realm-chat.json` → `3`; `git ls-files .env` und `git log --all --format=%h -- .env` (beide ohne Ausgabe) |
-| W12 | Zwei echte Browser: alice und bob melden sich über das Formular an und sehen «Angemeldet als Alice Muster» bzw. «… Bob Muster». alice sendet, bob sieht den Text höchstens 5 s später. Ist der `chat-service` gestoppt, zeigt die Web-UI von alice «Nachricht nicht gesendet», und der Text steht wieder im Eingabefeld. «Abmelden» führt zum Login-Formular | `cd web-gateway/ui && npx playwright install chromium && npx playwright test` → alle Tests bestanden, `0 failed`. Der Test stoppt und startet den `chat-service` selbst mit `docker compose` |
+| W10 | Frisch angemeldet, dann **ein einziger** Aufruf von `GET /logout`, der allen Umleitungen folgt: Die erste Umleitung geht auf `http://localhost:8080/auth/realms/chat/protocol/openid-connect/logout?…` mit `post_logout_redirect_uri`, und die Kette endet beim Login-Formular (`kc-form-login`), also **ohne** stilles Wiederanmelden. Danach `/api/me` mit dem alten Cookie → `401` | `login alice "$PW_ALICE"`; `cp $T/alice.jar $T/alt.jar`; `curl -s -L -D "$T/w10-kopf.txt" -b $T/alice.jar -c $T/alice.jar -o "$T/w10-seite.html" $G/logout`; `grep -i -m1 '^location:' "$T/w10-kopf.txt"` → `…/openid-connect/logout?…post_logout_redirect_uri=…`; `grep -c kc-form-login "$T/w10-seite.html"` → mindestens `1`; `curl -s -o "$T/w10-me.txt" -w '%{http_code}' -b $T/alt.jar $G/api/me` → `401`. *Warum ein Aufruf:* Ein erster Aufruf ohne `-L` meldete nur beim Gateway ab; die SSO-Session bei Keycloak bliebe, und Keycloak meldete danach still wieder an |
+| W11 | Kein «stream» im Gateway, in der Web-UI und im Abnahmewerkzeug (CLAUDE.md: lieber eine `for`-Schleife). Ausgenommen sind nur `target/` (Build-Ordner), `node_modules/` (fremde Pakete) und `dist/` (gebaute Web-UI); das ist kein eigener Quelltext. Kommentar über jeder Java-Klasse und -Methode, auch in `scripts/WebSocketProbe.java`. In der Realm-Datei nur Platzhalter als Secret und Passwörter. `.env` nie im Repository | `grep -rin --exclude-dir=target --exclude-dir=node_modules --exclude-dir=dist stream web-gateway/ web-ui/ scripts/WebSocketProbe.java` (keine Ausgabe, wie S8); `bash scripts/kommentare.sh web-gateway/src` und `bash scripts/kommentare.sh scripts` (je Exit-Code 0); `grep -o '"secret": "[^"]*"' keycloak/realm-chat.json` → nur `${KEYCLOAK_CLIENT_SECRET}`; `grep -c '"value": "\${DEMO_PASSWORD_' keycloak/realm-chat.json` → `3`; `git ls-files .env` und `git log --all --format=%h -- .env` (beide ohne Ausgabe) |
+| W12 | Zwei echte Browser: alice und bob melden sich über das Formular an und sehen «Angemeldet als Alice Muster» bzw. «… Bob Muster». alice sendet, bob sieht den Text höchstens 5 s später. Ist der `chat-service` gestoppt, zeigt die Web-UI von alice «Nachricht nicht gesendet», und der Text steht wieder im Eingabefeld. «Abmelden» führt zum Login-Formular | `cd web-ui && npm ci && npx playwright install --with-deps chromium && npx playwright test` → Exit-Code 0, eine Zeile «N passed» und keine Zeile «failed». Der Test stoppt und startet den `chat-service` selbst mit `docker compose` |
 
 ### 6.3 Auswirkung auf Bewertung 1
 
@@ -1391,7 +1428,7 @@ aus 6.4.
 | P1 | Ein Textrahmen über der Puffergrenze von 16'384 Zeichen schliesst die Verbindung mit `1009`; ein Rahmen mit 12'014 Zeichen geht durch (2.3, F10) | `ChatSocketIntegrationTest` | Schliesst Tomcat mit einem anderen Code, werden 2.3 und F10 angepasst. Die Web-UI behandelt jeden Code gleich. Die Grenze reicht auch, falls Tomcat Bytes statt Zeichen zählt: Der ungünstigste Fall besteht aus ASCII-Zeichen |
 | P2 | Keycloak akzeptiert für `desktop-client` jeden Port bei `http://127.0.0.1/callback` (RFC 8252, 7.3) | `RealmImportIntegrationTest` | Der Desktop-Client nimmt den festen Port 53682, und die Realm-Datei registriert genau `http://127.0.0.1:53682/callback` |
 | P3 | Der Platzhalter `${PUBLIC_URL}` wird auch in der Post-Logout-URI ersetzt (2.6) | `RealmImportIntegrationTest` | Die Realm-Datei schreibt `http://localhost:8080/` fest hinein. `PUBLIC_URL` ist ohnehin fest |
-| P4 | Keycloak übernimmt die feste `id` aus der Realm-Datei als `sub` (3.5, 4.2) | `RealmImportIntegrationTest` | Nach einem neuen Import trägt `message` alte `senderId`, die niemandem mehr gehören. Das wird in 3.5 als Grenze festgehalten; der gespeicherte `sender_name` bleibt lesbar |
+| P4 | Keycloak übernimmt die feste `id` aus der Realm-Datei als `sub` (3.5, 4.2) | `RealmImportIntegrationTest` | Nach einem neuen Import trägt `message` alte `senderId`, die niemandem mehr gehören. Das wird in 3.5 als Grenze festgehalten; der gespeicherte `sender_name` bleibt lesbar. W6 prüft dann nur `sender_name`, nicht `sender_id` |
 | P5 | Keycloak meldet auch mit einem abgelaufenen `id_token_hint` ab und leitet auf `post_logout_redirect_uri` zurück (3.1) | `LoginIntegrationTest` | Das Gateway schickt nach Ablauf `client_id` statt `id_token_hint`. Keycloak fragt dann auf einer eigenen Seite nach; das wird in 3.1 beschrieben |
 | P6 | WebSocket-Rahmen verlängern die HTTP-Session nicht (F7) | `ChatSocketIntegrationTest` (Session-Timeout im Test 1 min) | Die Grenze in F7 wird milder: Die Session bleibt, solange gechattet wird. F7 wird angepasst |
 | P7 | Ob Keycloak über `admin-cli` einen Password-Grant erlaubt (2.6) | `RealmImportIntegrationTest` | Kein Fehler im eigentlichen Sinn: Erlaubt Keycloak den Grant, wird das festgehalten. Das Token ist dank `azp` wertlos (`BearerTokenTest`, W7) |
