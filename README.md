@@ -56,7 +56,7 @@ Jeder Push läuft in GitHub Actions durch `mvn clean test`, den Bau aller Images
 | batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank: liest `chat.persist` in Stapeln bis 500, eine Transaktion pro Stapel, ACK nach dem COMMIT | vorhanden |
 | postgres | PostgreSQL 16 | Speichert den Chat-Verlauf in der Tabelle `message` | vorhanden |
 | keycloak | Keycloak | Login (OIDC) | folgt |
-| web-gateway | nginx | Einziger nach aussen offener Port | folgt |
+| web-gateway | Spring Boot 3, Java 21 | Einziger nach aussen offener Port: Login über Keycloak, REST, WebSocket, liefert die Web-UI aus | folgt |
 | Web-UI | React | Browser-Client | folgt |
 
 Alles unterhalb des Gateways läuft in einem internen Docker-Netzwerk und ist von aussen nicht
