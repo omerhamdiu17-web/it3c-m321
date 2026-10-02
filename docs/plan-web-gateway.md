@@ -41,7 +41,7 @@ Diese Punkte gelten für **jede** Aufgabe in diesem Plan:
 
 Fälle, die kein Kriterium W1 bis W12 direkt prüft, die aber jemanden treffen würden, der das System benutzt oder angreift. Jeder hat einen Test in der Aufgabe, die den Code dazu baut:
 
-1. **Ein Pfad mit `..`** (`/auth/realms/chat/%2e%2e/%2e%2e/admin/`, auch unkodiert) erreicht die Admin-Konsole nicht. Der Proxy würde den Pfad unverändert weitergeben, Keycloak ihn auflösen → Task 5, `KeycloakProxyIntegrationTest.dotSegmentsNeverReachKeycloak`.
+1. **Ein Pfad mit kodiertem `..`** (`/auth/realms/chat/%2e%2e/%2e%2e/admin/`) erreicht die Admin-Konsole nicht. Der Proxy würde den Pfad unverändert weitergeben, Keycloak ihn auflösen → Task 5, `KeycloakProxyIntegrationTest.dotSegmentsNeverReachKeycloak`.
 2. **Gefälschte `X-Forwarded-*`-Header** aus dem Browser kommen nicht bei Keycloak an (P10) → Task 5, `forgedForwardedHeadersNeverReachKeycloak`.
 3. **Keycloak startet gerade neu:** Der Browser bekommt innert 5 s einen Fehler statt einer hängenden Seite (P11, F1) → Task 5, `KeycloakProxyDownIntegrationTest.answersServerErrorWithinFiveSeconds`.
 4. **Das Login-Formular kommt ohne CSRF-Token des Gateways durch**, ausserhalb von `/auth` gilt CSRF weiter → Task 5, `passesLoginFormPostWithoutCsrfToken`; Task 6, `SecurityConfigTest.postOutsideAuthNeedsCsrfToken`.
@@ -109,6 +109,7 @@ scripts/
 ├── WebSocketProbe.java                  # Werkzeug für die WebSocket-Kriterien (14)
 └── kommentare.sh                        # + TypeScript (15)
 docs/spec-batch-writer.md                # Nachtrag in Abschnitt 6 (1)
+docs/belege/2026-10-02-baustein-1/       # task-NN-rot.txt, task-NN-gruen.txt je Aufgabe, notizen.md (ab 1)
 README.md                                # Zeile zu abnahme.sh (1); Login, Gateway, Web-UI (17)
 web-ui/                                  # React, TypeScript, Vite (9, 13, 16)
 ├── package.json, package-lock.json      # Versionen fest, npm ci (9)
@@ -120,7 +121,7 @@ web-ui/                                  # React, TypeScript, Vite (9, 13, 16)
 └── e2e/chat.spec.ts, playwright.config.ts (16)
 web-gateway/
 ├── pom.xml                              (2)
-├── Dockerfile                           # Maven- und JRE-Stufe (8), + Node-Stufe für web-ui/ (9)
+├── Dockerfile                           # Maven- und JRE-Stufe (2), + Node-Stufe für web-ui/ (9)
 └── src/
     ├── main/java/ch/benedict/m321/webgateway/
     │   ├── WebGatewayApplication.java   (2, 5)
@@ -147,6 +148,7 @@ web-gateway/
             ├── RealmImportIntegrationTest.java   (3)
             ├── TestHttpServer.java               # Mini-Server aus dem JDK (5)
             ├── FixedValue.java                   # fester Wert für @DynamicPropertySource (5)
+            ├── TestUsers.java                    # angemeldete Benutzer für MockMvc (6)
             ├── config/
             │   ├── KeycloakProxyIntegrationTest.java      (5)
             │   ├── KeycloakProxyDownIntegrationTest.java  (5)
@@ -179,28 +181,22 @@ Testklassen heissen `...Test` oder `...IntegrationTest`, damit Surefire sie ohne
 ## Arbeitsweise
 
 - **Form dieses Plans.** Jeder **Test steht vollständig** im Plan, mit seinen Kommentaren: Er legt das Verhalten fest und wird zuerst geschrieben. **Produktionscode steht nicht vollständig** im Plan, sondern als Datei mit Zweck, öffentlichen Signaturen und dem Verhalten Punkt für Punkt mit Verweis auf die Spezifikation, oft «nach dem Vorbild von `<Pfad>` im Archiv-Branch `origin/archiv/vorarbeit-2026-09-23`, geändert: …». Kurze Konfiguration (POM-Ausschnitte, `application.yml`, Compose-Ausschnitte, `.env.example`, Realm-Datei, Dockerfile, Workflow, Skripte der Abnahme) steht wörtlich da. *Warum:* Der Code steht so nur einmal, im Repository, und der Plan kann ihm nicht widersprechen. Genau das bemängelte die zweite Probe-Bewertung des `batch-writer` (Befund Z6: Codeblöcke im Plan zeigten ohne Hinweis einen anderen Stand als der Commit). Ändert eine spätere Aufgabe einen Test, der hier vollständig steht, nennt sein Block den Stand («Stand: Task 6. Task 7 ergänzt …»).
-- **Test zuerst.** Jede Aufgabe beginnt mit dem Test aus dem Plan. Das Rot sieht je nach Art anders aus:
-  - *lokal:* Übersetzungsfehler, Vitest, Shell-Prüfungen und Spring-Tests ohne Container — Task 1 (`env-pruefen.sh`), 2, 5, 6 und 7 (ohne `LoginIntegrationTest`), 9 (Vitest).
-  - *roter Probelauf in GitHub Actions* für alles mit Containern (Keycloak, RabbitMQ, ganzer Stack) — Task 1 (Abnahme), 3, 4, 6 und 7 (`LoginIntegrationTest`), 8, 9 (Image), 10.
-- **Probelauf** für Task N, immer gleich:
-  ```bash
-  export MSYS_NO_PATHCONV=1
-  git switch -c probe-tN                         # ab dem aktuellen Stand von baustein/web-gateway
-  git add <Testdateien>                          # 1. nur der Test (und was er zum Laufen braucht)
-  git commit -m "test: Probe Task N rot, <was fehlt>" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-  git push -u origin probe-tN                    # roter Lauf: gh run watch
-  git add <Code>                                 # 2. der Code dazu
-  git commit -m "test: Probe Task N grün" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-  git push                                       # grüner Lauf: gh run watch
-  git switch baustein/web-gateway                # 3. zurück, den Stand übernehmen
-  git restore --source probe-tN --worktree -- <Test- und Code-Dateien>
-  ```
-  Im Plan steht bei jedem Probelauf zuerst «Roter Lauf: Link folgt», im Commit der Aufgabe dann der Link. Probe-Branches kommen nie auf `main`. Sie bleiben auf GitHub, damit die verlinkten Läufe ihren Commit behalten. Was nur der Probe dient (der Dummy-Dienst in Task 1, die Prüfjobs in Task 4, 8 und 9), wird nicht übernommen.
-- **Lokal und im CI.** Lokal laufen `mvn -q -pl web-gateway test -Dtest=<Klassen ohne Container>` und in `web-ui/` `npm test`. Alle Tests aller Module laufen sicher im CI (`mvn -B clean test`, Job `maven`), lokal nur mit laufendem Docker.
-- **Ein Commit pro Aufgabe** auf `baustein/web-gateway`, mit der Message aus dem Plan. Er enthält Test, Code und diesen Plan mit den Häkchen der erledigten Schritte, den Links der Probeläufe und jeder beim Bauen gefundenen Falle. **Ausnahme Task 8** mit zwei Commits: Der Healthcheck von RabbitMQ ist ein eigenes Thema (ein `fix:` für alle drei Dienste, die darauf warten), das erst mit dem Gateway nötig wird.
-- **Erst committen, dann pushen.** Ein CI-Lauf braucht einen Commit. Der letzte Schritt jeder Aufgabe («Pushen und CI-Lauf prüfen») geschieht deshalb nach dem Commit. Sein Häkchen und der Link kommen in den Commit der nächsten Aufgabe, beim letzten Task in die Commit-Übersicht. Ist der Lauf rot, folgt ein Korrektur-Commit mit eigener Zeile in diesem Plan. Nichts wird umgeschrieben: kein `--amend`, kein `push --force`.
+- **Der Plan entsteht in Etappen.** Jede Etappe wird committet, bevor die Aufgaben beginnen, die sie beschreibt. Die erste Etappe heisst «Task 1 und 2» (`75c0905`). Weil der Plan parallel zur Umsetzung weitergeschrieben wird, kann der Commit einer Aufgabe die Plandatei nicht mitnehmen.
+- **Test zuerst, Rot lokal.** Jede Aufgabe beginnt mit dem Test aus dem Plan. Rot zeigen wir lokal, auch bei Tests mit Containern: Dieselben Testcontainers laufen auf dem eigenen Rechner (Docker Desktop). Die Grundlinie vom 02.10.2026: `mvn clean test` mit 14 + 29 Tests grün, `bash scripts/abnahme.sh` S2 bis S8 bestanden. *Warum nicht in GitHub Actions:* Jeder Probelauf dort kostet 3 bis 5 min Wartezeit, lokal läuft derselbe Test ohne sie. Es gibt deshalb keine Probe-Branches.
+- **Ablauf je Aufgabe N** (`NN` zweistellig, Belege im Ordner `docs/belege/2026-10-02-baustein-1/`):
+  1. Den Test aus dem Plan schreiben.
+  2. Rot lokal zeigen. Befehl, Branch, Stand und der wichtige Ausschnitt der Ausgabe kommen in `task-NN-rot.txt`.
+  3. Den Code schreiben und grün lokal zeigen, ebenso festgehalten in `task-NN-gruen.txt`.
+  4. Fallen, Abweichungen vom Plan und Überraschungen in `notizen.md` eintragen.
+  5. Committen: Test, Code, beide Belege und `notizen.md`, mit der Message aus dem Plan. Gestagt werden nur ausdrücklich genannte Pfade.
+  6. `baustein/web-gateway` pushen. Grün muss es auch in GitHub Actions sein. Die Nummer des Laufs kommt beim nächsten Commit in `notizen.md`. Vor dem nächsten Push wird geprüft, dass der vorige Lauf grün war.
+- **Was nur dem roten Nachweis dient** (der Dummy-Dienst in Task 1, ein absichtlicher Fehler in Task 10), steht nur lokal und wird nie committet. Der Beleg zeigt, dass es wieder weg ist (`git diff --quiet -- <Datei>`).
+- **Belege nicht nur unter `target/`.** `mvn clean` im Wurzelordner löscht `./target/` mit allen Zwischendateien, denn das Eltern-POM ist selbst ein Projekt. Was als Nachweis bleiben soll, steht im Beleg der Aufgabe.
+- **Ein Commit pro Aufgabe** auf `baustein/web-gateway`. **Ausnahme Task 8** mit zwei Commits: Der Healthcheck von RabbitMQ ist ein eigenes Thema (ein `fix:` für alle drei Dienste, die darauf warten), das erst mit dem Gateway nötig wird.
+- **Häkchen und Links je Meilenstein.** Sie kommen in einem Sammel-Commit in diesen Plan, zusammen mit den Läufen und Fallen aus `notizen.md`: `docs: Plan, Häkchen, Läufe und Fallen bis Task N`.
+- **Erst committen, dann pushen.** Ein CI-Lauf braucht einen Commit. Ist ein Lauf rot, folgt ein Korrektur-Commit mit eigener Zeile in `notizen.md`. Nichts wird umgeschrieben: kein `--amend`, kein `push --force`.
 - **`main` nur per Fast-Forward** von `baustein/web-gateway` und nur mit grünem Lauf (docs/fahrplan.md 3): `git switch main`, `git merge --ff-only baustein/web-gateway`, `git push`. Tag `schritt-2` nach Task 10, Tag `schritt-3` nach Task 17 und der Abschlussprüfung.
-- **Plan und `git log` bleiben deckungsgleich.** Jede Commit-Message steht im Plan, die Commit-Übersicht am Ende nennt zu jedem Commit seinen Eintrag und seine Läufe.
+- **Plan und `git log` bleiben deckungsgleich.** Jede Commit-Message steht im Plan. Die Commit-Übersicht am Ende nennt zu jedem Commit seinen Eintrag, seine Belege und seinen Lauf.
 
 ## Reihenfolge und warum
 
@@ -209,14 +205,14 @@ PLANUNG.md 6: «Auth zuerst, sonst wird es später nachträglich eingebaut und i
 | # | Aufgabe (Commit-Message) | Warum an dieser Stelle |
 |---|---|---|
 | 1 | `test: Abnahme von Bewertung 1 startet nur ihre vier Dienste` | Ab Task 4 verlangt `docker-compose.yml` ein Secret mit `:?`, ab Task 8 gibt es einen Port. Vorher muss `scripts/abnahme.sh` auf die vier Dienste von Bewertung 1 begrenzt sein, sonst wird der Job `abnahme` rot, ohne dass am `batch-writer` etwas falsch ist |
-| 2 | `chore: Modul web-gateway anlegen` | Alles Weitere braucht ein übersetzbares Modul, auch der Test der Realm-Datei läuft darin. Die `COPY`-Zeilen gehören dazu, sonst bricht der Image-Bau der anderen Dienste im selben Moment |
+| 2 | `chore: Modul web-gateway anlegen` | Alles Weitere braucht ein übersetzbares Modul, auch der Test der Realm-Datei läuft darin. Die `COPY`-Zeilen gehören dazu, sonst bricht der Image-Bau der anderen Dienste im selben Moment. Das Dockerfile des Gateways entsteht gleich mit |
 | 3 | `feat: Realm chat als JSON-Import für Keycloak` | Der innerste Vertrag des Logins: Clients, Redirect-URIs, PKCE, Benutzer, Claims. Mit Keycloak allein testbar, ganz ohne Gateway. P2, P3, P4 und P7 entscheiden sich hier und können die Realm-Datei noch ändern |
 | 4 | `chore: Keycloak in docker-compose` | Healthcheck, Import und Issuer im Stack prüfen, solange noch kein Gateway mitspielt. Ein Fehler dort soll nicht erst zusammen mit dem Gateway auffallen |
 | 5 | `feat: Gateway reicht den Realm chat an Keycloak durch` | Ohne Proxy erreicht der Browser das Login-Formular nicht, es gibt nur einen Port. Mit einem Mini-Server testbar, ohne Login. Die Sperre für Admin-Konsole und Realm `master` (W8) entsteht hier |
 | 6 | `feat: Anmeldung über Keycloak, /api/me nennt den Benutzer` | Braucht den Realm (3) und den Proxy (5): Das Login-Formular kommt durch das Gateway |
 | 7 | `feat: Gateway prüft Bearer-Tokens` | Der zweite Weg hinein, für Desktop-Client und Abnahme. Setzt die Einstiegspunkte aus 6 voraus (401 statt Umleitung) |
 | 8 | `fix: RabbitMQ-Healthcheck prüft die Ports statt nur den Prozess`, dann `chore: web-gateway mit dem einzigen Port in docker-compose` | Erst wenn das Gateway allein richtig arbeitet, lohnt der Betrieb im Stack. Mit ihm warten drei Dienste darauf, dass RabbitMQ «gesund» ist |
-| 9 | `feat: Web-UI zeigt den angemeldeten Benutzer` | Braucht `/api/me` (6) und das Image (8). Schliesst Schritt 2 aus PLANUNG.md 6 ab: «React zeigt den Benutzernamen» |
+| 9 | `feat: Web-UI zeigt den angemeldeten Benutzer` | Braucht `/api/me` (6) und das Gateway im Stack (8). Schliesst Schritt 2 aus PLANUNG.md 6 ab: «React zeigt den Benutzernamen» |
 | 10 | `test: Systemabnahme Login (W1, W2, W3, W7, W8, W10)` | Prüft den Login wie die Abnahme, auf dem ganzen Stack. Danach Tag `schritt-2` |
 | 11 | `feat: Sendeweg vom WebSocket zum chat-service` | Schritt 3 beginnt beim Senden; der Absender kommt aus der Anmeldung (6, 7) |
 | 12 | `feat: Zustellweg von chat.delivery zum WebSocket` | Braucht die offenen Verbindungen aus 11. Erst jetzt kommt eine Nachricht beim zweiten Browser an |
@@ -239,7 +235,8 @@ Task 1 bis 10 bilden den Meilenstein `schritt-2` (Login), Task 11 bis 17 den Mei
 - Ändern: `scripts/abnahme.sh` (Kopfkommentar, `SERVICES`, Prüfung der `.env`, S2, S6)
 - Ändern: `docs/spec-batch-writer.md` (datierter Nachtrag am Ende von Abschnitt 6)
 - Ändern: `README.md` (Zeile zu `abnahme.sh`)
-- Test: lokale Prüfung von `env-pruefen.sh` mit Kopien von `.env.example` unter `target/env-test/`; Probelauf `probe-t1` mit einem Dummy-Dienst in `docker-compose.yml`, nur auf dem Probe-Branch
+- Anlegen: `docs/belege/2026-10-02-baustein-1/task-01-rot.txt`, `task-01-gruen.txt`, `notizen.md`
+- Test: lokale Prüfung von `env-pruefen.sh` mit Kopien von `.env.example` unter `target/env-test/`; roter Nachweis der Abnahme lokal, mit einem Dummy-Dienst in `docker-compose.yml`, der nie committet wird
 
 **Schnittstellen:**
 - Verbraucht: `scripts/abnahme.sh` im Stand `bewertung-1`, `.env.example`
@@ -262,6 +259,7 @@ bash scripts/env-pruefen.sh target/env-test/voll; echo "Exit: $?"
 
 Ausführen: die Befehle aus Schritt 1
 Erwartet: zweimal `bash: scripts/env-pruefen.sh: No such file or directory` und `Exit: 127`.
+Beleg: `task-01-rot.txt`, Teil A.
 
 - [ ] **Schritt 3: `scripts/env-pruefen.sh` anlegen**
 
@@ -313,12 +311,19 @@ Exit: 1
 Exit: 0
 ```
 
-- [ ] **Schritt 5: Roter Probelauf für die Abnahme**
+Dazu drei Prüfungen, die nur der Beleg festhält:
+- dieselben Aufrufe mit Kopien im Windows-Format (`sed 's/$/\r/' .env.example > target/env-test/beispiel-crlf`, ebenso für die `.env`): gleiche Exit-Codes, und im ausgegebenen Namen steht kein CR (`cat -A` zeigt kein `^M`);
+- die echte `.env`: `bash scripts/env-pruefen.sh >/dev/null 2>&1; echo "Exit: $?"` → `Exit: 0`. Ausgegeben wird nur der Exit-Code, denn die Datei enthält Geheimnisse;
+- `bash scripts/kommentare.sh scripts; echo "Exit: $?"` → `Exit: 0`.
 
-Branch `probe-t1` (Ablauf in «Arbeitsweise»). Commit 1 enthält nur einen fünften Dienst mit Port in `docker-compose.yml`, vor `networks:`, so wie später das Gateway. `scripts/abnahme.sh` ist noch im alten Stand.
+Beleg: `task-01-gruen.txt`, Teil A.
+
+- [ ] **Schritt 5: Rot für die Abnahme, lokal**
+
+`scripts/abnahme.sh` ist noch im alten Stand. In `docker-compose.yml` steht **nur lokal**, nie committet, vor `networks:` ein fünfter Dienst mit Port, so wie später das Gateway:
 
 ```yaml
-  # Nur auf probe-t1: ein fünfter Dienst mit Port, wie später das Gateway.
+  # Nur lokal für den roten Nachweis: ein fünfter Dienst mit Port, wie später das Gateway.
   dummy:
     image: busybox:1.36
     command: ["sleep", "3600"]
@@ -328,8 +333,16 @@ Branch `probe-t1` (Ablauf in «Arbeitsweise»). Commit 1 enthält nur einen fün
       - chat-net
 ```
 
-Erwartet: Job `abnahme` rot. S2 wartet 180 s auf genau vier Dienste und meldet `S2  FAIL gemessen: laufend: batch-writer chat-service dummy postgres rabbitmq | veröffentlichte Ports: 1 | erwartet: 4 Dienste laufen, 0 veröffentlichte Ports`.
-Roter Lauf: Link folgt.
+Der Dummy betrifft nur S2. Ein voller Lauf spielte danach noch S3 bis S8 durch, ohne mehr zu zeigen. Deshalb läuft nur S2, in einer Kopie des alten Skripts, in der nur die sechs Aufrufe `scenario_s3` bis `scenario_s8` fehlen:
+
+```bash
+sed -e '/^scenario_s[3-8]$/d' scripts/abnahme.sh > target/abnahme-nur-s2.sh
+diff scripts/abnahme.sh target/abnahme-nur-s2.sh      # nur diese sechs Zeilen
+bash target/abnahme-nur-s2.sh; echo "Exit: $?"
+```
+
+Erwartet: S2 wartet 180 s auf genau vier Dienste und meldet `S2  FAIL gemessen: laufend: batch-writer chat-service dummy postgres rabbitmq | veröffentlichte Ports: 1 | erwartet: 4 Dienste laufen, 0 veröffentlichte Ports`, danach `Exit: 1`.
+Beleg: `task-01-rot.txt`, Teil B, mit dem `diff`.
 
 - [ ] **Schritt 6: `scripts/abnahme.sh` ändern**
 
@@ -384,20 +397,16 @@ scenario_s6() {
 > **Falle 2 – `up` mit Dienstnamen:** `up -d batch-writer` startet auch, wovon der `batch-writer`
 > abhängt (`rabbitmq`, `postgres`), aber nie Keycloak oder Gateway. Genau das will S6.
 
-- [ ] **Schritt 7: Grüner Probelauf**
+- [ ] **Schritt 7: Grün lokal, zweimal**
 
-Commit 2 auf `probe-t1`: `scripts/abnahme.sh` und `scripts/env-pruefen.sh`. Der Dummy-Dienst bleibt.
-Erwartet: Job `abnahme` grün, S2 bis S8 `PASS`. S2 meldet `laufend: batch-writer chat-service postgres rabbitmq | veröffentlichte Ports: 0`, der Dummy-Dienst startet nie.
-Grüner Lauf: Link folgt.
+Ausführen: `bash scripts/abnahme.sh; echo "Exit: $?"`, zuerst **mit** dem Dummy-Dienst, dann ohne ihn.
+Erwartet:
+- *mit Dummy:* S2 bis S8 `PASS`, `Exit: 0`. S2 meldet `laufend: batch-writer chat-service postgres rabbitmq | veröffentlichte Ports: 0`; der Dummy-Dienst startet nie, auch nicht in S6.
+- *Endstand ohne Dummy:* Den Dienst wieder entfernen, `git diff --quiet -- docker-compose.yml; echo "Exit: $?"` → `Exit: 0`. Der zweite Lauf prüft genau das, was committet wird: wieder S2 bis S8 `PASS`.
+
+Beleg: `task-01-gruen.txt`, Teil B (mit Dummy) und Teil C (Endstand).
 
 - [ ] **Schritt 8: Nachtrag und README**
-
-Zurück auf `baustein/web-gateway`:
-
-```bash
-git switch baustein/web-gateway
-git restore --source probe-t1 --worktree -- scripts/abnahme.sh scripts/env-pruefen.sh
-```
 
 `docs/spec-batch-writer.md`, am Ende von Abschnitt 6 (nach der Tabelle des Abnahmeprotokolls, vor `---`), mit dem Datum des Commits:
 
@@ -416,36 +425,40 @@ bash scripts/abnahme.sh          # S2 bis S8 von Bewertung 1, nur deren vier Die
 - [ ] **Schritt 9: Committen**
 
 ```bash
-git add scripts/abnahme.sh scripts/env-pruefen.sh docs/spec-batch-writer.md README.md docs/plan-web-gateway.md
+git add scripts/abnahme.sh scripts/env-pruefen.sh docs/spec-batch-writer.md README.md \
+  docs/belege/2026-10-02-baustein-1/notizen.md \
+  docs/belege/2026-10-02-baustein-1/task-01-rot.txt docs/belege/2026-10-02-baustein-1/task-01-gruen.txt
 git commit -m "test: Abnahme von Bewertung 1 startet nur ihre vier Dienste" \
   -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-Erwartet: `git show --stat HEAD` nennt `docker-compose.yml` nicht; der Dummy-Dienst bleibt auf `probe-t1`.
+Erwartet: `git show --stat HEAD` nennt `docker-compose.yml` und den Plan nicht.
 
-- [ ] **Schritt 10: Pushen und CI-Lauf prüfen**
+- [ ] **Schritt 10: Pushen, CI-Lauf prüfen**
 
-Ausführen: `git push`, dann `gh run watch`
-Erwartet: `maven`, `images` und `abnahme` grün; `abnahme` zeigt `== S2: frischer Start, .env aus .env.example, docker compose up -d --build rabbitmq chat-service postgres batch-writer`.
+Ausführen: `git push`
+Erwartet: in GitHub Actions `maven`, `images` und `abnahme` grün; `abnahme` zeigt `== S2: frischer Start, .env aus .env.example, docker compose up -d --build rabbitmq chat-service postgres batch-writer`. Die Nummer des Laufs kommt beim nächsten Commit in `notizen.md`.
 
 ---
 
 ## Task 2: Modul web-gateway anlegen
 
-**Warum an dieser Stelle:** Alles Weitere braucht ein übersetzbares Modul, auch der Test der Realm-Datei (Task 3) läuft darin. Die `COPY`-Zeilen in den Dockerfiles von `chat-service` und `batch-writer` gehören in denselben Commit: Sobald das Eltern-POM das neue Modul nennt, bricht der Image-Bau der beiden anderen Dienste. Das Dockerfile des Gateways selbst entsteht erst in Task 8. Vorher baut es kein Lauf (der Job `images` baut nur, was in `docker-compose.yml` steht), es wäre also nur behauptet.
+**Warum an dieser Stelle:** Alles Weitere braucht ein übersetzbares Modul, auch der Test der Realm-Datei (Task 3) läuft darin. Die `COPY`-Zeilen in den Dockerfiles von `chat-service` und `batch-writer` gehören in denselben Commit: Sobald das Eltern-POM das neue Modul nennt, bricht der Image-Bau der beiden anderen Dienste. Das Dockerfile des Gateways entsteht gleich mit (Maven- und JRE-Stufe). Der Job `images` baut es erst, wenn der Dienst in `docker-compose.yml` steht (Task 8); bis dahin zeigt ein lokaler Bau, dass es nicht nur behauptet ist.
 
 **Dateien:**
 - Ändern: `pom.xml` (Modulliste, Stückliste Spring Cloud)
 - Ändern: `chat-service/Dockerfile`, `batch-writer/Dockerfile` (je eine `COPY`-Zeile)
 - Anlegen: `web-gateway/pom.xml`
+- Anlegen: `web-gateway/Dockerfile` (Maven- und JRE-Stufe; die Stufe für die Web-UI kommt in Task 9)
 - Anlegen: `web-gateway/src/main/java/ch/benedict/m321/webgateway/WebGatewayApplication.java`
 - Anlegen: `web-gateway/src/main/resources/application.yml`
 - Anlegen: `web-gateway/src/test/resources/gateway-test.properties`
-- Test: `web-gateway/src/test/java/ch/benedict/m321/webgateway/WebGatewayApplicationTest.java`; Probelauf `probe-t2` für die `COPY`-Zeilen
+- Anlegen: `docs/belege/2026-10-02-baustein-1/task-02-rot.txt`, `task-02-gruen.txt`; Ändern: `notizen.md`
+- Test: `web-gateway/src/test/java/ch/benedict/m321/webgateway/WebGatewayApplicationTest.java`; roter Nachweis lokal für die `COPY`-Zeilen (`docker compose build`); lokaler Bau des Gateway-Images
 
 **Schnittstellen:**
 - Verbraucht: Eltern-POM
-- Stellt bereit: Paketwurzel `ch.benedict.m321.webgateway`, Artefakt `ch.benedict.m321:web-gateway:0.1.0-SNAPSHOT`; ein Spring-Kontext, der ohne Keycloak, RabbitMQ und `chat-service` startet; `gateway-test.properties` mit den vier Variablen aus Spezifikation 4.1, alle auf Adressen ohne Dienst. Jede Spring-Testklasse bindet sie mit `@TestPropertySource(locations = "classpath:gateway-test.properties")` ein und überschreibt nur, was sie selbst braucht.
+- Stellt bereit: Paketwurzel `ch.benedict.m321.webgateway`, Artefakt `ch.benedict.m321:web-gateway:0.1.0-SNAPSHOT`; `web-gateway/Dockerfile`, das Task 8 in `docker-compose.yml` einbindet und Task 9 um die Web-UI ergänzt; ein Spring-Kontext, der ohne Keycloak, RabbitMQ und `chat-service` startet; `gateway-test.properties` mit den vier Variablen aus Spezifikation 4.1, alle auf Adressen ohne Dienst. Jede Spring-Testklasse bindet sie mit `@TestPropertySource(locations = "classpath:gateway-test.properties")` ein und überschreibt nur, was sie selbst braucht.
 
 - [ ] **Schritt 1: Den fehlschlagenden Test schreiben**
 
@@ -501,6 +514,7 @@ Die Datei nennt schon jetzt alle vier Variablen, damit keine spätere Aufgabe al
 
 Ausführen: `mvn -q -pl web-gateway test`
 Erwartet: Fehlschlag — `Could not find the selected project in the reactor: web-gateway`, das Modul gibt es noch nicht.
+Beleg: `task-02-rot.txt`, Teil A.
 
 - [ ] **Schritt 3: Modul und Stückliste im Eltern-POM eintragen**
 
@@ -687,15 +701,70 @@ logging:
 - [ ] **Schritt 7: Test laufen lassen und grün bestätigen**
 
 Ausführen: `mvn -q -pl web-gateway test`
-Erwartet: `WebGatewayApplicationTest` grün. Im Protokoll steht `Using generated security password`: Ohne eigene Regeln sichert Spring Security vorerst alles mit einem Formular-Login. Das ersetzt Task 5.
+Erwartet: `WebGatewayApplicationTest` grün.
+Beleg: `task-02-gruen.txt`, Teil A.
 
-- [ ] **Schritt 8: Roter Probelauf für die `COPY`-Zeilen**
+> **Falle – keine Zeile `Using generated security password`:** Ohne eigene Regeln greift zwar die
+> Standard-Filterkette von Spring Security (`SpringBootWebSecurityConfiguration`): Jede Anfrage
+> verlangt eine Anmeldung. Einen Benutzer dafür legt Spring Boot aber nicht an. Der
+> Bedingungsbericht (`mvn -q -pl web-gateway test -Ddebug=true`) sagt warum:
+> `UserDetailsServiceAutoConfiguration` greift nicht, weil `ClientRegistrationRepository` und
+> `OpaqueTokenIntrospector` auf dem Klassenpfad liegen (OAuth2-Client und Resource Server). Bis
+> Task 5 kommt also niemand hinein; am Test ändert das nichts.
 
-Branch `probe-t2`, Commit 1: Eltern-POM, `web-gateway/pom.xml`, `web-gateway/src`, aber noch **ohne** die `COPY`-Zeilen.
-Erwartet: Job `images` rot. Der Bau von `chat-service` und `batch-writer` bricht ab mit `Child module /build/web-gateway of /build/pom.xml does not exist`; `maven` grün.
-Roter Lauf: Link folgt.
+- [ ] **Schritt 8: Dockerfile des Gateways, lokal gebaut und gestartet**
 
-- [ ] **Schritt 9: `COPY`-Zeilen ergänzen**
+`web-gateway/Dockerfile` — nach dem Vorbild von `web-gateway/Dockerfile` im Archiv, vorerst ohne die Stufe für die Web-UI (Task 9) und nur mit den POMs der Module, die es gibt:
+
+```dockerfile
+# Stufe 1: bauen
+# Der Build-Kontext ist das Projekt-Wurzelverzeichnis, weil das Modul
+# das Eltern-POM braucht.
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml .
+# Maven liest ALLE Module aus dem Eltern-POM, auch die, die hier nicht
+# gebaut werden. Deshalb müssen auch die POMs von chat-service und
+# batch-writer da sein.
+COPY chat-service/pom.xml chat-service/pom.xml
+COPY batch-writer/pom.xml batch-writer/pom.xml
+COPY web-gateway/pom.xml web-gateway/pom.xml
+COPY web-gateway/src web-gateway/src
+# Tests werden hier übersprungen: Testcontainers bräuchte einen Docker-Daemon
+# INNERHALB des Builds. Getestet wird vorher mit "mvn test".
+RUN mvn -q -pl web-gateway -am package -DskipTests
+
+# Stufe 2: laufen
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=build /build/web-gateway/target/web-gateway-0.1.0-SNAPSHOT.jar app.jar
+# EXPOSE dokumentiert den Port nur. Veröffentlicht wird er in
+# docker-compose.yml, als einziger Port des Gesamtsystems (127.0.0.1:8080).
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+Der Dienst steht noch nicht in `docker-compose.yml` (Task 8), deshalb direkt mit `docker build`. Der kurze Start zeigt, dass das Jar wirklich hochfährt; ohne `-p` gibt es keinen Port nach aussen:
+
+```bash
+docker build -f web-gateway/Dockerfile -t it3c-m321-web-gateway:task-02 .; echo "Exit: $?"
+docker run -d --name t2-web-gateway-probe it3c-m321-web-gateway:task-02
+docker logs t2-web-gateway-probe | grep -E 'Tomcat started|Started WebGatewayApplication'
+docker rm -f t2-web-gateway-probe
+```
+
+Erwartet: `Exit: 0`; nach wenigen Sekunden `Tomcat started on port 8080` und `Started WebGatewayApplication`, ohne Zeile mit ` WARN `, ` ERROR ` oder `Exception`.
+Beleg: `task-02-gruen.txt`, Teil D.
+
+- [ ] **Schritt 9: Rot für die `COPY`-Zeilen, lokal**
+
+Stand: Eltern-POM, `web-gateway/pom.xml`, `web-gateway/src` und `web-gateway/Dockerfile` sind da, die Dockerfiles von `chat-service` und `batch-writer` noch unverändert. Lokal entfällt `cp .env.example .env`, die lokale `.env` hat alle Schlüssel (Task 1).
+
+Ausführen: `docker compose build; echo "Exit: $?"`
+Erwartet: Der Bau von `chat-service` und `batch-writer` bricht ab mit `Child module /build/web-gateway of /build/pom.xml does not exist`, der Exit-Code ist nicht 0.
+Beleg: `task-02-rot.txt`, Teil B.
+
+- [ ] **Schritt 10: `COPY`-Zeilen ergänzen**
 
 `chat-service/Dockerfile`, nach `COPY batch-writer/pom.xml batch-writer/pom.xml`, und der Kommentar darüber:
 
@@ -717,28 +786,43 @@ COPY chat-service/pom.xml chat-service/pom.xml
 COPY web-gateway/pom.xml web-gateway/pom.xml
 ```
 
-Commit 2 auf `probe-t2` mit beiden Dockerfiles.
-Erwartet: `maven` und `images` grün.
-Grüner Lauf: Link folgt.
+Ausführen: `docker compose build; echo "Exit: $?"`
+Erwartet: `Exit: 0`, die Images von `chat-service` und `batch-writer` bauen wieder.
+Beleg: `task-02-gruen.txt`, Teil C.
 
 > **Falle:** Am `chat-service` und am `batch-writer` ändert sich nichts, und trotzdem baut ihr Image
 > nicht mehr: `mvn -pl … -am` liest das Eltern-POM, und das nennt jetzt drei Module. Genau diesen
-> Fehler zeigt der rote Lauf.
+> Fehler zeigt der rote Nachweis.
 
-- [ ] **Schritt 10: Committen**
+- [ ] **Schritt 11: Alle Module und die Code-Regeln, lokal**
 
 ```bash
-git switch baustein/web-gateway
-git restore --source probe-t2 --worktree -- pom.xml web-gateway chat-service/Dockerfile batch-writer/Dockerfile
-git add pom.xml web-gateway chat-service/Dockerfile batch-writer/Dockerfile docs/plan-web-gateway.md
+mvn -B clean test; echo "Exit: $?"
+bash scripts/kommentare.sh web-gateway/src; echo "Exit: $?"
+grep -rin --exclude-dir=target --exclude-dir=node_modules --exclude-dir=dist stream web-gateway/
+grep -rln -- '->' web-gateway/src
+grep -rn '::' web-gateway/src
+```
+
+Erwartet: `BUILD SUCCESS` mit 14 (chat-service) + 29 (batch-writer) + 1 (web-gateway) = 44 Tests, 0 Failures, 0 Errors; `kommentare.sh` mit `Exit: 0`; die drei Suchen ohne Treffer. Gegenprobe zur Kommentarprüfung: In einer Kopie von `web-gateway/src` ohne den Javadoc über `main` meldet `kommentare.sh` genau diese Zeile und `Exit: 1`.
+Beleg: `task-02-gruen.txt`, Teil B und E.
+
+- [ ] **Schritt 12: Committen**
+
+```bash
+git add pom.xml chat-service/Dockerfile batch-writer/Dockerfile web-gateway \
+  docs/belege/2026-10-02-baustein-1/notizen.md \
+  docs/belege/2026-10-02-baustein-1/task-02-rot.txt docs/belege/2026-10-02-baustein-1/task-02-gruen.txt
 git commit -m "chore: Modul web-gateway anlegen" \
   -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Schritt 11: Pushen und CI-Lauf prüfen**
+Erwartet: `git show --stat HEAD` nennt den Plan nicht und nichts unter `web-gateway/target/` (steht in `.gitignore`).
 
-Ausführen: `git push`, dann `gh run watch`
-Erwartet: `maven` (jetzt mit `WebGatewayApplicationTest`), `images` und `abnahme` grün.
+- [ ] **Schritt 13: Pushen, CI-Lauf prüfen**
+
+Ausführen: `git push`
+Erwartet: in GitHub Actions `maven` (jetzt mit `WebGatewayApplicationTest`), `images` und `abnahme` grün. Die Nummer des Laufs kommt beim nächsten Commit in `notizen.md`.
 
 ---
 
