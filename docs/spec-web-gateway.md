@@ -10,7 +10,8 @@ Server-Session, der Browser bekommt nur ein Session-Cookie und **nie** ein Token
 eine eigene Queue am Fanout-Exchange `chat.delivery`, nur an Verbindungen im Raum der Nachricht.
 Für den Desktop-Client und die Abnahme prüft das Gateway zusätzlich Bearer-JWTs.
 
-Grundlagen: [`PLANUNG.md`](../PLANUNG.md) (Abschnitte 1, 3.1 bis 3.5, 6 und 7), [`CLAUDE.md`](../CLAUDE.md),
+Grundlagen: [`PLANUNG.md`](../PLANUNG.md) (Abschnitte 1, 2.1, 2.2, 3.1 bis 3.5, 3.7, 5, 6, 7 und 8),
+[`CLAUDE.md`](../CLAUDE.md), [`fahrplan.md`](fahrplan.md),
 der Stand mit Tag `bewertung-1` (`chat-service` und `batch-writer`, siehe
 [`spec-batch-writer.md`](spec-batch-writer.md)) und die Experimente E1 bis E6 vom 02.10.2026 (2.7).
 
@@ -37,9 +38,10 @@ Beim Login leitet Keycloak den **Browser** um, und der Browser erreicht das inte
 PLANUNG.md 3.2 wählt deshalb Weg 2: «Keycloak vom Gateway durchreichen lassen unter
 `localhost:8080/auth` — ein Port, echter Authorization Code Flow mit PKCE.»
 
-PLANUNG.md 6 legt die Reihenfolge fest. Baustein 1 umfasst Schritt 2 («Keycloak-Realm, Gateway mit
-Proxy und JWT-Prüfung, React zeigt den Benutzernamen») und Schritt 3 («Nachricht vom Browser bis zum
-zweiten Browser, ohne Datenbank»). Dazu PLANUNG.md: «Schritt 3 ist der wichtigste Meilenstein.» Die
+PLANUNG.md 6 legt die Reihenfolge fest. Baustein 1 umfasst wie in `docs/fahrplan.md` den Rest von
+Schritt 1 (Keycloak im Gerüst), Schritt 2 («Keycloak-Realm, Gateway mit Proxy und JWT-Prüfung, React
+zeigt den Benutzernamen») und Schritt 3 («Nachricht vom Browser bis zum zweiten Browser, ohne
+Datenbank»). Dazu PLANUNG.md: «Schritt 3 ist der wichtigste Meilenstein.» Die
 Datenbank läuft anders als dort geplant schon mit, denn den `batch-writer` gibt es seit Bewertung 1.
 
 ### 1.2 Was Keycloak, web-gateway und Web-UI tun
@@ -73,9 +75,8 @@ Datenbank läuft anders als dort geplant schon mit, denn den `batch-writer` gibt
 
 **Web-UI** (React 19, TypeScript, Vite; gebaut im Image des Gateways)
 
-10. zeigt «Angemeldet als …», einen Knopf «Abmelden» und den Chat im Raum «Lobby» (feste UUID als
-    Konstante in der Web-UI), höchstens
-    200 Nachrichten;
+10. zeigt «Angemeldet als …», einen Knopf «Abmelden» und den Chat im Raum «Lobby», höchstens
+    200 Nachrichten. Die UUID der Lobby steht als Konstante in der Web-UI;
 11. entfernt doppelte Nachrichten nach `id` und sortiert nach (`sentAt`, `id`);
 12. macht Fehler sichtbar: Bei `error` zeigt sie «Nachricht nicht gesendet» und stellt den Text zurück
     ins Eingabefeld. Bei getrennter Verbindung zeigt sie «Verbindung getrennt» und versucht es nach
@@ -164,8 +165,10 @@ Content-Type: application/json
 ```
 
 - Die Antwort ist für beide Anmeldearten gleich. Bei der Session stammen die Claims aus ID-Token und
-  Userinfo des Logins, beim Bearer-JWT aus dem Access-Token. Beide enthalten `preferred_username`
-  und `name` (E3) sowie `roles` (Mapper, 2.6).
+  Userinfo des Logins, beim Bearer-JWT aus dem Access-Token. Dass das Access-Token
+  `preferred_username` und `name` enthält, belegt E3. Für ID-Token und Userinfo gilt das nur
+  begründet, denn E3 hat nur Access-Tokens ohne Scope `openid` dekodiert. Das und den Claim `roles`
+  (Mapper, 2.6) in allen dreien prüft P16 (6.5).
 - `displayName` ist auch der `senderName` beim Senden (2.4). Jede Nachricht trägt also denselben
   Namen, den die Web-UI unter «Angemeldet als …» zeigt.
 
@@ -185,8 +188,8 @@ wechselt, baut eine neue Verbindung auf.
 | # | Prüfung | Verletzt → | Warum |
 |---|---|---|---|
 | 1 | Anmeldung: Session-Cookie oder `Authorization: Bearer <JWT>` | `401`, kein Upgrade | Ohne Anmeldung gibt es keinen Absender. Der Browser schickt das Cookie mit, `java.net.http.WebSocket` kann den Header setzen (E6) |
-| 2 | Header `Origin`: fehlt, oder ist genau `http://localhost:8080` | `403`, kein Upgrade | Schutz gegen fremde Seiten, die mit dem Cookie des Benutzers eine Verbindung öffnen (Cross-Site WebSocket Hijacking). `SameSite=Lax` allein reicht nicht: Eine Seite auf `http://localhost:5173` gilt als «same site», der Port zählt dabei nicht. Ein Browser schickt `Origin` immer mit. Fehlt der Header, kommt die Anfrage von einem Programm, das seine Anmeldung selbst mitbringt |
-| 3 | Parameter `roomId`: vorhanden und eine UUID in der Form 8-4-4-4-12 | Handshake gelingt (`101`), danach sofort Schliessen mit `1008` (`CloseStatus.POLICY_VIOLATION`) | Den Status eines abgelehnten Handshakes sieht ein Browser nicht, er meldet nur `1006`. Einen Schliesscode mit Grund sieht er. `1007` passt nicht: RFC 6455 (Abschnitt 7.4.1) meint damit falsch kodierte Daten |
+| 2 | Header `Origin`: fehlt, oder ist genau `http://localhost:8080` | `403`, kein Upgrade | Schutz gegen fremde Seiten, die mit dem Cookie des Benutzers eine Verbindung öffnen (Cross-Site WebSocket Hijacking). `SameSite=Lax` allein reicht nicht: Eine Seite auf `http://localhost:5173` gilt als «same site», der Port zählt dabei nicht (HTML Standard, «same site»: Schema und registrierbare Domain, ohne Port; ebenso RFC 6265bis). Ein Browser schickt `Origin` immer mit. Fehlt der Header, kommt die Anfrage von einem Programm, das seine Anmeldung selbst mitbringt |
+| 3 | Parameter `roomId`: vorhanden und eine UUID in der Form 8-4-4-4-12 | Handshake gelingt (`101`), danach sofort Schliessen mit `1008` (`CloseStatus.POLICY_VIOLATION`) | Den Status eines abgelehnten Handshakes sieht ein Browser nicht, er meldet nur `1006` (RFC 6455, Abschnitt 7.1.5; WHATWG WebSockets Standard, «fail the WebSocket connection»). Einen Schliesscode mit Grund sieht er. `1007` passt nicht: RFC 6455 (Abschnitt 7.4.1) meint damit falsch kodierte Daten |
 
 Die Anmeldung gilt für die ganze Dauer der Verbindung. Läuft danach die Session oder das Bearer-JWT
 ab, bleibt die offene Verbindung bestehen (3.4, F7).
@@ -204,12 +207,14 @@ ab, bleibt die offene Verbindung bestehen (3.4, F7).
 - Weitere Felder ignoriert das Gateway. Raum und Absender bestimmt **nie** der Client: Der Raum kommt
   aus der URL, der Absender aus der Anmeldung.
 - Das Gateway setzt die Puffergrenze für einen Textrahmen auf **16'384 Zeichen** (Vorgabe von
-  Tomcat: 8192). Darüber schliesst Tomcat die Verbindung mit `1009`, bevor das Gateway den Rahmen
+  Tomcat: 8192, Tomcat-Doku «WebSocket How-To», Parameter `org.apache.tomcat.websocket.textBufferSize`).
+  Darüber schliesst Tomcat die Verbindung mit `1009`, bevor das Gateway den Rahmen
   sieht. 2000 Zeichen passen immer: Im ungünstigsten Fall schreibt `JSON.stringify` jedes Zeichen als
   `\u001f` (6 Zeichen), mit der Hülle `{"content":""}` sind das 12'014 Zeichen. Mit 8192 würde ein
   erlaubter Text abgewiesen. Dass Tomcat Zeichen zählt und mit `1009` schliesst, wird per Test
   geprüft (P1 in 6.5).
-- Ein Binärrahmen schliesst die Verbindung mit `1003` (so reagiert `TextWebSocketHandler`).
+- Ein Binärrahmen schliesst die Verbindung mit `1003`. So reagiert `TextWebSocketHandler` von Spring:
+  `handleBinaryMessage` schliesst mit `CloseStatus.NOT_ACCEPTABLE` («Binary messages not supported»).
 
 **Server → Client.** Jedes Ereignis ist ein Textrahmen mit `type` und `payload`:
 
@@ -220,7 +225,7 @@ ab, bleibt die offene Verbindung bestehen (3.4, F7).
 | `error` | nur die sendende Verbindung | `reason`, `content` | Die Nachricht ist nicht oder nicht sicher angenommen (2.4) |
 
 ```json
-{"type":"message","payload":{"id":"4540758d-7829-4471-954b-ebcda55e389b","roomId":"00000000-0000-0000-0000-000000000001","senderId":"c76ac19a-3aaa-4a31-97f3-bbb370477279","senderName":"Alice Muster","content":"Grüezi Lobby","sentAt":"2026-10-02T09:24:42.222080578Z"}}
+{"type":"message","payload":{"id":"4540758d-7829-4471-954b-ebcda55e389b","roomId":"00000000-0000-0000-0000-000000000001","senderId":"a11ce000-0000-4000-8000-000000000001","senderName":"Alice Muster","content":"Grüezi Lobby","sentAt":"2026-10-02T09:24:42.222080578Z"}}
 {"type":"accepted","payload":{"id":"4540758d-7829-4471-954b-ebcda55e389b","sentAt":"2026-10-02T09:24:42.222080578Z"}}
 {"type":"error","payload":{"reason":"nicht gesendet","content":"Grüezi Lobby"}}
 ```
@@ -265,7 +270,7 @@ Für jeden gültigen Rahmen baut das Gateway genau **eine** Anfrage:
 POST http://chat-service:8080/messages
 Content-Type: application/json
 
-{"roomId":"00000000-0000-0000-0000-000000000001","senderId":"c76ac19a-3aaa-4a31-97f3-bbb370477279","senderName":"Alice Muster","content":"Grüezi Lobby"}
+{"roomId":"00000000-0000-0000-0000-000000000001","senderId":"a11ce000-0000-4000-8000-000000000001","senderName":"Alice Muster","content":"Grüezi Lobby"}
 ```
 
 | Feld | Herkunft im Gateway |
@@ -321,10 +326,10 @@ wie beim `batch-writer` (spec-batch-writer.md 2.1).
 
 | Eigenschaft | Wert | Warum |
 |---|---|---|
-| Name | zufällig, von Spring erzeugt (`AnonymousQueue`, `spring.gen-…`) | Jede Instanz braucht ihre eigene Queue |
+| Name | zufällig, von Spring erzeugt (`AnonymousQueue`; Präfix `spring.gen-` aus `Base64UrlNamingStrategy.DEFAULT` von Spring AMQP) | Jede Instanz braucht ihre eigene Queue |
 | `exclusive` | ja | Nur die Verbindung dieses Gateways darf sie lesen |
 | `auto_delete` | ja | Endet der Verbraucher, verschwindet die Queue. Für ein Gateway, das nicht mehr läuft, staut sich nichts |
-| `durable` | nein | Nach einem Neustart sind die WebSocket-Verbindungen ohnehin weg, ein Rückstau wäre veraltet |
+| `durable` | nein | Nach einem Neustart sind die WebSocket-Verbindungen weg, ein Rückstau wäre veraltet |
 | Argumente | keine | |
 | Bindung | an `chat.delivery`, Routing-Key leer | Fanout: Jede gebundene Queue bekommt eine Kopie (`RabbitConfig.java:40-45`) |
 
@@ -332,8 +337,8 @@ PLANUNG.md 3.5: «Jede `web-gateway`-Instanz bindet eine **eigene, exklusive** Q
 `chat.delivery`. Grund: eine WebSocket-Verbindung hängt an genau einer Instanz, also muss jede
 Instanz jede Nachricht sehen und selbst entscheiden, ob einer ihrer verbundenen Clients sie braucht.»
 
-**Die Nachricht**, wörtlich aus E5 (Ausgabe von `rabbitmqadmin get`, gekürzt auf die relevanten
-Felder):
+**Die Nachricht** aus E5 (Ausgabe von `rabbitmqadmin get`, gekürzt auf die relevanten Felder und
+umgestellt, die Werte sind unverändert):
 
 ```json
 {
@@ -407,7 +412,8 @@ nicht einmal `default-roles-chat` (E3b).
 
 **Mapper `roles`** (Typ `oidc-usermodel-realm-role-mapper`, mehrwertig): schreibt die Realm-Rollen
 als Liste in den Claim `roles`, ins ID-Token, ins Access-Token und in die Userinfo. So lesen Session
-und Bearer-JWT die Rollen aus derselben Quelle (2.2).
+und Bearer-JWT die Rollen aus derselben Quelle (2.2). Dass der Claim in allen dreien ankommt, prüft
+P16 (6.5); E3 und E3b hatten noch keinen solchen Mapper.
 
 **`aud` prüft das Gateway nicht, aber `azp`.** Ein Bearer-JWT gilt nur, wenn alle vier Prüfungen
 bestehen:
@@ -483,8 +489,8 @@ docker run -d --name exp-kc --network chat-net \
 
 `C` steht für `docker run --rm --network chat-net curlimages/curl`, `$TOK` für
 `http://exp-kc:8080/auth/realms/chat/protocol/openid-connect/token`. Befehle und Ausgaben sind
-gekürzt (`…`), aber nicht verändert. Die Rohdaten liegen in `docs/belege/2026-10-02-experimente/`
-(`$W` im Befehl oben ist dieser Ordner; Tokens sind dort entfernt). `KC_PROXY_HEADERS=xforwarded`
+gekürzt (`…`) und teils umgestellt, die Werte sind unverändert. `$W` war ein Arbeitsordner; die
+Dateien daraus liegen jetzt in `docs/belege/2026-10-02-experimente/`, Tokens sind dort entfernt. `KC_PROXY_HEADERS=xforwarded`
 war in E1 bis E3 gesetzt, aber keine Anfrage trug einen `X-Forwarded-*`-Header. Die Einstellung hat
 also nichts bewirkt, und das System verzichtet auf sie (Abschnitt 5).
 
@@ -579,8 +585,8 @@ GET /auth                                                → 303 Location: http:
 ```
 
 *Befund:* Die Login-Seite braucht nur `/auth/resources/…` und `/auth/realms/chat/…`. Das Ziel des
-Formulars ist absolut und zeigt auf `http://localhost:8080`. Alle Cookies von Keycloak gelten nur für
-`/auth/realms/chat/`. Den Realm `master` und die Admin-Konsole gibt es auch ohne Bootstrap-Admin. Das
+Formulars ist absolut und zeigt auf `http://localhost:8080`. Die drei Cookies der Login-Seite
+(`AUTH_SESSION_ID`, `KC_AUTH_SESSION_HASH`, `KC_RESTART`) gelten nur für `/auth/realms/chat/`. Den Realm `master` und die Admin-Konsole gibt es auch ohne Bootstrap-Admin. Das
 Gateway muss sie also aktiv sperren.
 
 **E5 – Die Nachricht auf `chat.delivery`.** Eine Test-Queue `exp.delivery` an den Exchange gebunden,
@@ -598,8 +604,9 @@ rabbitmqadmin get queue=exp.delivery … → Nachricht wie in 2.5
 Queue hing. Die Nachricht ist die `ChatMessage` als JSON mit den Properties aus 2.5, `sentAt` mit
 Nanosekunden. Der `batch-writer` hat sie zusätzlich gespeichert (`sent_at` auf Mikrosekunden).
 
-**E6 – Header beim WebSocket-Handshake aus Java (JDK 21).** Ein Mini-Server (`HttpServer` aus dem
-JDK) gab die Header jedes Handshakes aus und antwortete `403`. Der Client war `java.net.http.WebSocket`
+**E6 – Header beim WebSocket-Handshake aus Java (JDK 21).** Dateien:
+`docs/belege/2026-10-02-experimente/e6/` (`HeaderEcho.java`, `HeaderCheck.java`, `header-echo.log`).
+Ein Mini-Server (`HttpServer` aus dem JDK) gab die Header jedes Handshakes aus und antwortete `403`. Der Client war `java.net.http.WebSocket`
 mit `header("Cookie", …)`, `header("Origin", …)` und `header("Authorization", …)`:
 
 ```
@@ -662,8 +669,9 @@ sequenceDiagram
 ```
 
 1. **PKCE.** Spring Security erzeugt den `code_verifier` und schickt Keycloak nur dessen Hash
-   (`S256`). Keycloak verlangt PKCE für beide Clients (2.6). Eine Anfrage ohne `code_challenge` lehnt
-   es ab (W7).
+   (`S256`). Keycloak verlangt PKCE für beide Clients (2.6) und lehnt eine Anfrage ohne
+   `code_challenge` ab. Belegt ist das noch nicht, denn der Realm aus E1 hatte kein PKCE: P15 (6.5)
+   und W7.
 2. **Öffentlich oder intern.** Öffentlich sind nur die Adressen, die der Browser aufruft: die
    Login-Anfrage (Schritte 4 und 5) und das Abmelden (Punkt 6). Token, JWKS und Userinfo holt das Gateway
    intern. Den Issuer vergleicht es mit dem öffentlichen Wert `http://localhost:8080/auth/realms/chat`,
@@ -673,7 +681,7 @@ sequenceDiagram
    läuft nach 300 s ab, ohne Folgen. Beim Anmelden wechselt Spring Security die Session-ID, damit eine
    vorher untergeschobene Session-ID nichts nützt (Session Fixation). Warum dieser Weg und nicht der
    aus PLANUNG.md 3.3: Abschnitt 5.
-4. **Getrennte Cookies.** Die Cookies von Keycloak gelten nur für `/auth/realms/chat/` (E4),
+4. **Getrennte Cookies.** Die drei Cookies der Login-Seite gelten nur für `/auth/realms/chat/` (E4),
    `JSESSIONID` gilt für `/`. Das Gateway reicht Cookies unverändert durch und wertet die von Keycloak
    nicht aus.
 5. **Desktop-Client und Abnahme (Bearer).** Gleicher Ablauf mit dem Client `desktop-client`, aber:
@@ -682,15 +690,16 @@ sequenceDiagram
      `http://localhost:8080/auth/realms/chat/protocol/openid-connect/token`;
    - danach schickt er `Authorization: Bearer <Access-Token>` an `/api/me` und beim Handshake von
      `/ws/chat` (E6). Das Gateway prüft Signatur, Issuer, Ablauf und `azp = desktop-client` (2.6)
-     im Speicher. PLANUNG.md 3.3: «Das
-     passiert lokal im Speicher — kein Netzwerkaufruf pro Anfrage.» Nur den JWKS holt es einmal und
-     dann wieder, wenn ein unbekannter Schlüssel auftaucht.
+     im Speicher. PLANUNG.md 3.3 sagt dazu: «Das passiert lokal im Speicher — kein Netzwerkaufruf
+     pro Anfrage.» Nur den JWKS holt es einmal und dann wieder, wenn ein unbekannter Schlüssel
+     auftaucht.
 6. **Abmelden** (`GET /logout`): Das Gateway beendet die Session und schickt den Browser an
    `http://localhost:8080/auth/realms/chat/protocol/openid-connect/logout`, mit `id_token_hint` und
    `post_logout_redirect_uri=http://localhost:8080/`. Keycloak beendet seine SSO-Session und leitet
    auf `/` zurück, von dort geht es wieder zum Login-Formular (W10). Diese Adresse kennt das Gateway
    aus seiner Konfiguration, nicht aus der Discovery (Abschnitt 4). Das ID-Token im `id_token_hint`
-   ist nach 300 s abgelaufen. Ob Keycloak es trotzdem annimmt, wird per Test geprüft (P5 in 6.5).
+   läuft vermutlich nach 300 s ab, gleich wie das Access-Token (E3); das prüft P18. Ob Keycloak ein
+   abgelaufenes `id_token_hint` trotzdem annimmt, prüft P5 (beide in 6.5).
 
 ### 3.2 Senden und Zustellen
 
@@ -734,7 +743,7 @@ sequenceDiagram
    Senden aus mehreren Threads: Einer schreibt, die anderen legen ihre Nachricht in den Puffer und
    kehren sofort zurück. Damit das wirkt, schreibt der Verbraucher von RabbitMQ nie selbst in einen
    Socket. Er gibt jede Zustellung an einen eigenen virtuellen Thread ab. *Für Lernende:* Ein
-   virtueller Thread ist ein sehr leichter Java-Thread (seit Java 21), Tausende davon kosten kaum
+   virtueller Thread ist ein leichter Java-Thread (seit Java 21), Tausende davon kosten kaum
    Speicher; hängt ein Client, wartet nur dessen Thread, und der Verbraucher liest schon die nächste
    Nachricht. Wer die Grenzen überschreitet, wird getrennt (F11).
 5. **Folge von Punkt 4:** Zwei Nachrichten an dieselbe Verbindung können sich überholen. Das ist
@@ -824,11 +833,12 @@ verweisen auf die Szenarien der Abnahme (Abschnitt 6); «—» heisst, dass kein
   Nachricht, live sieht sie niemand. Schickt der Benutzer sie erneut, vergibt der `chat-service` eine
   neue `id` (`MessageService.java:38`): In der Tabelle stehen dann zwei Zeilen mit demselben Text.
   Die Duplikat-Regel des Clients hilft nicht, denn die `id` sind verschieden.
-- *Der Kommentar im Code* (`MessagePublisher.java:30-32`) verspricht nur: «Schlägt das Senden fehl,
-  ist die Nachricht dann noch nirgends zugestellt worden». Das stimmt für die Zustellung, nicht für
-  die Speicherung.
+- *Der Kommentar im Code* (`MessagePublisher.java:30-32`) sagt: «Reihenfolge mit Absicht: erst
+  persist, dann delivery. Schlägt das Senden fehl, ist die Nachricht dann noch nirgends zugestellt
+  worden und der Benutzer bekommt einen ehrlichen Fehler.» Der erste Teil stimmt: Zugestellt ist sie
+  nicht. Der zweite nicht: «nicht gesendet» ist hier falsch, denn gespeichert wird sie trotzdem.
 - *Warum bewusst nicht geändert:* Der `chat-service` gehört nicht zu diesem Baustein (1.3). Das
-  Zeitfenster liegt zwischen zwei Aufrufen im selben Thread und ist sehr klein. Die Folge ist eine
+  Zeitfenster liegt zwischen zwei Aufrufen im selben Thread und ist klein. Die Folge ist eine
   doppelte, keine verlorene Nachricht. Eine Lösung gehört in den `chat-service`.
 
 **F7 – Session abgelaufen oder abgemeldet** (W10)
@@ -836,8 +846,9 @@ verweisen auf die Szenarien der Abnahme (Abschnitt 6); «—» heisst, dass kein
   Boot). WebSocket-Rahmen zählen dabei nach unserem Verständnis nicht als Anfrage; das wird per Test
   geprüft (P6 in 6.5). Die offene Verbindung bleibt bestehen (2.3). Erst der nächste Handshake scheitert
   mit `401`, der Browser meldet `1006`. Die Web-UI ruft dann `GET /api/me` auf, bekommt `401` und
-  lädt die Seite neu. Ist die SSO-Session von Keycloak noch gültig (30 min, 2.6), ist der Benutzer
-  ohne Passwort zurück, sonst erscheint das Login-Formular.
+  lädt die Seite neu. Meist ist dann auch die SSO-Session von Keycloak abgelaufen (30 min ohne
+  Aktivität, 2.6), denn seit dem Login hat niemand Keycloak aufgerufen. Es erscheint das
+  Login-Formular.
 - *Abmelden in einem Tab:* Die Verbindungen anderer Tabs bleiben offen, bis sie getrennt oder neu
   geladen werden. Danach gilt dasselbe wie oben.
 - *Bearer-JWT:* Es lebt 300 s. Eine offene Verbindung bleibt auch danach bestehen, ein neuer Handshake
@@ -974,9 +985,11 @@ Die echten Werte stehen in `.env` (in `.gitignore`), im Repository steht nur `.e
 
 - **Warum `:?` beim Secret.** Fehlt das Secret, scheitert der Login erst beim Einlösen des Codes,
   und die Ursache ist schwer zu finden. Mit `:?` bricht schon `docker compose` mit dieser Meldung ab.
-- **Folge für eine bestehende `.env`:** Compose setzt die Variablen in der ganzen Datei ein, auch für
-  Dienste, die gar nicht starten. Fehlt `KEYCLOAK_CLIENT_SECRET`, scheitert deshalb **jeder**
-  `docker compose`-Befehl, auch `down`. Die Zeile aus `.env.example` muss in jede ältere `.env` (6.3).
+- **Folge für eine bestehende `.env`:** Laut Compose-Doku («Interpolation») bricht `${VAR:?Text}` mit
+  dem Text ab, wenn die Variable fehlt oder leer ist. Compose setzt die Variablen in der ganzen Datei
+  ein, auch für Dienste, die gar nicht starten. Fehlt `KEYCLOAK_CLIENT_SECRET`, scheitert deshalb
+  vermutlich **jeder** `docker compose`-Befehl, auch `down`; das prüft P17 (6.5). Die Zeile aus
+  `.env.example` muss in jede ältere `.env` (6.3).
 - **Warum `:-` bei den Passwörtern.** E1 hat nur geprüft, was bei einer **nicht gesetzten** Variablen
   passiert. Eine gesetzte, aber leere Variable sähe Keycloak vielleicht als leeres Passwort. `:-`
   ersetzt in Compose auch einen leeren Wert durch die Vorgabe, Keycloak sieht also nie einen leeren
@@ -1168,7 +1181,7 @@ Schritten dazu», «KEIN ports:-Eintrag in dieser Datei») werden an den neuen S
   dem Zwischenspeicher, solange sich nur Quelltext ändert.
 - **Einzeln kopieren statt `.dockerignore`.** Ein lokales `web-ui/node_modules/` (von Windows) oder
   `web-ui/dist/` darf nicht ins Image. Weil jede `COPY`-Zeile nur ihre eigenen Pfade nennt, kommen sie
-  gar nicht hinein. BuildKit überträgt ohnehin nur die Pfade, die in einem `COPY` stehen: Beim Bauen
+  gar nicht hinein. BuildKit überträgt ausserdem nur die Pfade, die in einem `COPY` stehen: Beim Bauen
   des `chat-service` war der Build-Kontext am 02.10.2026 nur 78 kB gross, obwohl im Wurzelordner mehr
   liegt.
 
@@ -1240,12 +1253,15 @@ Gateway selbst ist. Und `end_session_endpoint` lässt sich in den Properties gar
   zurück, wo ihm das Session-Cookie von `127.0.0.1` fehlt. Unterstützt ist `127.0.0.1` so oder so
   nicht (2.1).
 - **Ohne `issuerUri` prüfte Spring `iss` im ID-Token nicht.** Deshalb steht er da, obwohl ihn keine
-  Anfrage braucht.
+  Anfrage braucht. Das ist aus dem Verhalten von `OidcIdTokenValidator` abgeleitet und nicht
+  belegt; P19 (6.5) prüft es.
 - **`end_session_endpoint`** muss in den Metadaten der Registrierung stehen. Ohne Discovery kennt
   Spring die Abmelde-Adresse sonst nicht, und `GET /logout` endete nur beim Gateway (3.1, Punkt 6).
-- **PKCE beim vertraulichen Client:** Spring verlangt PKCE von sich aus nur bei öffentlichen Clients.
-  Für `web-gateway` wird es ausdrücklich eingeschaltet. Ob das wirkt, zeigen W2 und W7: In der
-  Umleitung zu Keycloak steht `code_challenge_method=S256`, und Keycloak lehnt eine Anfrage ohne ab.
+- **PKCE beim vertraulichen Client:** Spring schickt PKCE von sich aus nur bei öffentlichen Clients,
+  sonst nur mit ausdrücklicher Einstellung (`requireProofKey` in den `ClientSettings`). Für
+  `web-gateway` wird es eingeschaltet. Beides prüft P20 (6.5). Ob es im System wirkt, zeigen W2 und
+  W7: In der Umleitung zu Keycloak steht `code_challenge_method=S256`, und Keycloak lehnt eine
+  Anfrage ohne ab (P15).
 - **Bearer-JWTs:** `NimbusJwtDecoder` mit der internen `jwkSetUri`. Dazu die Prüfungen von Spring für
   Issuer und Ablauf und eine für `azp = desktop-client` (2.6).
 
@@ -1262,6 +1278,8 @@ Gateway selbst ist. Und `end_session_endpoint` lässt sich in den Properties gar
 | 2.1 Stack, 3.1 | «Keycloak 26», «Realm wird als JSON importiert», «eigene Datenhaltung» | *Ergänzung, keine Abweichung:* Keycloak 26.7.3 im Entwicklungsmodus (`start-dev`) mit der eingebauten Datei-Datenbank im Container, ohne Volume | PLANUNG.md nennt keinen Modus. `start-dev` braucht kein TLS, und die Daten müssen nicht überleben, weil der Realm jedes Mal aus der Datei kommt (4.2). Ein Ausfall von PostgreSQL stört den Login nicht |
 | 2.2 Clients | «Beide Clients sprechen **dieselbe** REST- und WebSocket-Schnittstelle des Gateways. Es gibt keine Client-spezifische Sonderlogik im Backend.» | *Ergänzung, keine Abweichung:* gleiche URLs (`/api/me`, `/ws/chat`), gleiche Ereignisse (2.3), gleiche Antworten (2.2). Verschieden ist nur, wie sich ein Client ausweist: Session-Cookie oder Bearer-JWT | Hinter der Anmeldung läuft für beide derselbe Code. Die Anmeldung muss sich unterscheiden, weil ein Browser-WebSocket keinen Header setzen kann (erste Zeile) |
 | 3.3 | «Das Gateway prüft den JWT als **OAuth2 Resource Server** gegen den öffentlichen Schlüssel von Keycloak (JWKS)» | gilt weiter, aber nur für Bearer-JWTs. Dazu prüft das Gateway `azp` | 2.6 |
+| 6 Umsetzungsreihenfolge | erst Gerüst, Login und «Ein Weg durch» (Schritte 1 bis 3), dann Persistenz (Schritt 4) | Datenbank und `batch-writer` laufen schon; Baustein 1 holt Keycloak aus Schritt 1 sowie die Schritte 2 und 3 nach | Bewertung 1 verlangte den Schreibweg von Schritt 4 zuerst (`docs/fahrplan.md` 1). Schritt 3 läuft deshalb mit Datenbank, nicht «ohne Datenbank» |
+| 8 Verlauf, Entscheid 4 | «**Zustellgarantie** → At-least-once» | *Klarstellung, keine Abweichung:* Das gilt für die **Speicherung** (PLANUNG.md 3.6, `batch-writer`). Die Live-Zustellung an verbundene Clients ist **höchstens einmal** (3.3) | Ein Client, der getrennt war, holt Verpasstes über den Verlauf (Baustein 2), nicht über eine Wiederholung auf dem Zustellweg |
 
 ---
 
@@ -1427,10 +1445,12 @@ laufende System und gehört deshalb zur Abnahme (W12).
 
 | Testklasse | Was sie prüft | Belegt |
 |---|---|---|
-| `RealmImportIntegrationTest` | Keycloak-Container mit `keycloak/realm-chat.json`: Import, `sub` = feste `id`, Claim `roles` im ID- und Access-Token, `name` und E-Mail, PKCE Pflicht, Redirect-URI exakt, Loopback-Port, Platzhalter in der Post-Logout-URI, Password-Grant über `admin-cli` | W3, W7, P2, P3, P4, P7 |
+| `RealmImportIntegrationTest` | Keycloak-Container mit `keycloak/realm-chat.json`: Import, `sub` = feste `id`, Claim `roles` im ID- und Access-Token, `name` und E-Mail, PKCE Pflicht, Redirect-URI exakt, Loopback-Port, Platzhalter in der Post-Logout-URI, Password-Grant über `admin-cli`, Ablehnung ohne `code_challenge`, Claims `preferred_username`, `name` und `roles` in ID-Token, Access-Token und Userinfo (Login mit Scope `openid` über das Formular) | W3, W7, P2, P3, P4, P7, P15, P16 |
 | `KeycloakProxyIntegrationTest` | Gateway mit einem Mini-Server als Keycloak: nur zwei Präfixe werden durchgereicht, alles andere unter `/auth` gibt `404`; Cookies und `Set-Cookie` unverändert; was mit `X-Forwarded-*` geschieht; Status, wenn Keycloak nicht antwortet | W8, P10, P11 |
-| `SecurityConfigTest` | MockMvc: `/` → `302`, `/api/**` und `/ws/**` → `401`, `/auth/**` ohne CSRF, `/error` frei, `GET /logout`. Die Attribute des Session-Cookies prüft er **nicht**: MockMvc schreibt keinen echten Header `Set-Cookie: JSESSIONID` | W2, W10 |
-| `LoginIntegrationTest` | Gateway auf echtem Port, Keycloak im Container: ganzer Login mit dem echten Formular, `/api/me`, Abmelden mit OIDC-Logout, Header `Set-Cookie: JSESSIONID` mit `HttpOnly` und `SameSite=Lax`, Ziel der Umleitung nach dem Login (`/` oder `/?continue`). Für P5 setzt der Test die Token-Lebensdauer über die Admin-API auf 10 s. Den Bootstrap-Admin dafür gibt es **nur** im Test-Container | W3, W10, P5, P14 |
+| `SecurityConfigTest` | MockMvc: `/` → `302`, `/api/**` und `/ws/**` → `401`, `/auth/**` ohne CSRF, `/error` frei, `GET /logout`. Die Attribute des Session-Cookies prüft er **nicht**: MockMvc schreibt keinen echten Header `Set-Cookie: JSESSIONID`. Dazu PKCE: Die Umleitung von `/oauth2/authorization/keycloak` enthält `code_challenge_method=S256`; mit einer Registrierung ohne `requireProofKey` fehlt `code_challenge` | W2, W10, P20 |
+| `ClientRegistrationTest` | Unit-Test der Registrierung aus 4.6: Werte der Tabelle; `OidcIdTokenValidator` lehnt ein ID-Token mit fremdem `iss` ab, wenn `issuerUri` gesetzt ist, und nimmt es ohne `issuerUri` an | P19 |
+| `ComposeFileTest` | ruft mit einer `.env` ohne `KEYCLOAK_CLIENT_SECRET` und einem eigenen Projektnamen `docker compose config` und `docker compose down --dry-run` auf; beide brechen mit einer Meldung ab, die `KEYCLOAK_CLIENT_SECRET` nennt | P17 |
+| `LoginIntegrationTest` | Gateway auf echtem Port, Keycloak im Container: ganzer Login mit dem echten Formular, `/api/me`, Abmelden mit OIDC-Logout, Header `Set-Cookie: JSESSIONID` mit `HttpOnly` und `SameSite=Lax`, Ziel der Umleitung nach dem Login (`/` oder `/?continue`). Für P5 setzt der Test die Token-Lebensdauer über die Admin-API auf 10 s. Den Bootstrap-Admin dafür gibt es **nur** im Test-Container. Lebensdauer des ID-Tokens (`exp - iat`) | W3, W10, P5, P14, P18 |
 | `BearerTokenTest` | Der Test signiert Tokens mit einem eigenen RSA-Schlüssel (`NimbusJwtEncoder`). Das Gateway prüft sie mit einem Decoder, der genau die Prüfungen aus 4.6 hat, nur mit diesem Schlüssel statt dem JWKS. Fälle: gültig → `200`; fremder Issuer → `401`; abgelaufen → `401`; `azp` ausser `desktop-client` → `401`; mit einem anderen Schlüssel signiert → `401`. `jwt()` aus spring-security-test umgeht Decoder und Prüfungen; es dient nur für «gültig → `200` mit denselben Feldern wie bei der Session» | W7, F14 |
 | `ChatServiceClientTest` | Mini-Server als `chat-service`: `202` → `accepted`; `400` → `abgelehnt`; `503`, `500`, Antwort nach 6 s und keine Verbindung → `nicht gesendet`; Felder der Anfrage wie 2.4 | W5, 2.4 |
 | `ChatSocketIntegrationTest` | Gateway auf zufälligem Port: Handshake (`401`, `403`, `1008`), 2000 und 2001 Zeichen, Puffergrenze und `1009`, Binärrahmen → `1003`, Reihenfolge `accepted`/`error`, Session-Ablauf trotz Rahmen, `1001` beim Stopp | W9, P1, P6, P8, P13 |
@@ -1448,7 +1468,7 @@ aus 6.4.
 |---|---|---|---|
 | P1 | Ein Textrahmen über der Puffergrenze von 16'384 Zeichen schliesst die Verbindung mit `1009`; ein Rahmen mit 12'014 Zeichen geht durch (2.3, F10) | `ChatSocketIntegrationTest` | Schliesst Tomcat mit einem anderen Code, werden 2.3 und F10 angepasst. Die Web-UI behandelt jeden Code gleich. Die Grenze reicht auch, falls Tomcat Bytes statt Zeichen zählt: Der ungünstigste Fall besteht aus ASCII-Zeichen |
 | P2 | Keycloak akzeptiert für `desktop-client` jeden Port bei `http://127.0.0.1/callback` (RFC 8252, 7.3) | `RealmImportIntegrationTest` | Der Desktop-Client nimmt den festen Port 53682, und die Realm-Datei registriert genau `http://127.0.0.1:53682/callback` |
-| P3 | Der Platzhalter `${PUBLIC_URL}` wird auch in der Post-Logout-URI ersetzt (2.6) | `RealmImportIntegrationTest` | Die Realm-Datei schreibt `http://localhost:8080/` fest hinein. `PUBLIC_URL` ist ohnehin fest |
+| P3 | Der Platzhalter `${PUBLIC_URL}` wird auch in der Post-Logout-URI ersetzt (2.6) | `RealmImportIntegrationTest` | Die Realm-Datei schreibt `http://localhost:8080/` fest hinein. `PUBLIC_URL` steht in Compose ebenfalls fest |
 | P4 | Keycloak übernimmt die feste `id` aus der Realm-Datei als `sub` (3.5, 4.2) | `RealmImportIntegrationTest` | Nach einem neuen Import trägt `message` alte `senderId`, die niemandem mehr gehören. Das wird in 3.5 als Grenze festgehalten; der gespeicherte `sender_name` bleibt lesbar. W6 prüft dann nur `sender_name`, nicht `sender_id` |
 | P5 | Keycloak meldet auch mit einem abgelaufenen `id_token_hint` ab und leitet auf `post_logout_redirect_uri` zurück (3.1) | `LoginIntegrationTest` | Das Gateway schickt nach Ablauf `client_id` statt `id_token_hint`. Keycloak fragt dann auf einer eigenen Seite nach; das wird in 3.1 beschrieben |
 | P6 | WebSocket-Rahmen verlängern die HTTP-Session nicht (F7) | `ChatSocketIntegrationTest` (Session-Timeout im Test 1 min) | Die Grenze in F7 wird milder: Die Session bleibt, solange gechattet wird. F7 wird angepasst |
@@ -1460,11 +1480,17 @@ aus 6.4.
 | P12 | Ein Client, der nicht liest, wird nach 5 s bzw. 512 KB getrennt, die anderen bekommen ihre Nachrichten weiter rechtzeitig (3.2, F11) | `DeliveryIntegrationTest` (Client ohne `request(n)` in `java.net.http.WebSocket`) | Die Grenzen werden angepasst, oder jede Verbindung bekommt eine eigene Warteschlange mit einem Thread |
 | P13 | Beim geordneten Stopp schliesst das Gateway offene Verbindungen mit `1001` (2.3, F12) | `ChatSocketIntegrationTest` (Kontext schliessen) | 2.3 und F12 werden korrigiert. Die Web-UI behandelt jeden Code gleich, am Verhalten ändert sich nichts |
 | P14 | Nach dem Login leitet das Gateway auf die gespeicherte Anfrage zurück, und zwar ohne Zusatz (2.1, 3.1). Spring Security 6 kann `?continue` anhängen | `LoginIntegrationTest` | Die Web-UI ignoriert den Parameter, und W3 nimmt `/?continue` als bestanden. Wer ihn nicht will, schaltet ihn im Request-Cache von Spring ab (`setMatchingRequestParameterName(null)`) |
+| P15 | Keycloak lehnt eine Login-Anfrage ohne `code_challenge` ab, für beide Clients (2.6, 3.1). Der Realm aus E1 hatte kein PKCE | `RealmImportIntegrationTest` | Das Attribut `pkce.code.challenge.method` wirkt nicht; dann wird es in der Realm-Datei korrigiert, bis der Test besteht. W7 (d) bleibt das Kriterium |
+| P16 | ID-Token, Access-Token und Userinfo enthalten `preferred_username`, `name` und `roles` (2.2, 2.6). E3 hat nur Access-Tokens ohne `openid` dekodiert | `RealmImportIntegrationTest` | Fehlt ein Claim im ID-Token, liest das Gateway ihn aus der Userinfo; fehlt `roles` ganz, wird der Mapper korrigiert |
+| P17 | Fehlt `KEYCLOAK_CLIENT_SECRET`, bricht jeder `docker compose`-Befehl ab, auch `down` (4.1, 6.3) | `ComposeFileTest` | Dann trifft die Warnung in 4.1 und 6.3 nur die Befehle, die den Dienst starten; der Text wird angepasst |
+| P18 | Das ID-Token lebt 300 s, gleich wie das Access-Token (3.1, Punkt 6) | `LoginIntegrationTest` | Der Wert in 3.1 wird korrigiert. Für P5 zählt nur, dass das `id_token_hint` irgendwann abläuft |
+| P19 | Ohne `issuerUri` prüft Spring `iss` im ID-Token nicht, mit `issuerUri` schon (4.6) | `ClientRegistrationTest` | Dann ist `issuerUri` nur zur Sicherheit gesetzt; der Satz in 4.6 wird korrigiert |
+| P20 | Spring schickt PKCE beim vertraulichen Client nur mit `requireProofKey` (4.6) | `SecurityConfigTest` | Schickt Spring PKCE auch ohne, ist die Einstellung überflüssig, aber unschädlich; der Satz in 4.6 wird korrigiert |
 
 ### 6.6 Abnahmeprotokoll
 
 Folgt nach der Umsetzung, im Format von spec-batch-writer.md 6: Lauf in GitHub Actions, dann je
-Kriterium W1 bis W12 und je offene Prüfung P1 bis P14 «bestanden» oder «nicht bestanden» mit dem
+Kriterium W1 bis W12 und je offene Prüfung P1 bis P20 «bestanden» oder «nicht bestanden» mit dem
 gemessenen Wert.
 
 ---
@@ -1491,35 +1517,45 @@ liegt im Branch
 | Benutzer | Passwort = Benutzername, wörtlich; E-Mail `…@example.local`; Rollen über `realmRoles`; zufällige IDs | Passwörter über Platzhalter mit Beispielwert; E-Mail `…@example.org`; Rollen wie bisher; feste `id` | CLAUDE.md; `example.org` ist für Beispiele reserviert (RFC 2606), `.local` dagegen für mDNS (RFC 6762); `sub` bleibt über Neuimporte gleich (3.5) |
 | Einstiegspunkt ohne Anmeldung | `LoginUrlAuthenticationEntryPoint` für alle Pfade, auch `/api` und `/ws` werden umgeleitet | `401` für `/api/**` und `/ws/**`, sonst Umleitung | `fetch` und WebSocket können einer Umleitung auf eine Login-Seite nicht folgen (2.1) |
 | Prüfung von Bearer-JWTs | `JwtValidators.createDefaultWithIssuer`: Issuer und Ablauf | zusätzlich `azp = desktop-client` | 2.6 |
-| Healthchecks | Keycloak ohne («ein Umweg über /dev/tcp wäre ein Trick, den man nicht in zwei Sätzen erklären kann»); RabbitMQ `ping` | Keycloak `/dev/tcp` auf `/auth/health/ready` (E2); RabbitMQ `check_port_connectivity` | E2 zeigt: eine Zeile, Exit 0 nur bei «bereit». `ping` meldet «gesund» zu früh (4.3) |
+| Healthchecks | Keycloak ohne («ein Umweg über /dev/tcp wäre ein Trick, den man nicht in zwei Sätzen erklären kann»); RabbitMQ `check_port_connectivity` (Archiv, `docker-compose.yml` Z. 53–56) | Keycloak `/dev/tcp` auf `/auth/health/ready` (E2); RabbitMQ wie in der Vorarbeit, in `bewertung-1` noch `ping` | E2 zeigt: eine Zeile, Exit 0 nur bei «bereit». `ping` meldet «gesund» zu früh (4.3) |
+| Ort der Web-UI | `web-ui/` im Wurzelordner | gleich | PLANUNG.md 5 |
+| Post-Logout-URI | `http://localhost:8080/*` | genau `${PUBLIC_URL}/` | wie bei den Redirect-URIs: genau eine Adresse (2.6) |
+| Scopes des Gateways | `openid`, `profile` | dazu `email` | 4.6 |
 | Abnahme | `scripts/smoke-test.py` (Python) | `scripts/abnahme-system.sh` (bash) mit `WebSocketProbe.java` | Auf dem Rechner gibt es kein Python, Java aber schon (E6) |
 
-**KI-Vorschläge, die korrigiert wurden** (jeweils mit Beleg):
-1. *Health-Pfad:* vermutet auf dem Hauptport unter `/auth/health/ready`. E2 zeigt: Port 8080 gibt
+**KI-Vorschläge, die korrigiert wurden.** Belegt ist immer die Korrektur. Den ursprünglichen
+Vorschlag gibt es nur dort als Datei, wo eine Fundstelle steht; sonst steht «Gespräch vom 02.10.2026,
+nicht abgelegt».
+1. *Health-Pfad* (Gespräch vom 02.10.2026, nicht abgelegt): vermutet auf dem Hauptport unter
+   `/auth/health/ready`. Beleg für die Korrektur: E2. Port 8080 gibt
    `404`, nur der Management-Port 9000 antwortet, und zwar unter `/auth/health/ready`
    (`:9000/health/ready` → `404`).
-2. *Ziel des Login-Formulars:* vermutet relativ, das Gateway hätte Pfade umschreiben müssen. E4
-   zeigt: Das `action` ist absolut `http://localhost:8080/auth/realms/chat/login-actions/…`, gebaut
+2. *Ziel des Login-Formulars* (Gespräch vom 02.10.2026, nicht abgelegt): vermutet relativ, das
+   Gateway hätte Pfade umschreiben müssen. Beleg für die Korrektur: E4. Das `action` ist absolut `http://localhost:8080/auth/realms/chat/login-actions/…`, gebaut
    aus `KC_HOSTNAME`. Umschreiben ist unnötig, aber `KC_HOSTNAME` muss die öffentliche Adresse sein.
-3. *Standardrollen:* vermutet, importierte Benutzer bekämen `default-roles-chat`. E3 und E3b zeigen
-   das Gegenteil. Rollen werden jetzt ausdrücklich zugewiesen (2.6).
-4. *Kein Healthcheck für Keycloak (Vorarbeit):* Der Weg über `/dev/tcp` galt als «Trick». E2 zeigt:
+3. *Standardrollen:* vermutet, importierte Benutzer bekämen `default-roles-chat`. Die Vermutung steht
+   in `docs/belege/2026-10-02-experimente/ergebnisse.md` (Befund E3, «Nicht erwartet»). E3b zeigt das
+   Gegenteil. Rollen werden jetzt ausdrücklich zugewiesen (2.6).
+4. *Kein Healthcheck für Keycloak* (Vorarbeit, Archiv `docker-compose.yml`): Der Weg über `/dev/tcp`
+   galt als «Trick». E2 zeigt:
    Exit 0 nur bei «bereit», Exit 1 bei falschem Pfad und bei geschlossenem Port (4.3).
-5. *Schliesscode für eine fehlende `roomId`:* Der erste Entwurf dieser Spezifikation nahm `1007`.
-   RFC 6455 (Abschnitt 7.4.1) meint damit Daten, die nicht zum Typ der Nachricht passen, etwa kein
+5. *Schliesscode für eine fehlende `roomId`* (erster Entwurf vom 02.10.2026, vor dem ersten Commit,
+   nicht abgelegt): `1007`. Beleg für die Korrektur: RFC 6455 (Abschnitt 7.4.1) meint damit Daten, die nicht zum Typ der Nachricht passen, etwa kein
    gültiges UTF-8. Jetzt `1008`, «gegen eine Regel verstossen» (`CloseStatus.POLICY_VIOLATION`).
-6. *Prüfung der Bearer-JWTs:* Die Vorarbeit prüfte nur Issuer und Ablauf. Der erste Entwurf dieser
-   Spezifikation liess `aud` bewusst weg und prüfte sonst nichts zusätzlich. Ein Token aus einem
+6. *Prüfung der Bearer-JWTs:* Die Vorarbeit prüfte nur Issuer und Ablauf (Archiv, `JwtConfig.java`,
+   `JwtValidators.createDefaultWithIssuer`). Der erste Entwurf dieser Spezifikation (02.10.2026, vor
+   dem ersten Commit, nicht abgelegt) liess `aud` bewusst weg und prüfte sonst nichts zusätzlich. Ein Token aus einem
    fremden Client des Realms, etwa `admin-cli`, wäre gültig gewesen. Jetzt `azp = desktop-client`
    (2.6).
-7. *`KC_PROXY_HEADERS`:* aus PLANUNG.md 3.2 ungeprüft übernommen, in der Vorarbeit und in den
-   Experimenten. E1 bis E3 liefen ohne einen einzigen `X-Forwarded-*`-Header, die Einstellung hat
+7. *`KC_PROXY_HEADERS`:* aus PLANUNG.md 3.2 ungeprüft übernommen, in der Vorarbeit (Archiv,
+   `docker-compose.yml`) und in den Experimenten (`ergebnisse.md`, Startbefehl von E1). E1 bis E3 liefen ohne einen einzigen `X-Forwarded-*`-Header, die Einstellung hat
    nichts bewirkt. Jetzt weggelassen (5).
-8. *Puffergrenze:* Der Auftrag für den ersten Entwurf nannte nur «die Tomcat-Grenze». Deren Vorgabe
+8. *Puffergrenze* (Auftrag für den ersten Entwurf, Gespräch vom 02.10.2026, nicht abgelegt): Er
+   nannte nur «die Tomcat-Grenze». Deren Vorgabe
    von 8192 Zeichen wiese einen erlaubten Text im ungünstigsten Fall ab (12'014 Zeichen). Jetzt setzt
    das Gateway 16'384 (2.3, P1).
-9. *Name der Gateway-Queue:* Der Auftrag für den ersten Entwurf verlangte `AnonymousQueue` und zugleich
-   einen «vom Server erzeugten» Namen. `AnonymousQueue` erzeugt den Namen in Spring (`spring.gen-…`).
+9. *Name der Gateway-Queue* (Auftrag für den ersten Entwurf, Gespräch vom 02.10.2026, nicht
+   abgelegt): Er verlangte `AnonymousQueue` und zugleich einen «vom Server erzeugten» Namen. `AnonymousQueue` erzeugt den Namen in Spring (`spring.gen-…`).
    Korrigiert in 2.5.
 
 **Von mir entschieden** (02.10.2026):
@@ -1529,21 +1565,50 @@ liegt im Branch
 - Den Desktop-Client baue ich erst in Baustein 5. Den Keycloak-Client `desktop-client` lege ich aber
   schon jetzt an, sonst lässt sich die Prüfung der Bearer-JWTs nicht testen.
 - Die Abnahme wird getrennt: `scripts/abnahme.sh` startet nur noch die vier Dienste von
-  Bewertung 1, das Gesamtsystem prüft `scripts/abnahme-system.sh` (6.3).
+  Bewertung 1, das Gesamtsystem prüft `scripts/abnahme-system.sh` (6.3). Der Tag `bewertung-1`
+  bleibt unverändert.
 - Baustein 1 kennt nur den Raum «Lobby» mit fester UUID. Räume und Verlauf kommen in Baustein 2.
+- Der Proxy reicht nur `/auth/realms/chat/**` und `/auth/resources/**` durch (2.1).
+- Keycloak bekommt keinen Bootstrap-Admin (offener Punkt 5).
+- Fehlende oder ungültige `roomId` schliesst mit `1008` (2.3), auf Vorschlag von Claude.
+- Ein Bearer-JWT gilt nur mit `azp = desktop-client` (2.6), auf Vorschlag von Claude.
+- Kein `KC_PROXY_HEADERS` (5), auf Vorschlag von Claude.
+- Die Gateway-Queue läuft im Bestätigungsmodus `NONE`, zugestellt wird über virtuelle Threads (3.2,
+  3.3), auf Vorschlag von Claude.
+- Das Gateway setzt die Puffergrenze auf 16'384 Zeichen (2.3), auf Vorschlag von Claude.
+- Feste Benutzer-IDs im Realm (4.2), auf Vorschlag von Claude.
+- Die Rohdaten der Experimente kommen ins Repository (`docs/belege/2026-10-02-experimente/`), auf
+  Vorschlag von Claude.
 
-**Von Claude (KI) vorgeschlagen, im Rahmen dieser Entscheide:** Schliesscode `1008`, `azp` statt
-`aud`, kein `KC_PROXY_HEADERS`, Bestätigungsmodus `NONE`, Zustellung über virtuelle Threads,
-Puffergrenze 16'384, feste Benutzer-IDs und die Rohdaten der Experimente im Repository
-(`docs/belege/2026-10-02-experimente/`). Die Begründung steht jeweils an der Stelle im Text.
+Die sieben Vorschläge von Claude habe ich am 02.10.2026 auf Rückfrage bestätigt. Die Begründung
+steht jeweils an der Stelle im Text.
 
 **Offen gesagt:**
-- Dreizehn Punkte sind nur begründet, nicht belegt (P1 bis P13 in 6.5). Erst die Tests entscheiden
-  sie. Bis dahin gilt die Spalte «Was gilt, wenn sie fehlschlägt».
+- Zwanzig Punkte sind nur begründet, nicht belegt (P1 bis P20 in 6.5). Erst die Tests entscheiden
+  sie. Bis dahin gilt die Spalte «Was gilt, wenn sie fehlschlägt». Weitere Aussagen stützen sich auf
+  Dokumentation statt auf eigene Messungen: RFC 6455, der HTML- und der WHATWG-WebSockets-Standard,
+  die Doku von Tomcat und Compose sowie der Quelltext von Spring (`TextWebSocketHandler`,
+  `Base64UrlNamingStrategy`).
 - Die Experimente E1 bis E6 liefen an einem Tag auf einem Rechner, die Images lagen lokal. Die 32 s
   bis zur ersten Antwort von Keycloak sind zwei Einzelmessungen (E1, E3b), kein Mittelwert.
 - Die Vorarbeit hatte schon Server-Session und Bearer-JWTs nebeneinander. Neu ist nicht der Weg,
   sondern dass er jetzt begründet, gegen PLANUNG.md 3.3 abgegrenzt und mit Kriterien versehen ist.
+
+**Review der Spezifikation (02.10.2026).** Ein unabhängiges Review (KI, frischer Kontext) prüfte
+den Stand `05d8bab`. Es fand 34 Befunde: 4 hoch, 12 mittel, 18 niedrig; seine Gesamtschätzung war
+«A 6/8». Alle Befunde sind eingearbeitet, in drei Commits:
+- `docs: Spezifikation des Gateways, Abnahmekriterien nach dem Review messbar`
+- `docs: Spezifikation des Gateways, Tests und Konfiguration nach dem Review präzisiert`
+- `docs: Spezifikation des Gateways, Belege, Abweichungen und Verlauf nach dem Review`
+
+Die vier schweren Befunde:
+1. *W10 mass das Abmelden falsch.* Der erste Aufruf meldete nur beim Gateway ab, die SSO-Session
+   blieb, und Keycloak meldete danach still wieder an. Jetzt misst ein einziger Aufruf die ganze Kette.
+2. *W4 zählte bei alice die eigene Zeile `SENT` mit.* Jetzt zählen nur Ereignisse vom Typ `message`.
+3. *`BearerTokenTest` mit `jwt()` hätte Decoder und Prüfungen umgangen*, die Prüfung von `azp` wäre
+   nie getestet worden. Jetzt signiert der Test eigene Tokens.
+4. *Die Vorarbeit-Tabelle stimmte beim Healthcheck von RabbitMQ nicht.* Die Vorarbeit hatte schon
+   `check_port_connectivity`, nicht `ping`.
 
 Analyse, Belege, Entwurf und Text dieser Spezifikation entstanden mit Claude (KI). Die
 Entscheidungen oben habe ich getroffen.
