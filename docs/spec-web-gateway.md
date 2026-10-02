@@ -44,7 +44,8 @@ Datenbank läuft anders als dort geplant schon mit, denn den `batch-writer` gibt
 
 ### 1.2 Was Keycloak, web-gateway und Web-UI tun
 
-**Keycloak** (`quay.io/keycloak/keycloak:26.7.3`, Container `keycloak`, kein Port nach aussen)
+**Keycloak** (`quay.io/keycloak/keycloak:26.7.3`, Dienst `keycloak`, kein Port nach aussen; ohne
+`container_name` heisst der Container `it3c-m321-keycloak-1`)
 
 1. verwaltet Benutzer, Passwörter und Rollen im Realm `chat`. Der Realm kommt beim ersten Start aus
    einer JSON-Datei im Repo. Secret und Passwörter stehen darin nur als Platzhalter für
@@ -55,7 +56,7 @@ Datenbank läuft anders als dort geplant schon mit, denn den `batch-writer` gibt
    seine eigene Datenhaltung mit und benutzt unsere `chat`-Datenbank nicht.» Ein Ausfall von
    PostgreSQL stört den Login also nicht.
 
-**web-gateway** (Spring Boot 3.5, Container `web-gateway`, einziger Port `127.0.0.1:8080`)
+**web-gateway** (Spring Boot 3.5, Dienst `web-gateway`, einziger Port `127.0.0.1:8080`)
 
 4. reicht `/auth/realms/chat/**` und `/auth/resources/**` an `http://keycloak:8080` durch, sonst
    nichts unter `/auth`;
@@ -116,7 +117,7 @@ von Keycloak auf `localhost` fände die gespeicherte Login-Anfrage nicht.
 | `GET /api/me` | Gateway | ja, Session **oder** Bearer-JWT | 401 | Wer bin ich? (2.2) |
 | `/ws/chat?roomId=<uuid>` | Gateway | ja, Session **oder** Bearer-JWT | 401 beim Handshake | Senden und Empfangen (2.3) |
 | `/oauth2/authorization/keycloak` | Gateway (Spring Security) | nein | 302 zu Keycloak, mit `code_challenge_method=S256` | Login starten (3.1) |
-| `/login/oauth2/code/keycloak` | Gateway (Spring Security) | nein, aber `state` muss zur Session passen | tauscht den Code gegen Tokens, dann 302 auf `/` | Rückkehr von Keycloak (Redirect-URI) |
+| `/login/oauth2/code/keycloak` | Gateway (Spring Security) | nein, aber `state` muss zur Session passen | tauscht den Code gegen Tokens, dann 302 auf die gespeicherte Anfrage, sonst auf `/` (P14) | Rückkehr von Keycloak (Redirect-URI) |
 | `GET /logout` | Gateway | ja, Session | 302 auf `/` | Abmelden beim Gateway und bei Keycloak (3.1) |
 | `/auth/realms/chat/**` | Keycloak, durchgereicht an `http://keycloak:8080` | nein | Antwort von Keycloak | Login-Formular, Token, JWKS, Userinfo, Logout |
 | `/auth/resources/**` | Keycloak, durchgereicht | nein | Antwort von Keycloak | CSS, JavaScript und Bilder der Login-Seite (E4) |
@@ -355,7 +356,7 @@ Was das Gateway davon liest:
   nicht aus. `__TypeId__` nennt eine Klasse des `chat-service`, die es im Gateway nicht gibt.
 - **Alle sechs Felder** (`id`, `roomId`, `senderId`, `senderName`, `content`, `sentAt`) sind Pflicht.
   Mit `roomId` findet das Gateway die Verbindungen im Raum. Die sechs Werte gibt es als `payload` von
-  `message` unverändert weiter, `sentAt` also mit allen 9 Nachkommastellen.
+  `message` unverändert weiter, `sentAt` also mit allen Nachkommastellen (bis zu 9).
 - **Unbekannte Felder ignoriert es** und gibt sie nicht weiter. So bricht die Zustellung nicht, wenn
   der `chat-service` später ein Feld ergänzt.
 - **Unlesbare Nachrichten** (kein JSON, ein Pflichtfeld fehlt, `roomId` ist keine UUID) protokolliert
@@ -655,7 +656,7 @@ sequenceDiagram
     G->>K: GET …/certs (JWKS, danach zwischengespeichert)
     G->>K: GET …/userinfo
     Note over G: ID-Token prüfen: Signatur, iss, aud=web-gateway, nonce, exp<br/>Anmeldung in die Session, neue Session-ID
-    G-->>B: 302 / (Set-Cookie JSESSIONID, HttpOnly, SameSite=Lax)
+    G-->>B: 302 auf die gespeicherte Anfrage, sonst / (Set-Cookie JSESSIONID, HttpOnly, SameSite=Lax)
     B->>G: GET /api/me (Cookie)
     G-->>B: 200 username, displayName, admin
 ```
@@ -870,11 +871,14 @@ verweisen auf die Szenarien der Abnahme (Abschnitt 6); «—» heisst, dass kein
 
 **F11 – Langsamer Client** (—)
 - *Was passiert:* Ein Client, der nicht mehr liest (eingefrorener Tab, schlechtes Netz), füllt seinen
-  Puffer im `ConcurrentWebSocketSessionDecorator`. Dauert ein Senden länger als 5 s oder wächst der
-  Puffer über 512 KB, wirft der Decorator eine `SessionLimitExceededException`. Das Gateway schliesst
-  die Verbindung mit `4500` (`CloseStatus.SESSION_NOT_RELIABLE`) und nimmt sie aus dem Raum. Der
-  Client sieht meist nur `1006` und verbindet sich nach 3 s neu. Was er verpasst hat, bringt der
-  Verlauf in Baustein 2.
+  Puffer im `ConcurrentWebSocketSessionDecorator`. Der Decorator prüft seine Grenzen nur, wenn eine
+  weitere Nachricht für diese Verbindung kommt. Kommt eine, während ein Senden schon länger als 5 s
+  dauert oder der Puffer über 512 KB liegt, wirft er eine `SessionLimitExceededException`. Das
+  Gateway schliesst die Verbindung dann mit `4500` (`CloseStatus.SESSION_NOT_RELIABLE`) und nimmt sie
+  aus dem Raum. Der Client sieht meist nur `1006` und verbindet sich nach 3 s neu. Was er verpasst
+  hat, bringt der Verlauf in Baustein 2.
+- *Grenze:* Ein hängender Client, für den keine neue Nachricht kommt, wird nicht getrennt. Er belegt
+  dann nur seinen eigenen wartenden Thread und den bereits gefüllten Puffer.
 - *Die anderen merken nichts*, weil jede Zustellung in einem eigenen virtuellen Thread läuft (3.2,
   Punkt 4).
 - *Warum so:* Ein einzelner langsamer Client darf weder den Raum bremsen noch den Speicher des
@@ -920,7 +924,7 @@ Abschnitt 4):
 | Gateway wartet auf | Bedingung | Warum |
 |---|---|---|
 | `keycloak` | `service_healthy`: Healthcheck per bash `/dev/tcp` auf `localhost:9000/auth/health/ready`, Exit 0 nur bei `200` (E2) | Der Login soll funktionieren, sobald der Port offen ist (F1) |
-| `rabbitmq` | `service_healthy` (bestehender Healthcheck) | Sonst beginnt das Gateway mit neuen Verbindungsversuchen alle 5 s (F5) |
+| `rabbitmq` | `service_healthy`, mit dem neuen Healthcheck `check_port_connectivity` (4.3) | Sonst beginnt das Gateway mit neuen Verbindungsversuchen alle 5 s (F5) |
 | `chat-service` | `service_started` | Ohne ihn startet das Gateway trotzdem. Senden scheitert dann sichtbar (F3) |
 
 - **Keycloak braucht rund 32 s** bis zur ersten Antwort (E1: «Versuch 10 nach 32 s: HTTP 200»,
@@ -1156,14 +1160,20 @@ Schritten dazu», «KEIN ports:-Eintrag in dieser Datei») werden an den neuen S
 
 | Stufe | Image | Was passiert |
 |---|---|---|
-| 1. Web-UI bauen | `node:22-alpine` | `package.json` und `package-lock.json` aus `web-gateway/ui/` kopieren, `npm ci`, dann den Rest kopieren und `npm run build`. Das Skript `build` ist `tsc --noEmit && vite build`: erst die Typen prüfen, dann bauen. Ergebnis: `dist/` |
+| 1. Web-UI bauen | `node:22-alpine` | zuerst `web-ui/package.json` und `web-ui/package-lock.json` kopieren, `npm ci`; dann **einzeln** `web-ui/tsconfig*.json`, `web-ui/vite.config.ts`, `web-ui/index.html` und `web-ui/src/` kopieren, nie `node_modules/` oder `dist/`; dann `npm run build`. Das Skript `build` ist `tsc --noEmit && vite build`: erst die Typen prüfen, dann bauen. Ergebnis: `dist/` |
 | 2. Gateway bauen | `maven:3.9-eclipse-temurin-21` | POMs und `web-gateway/src` kopieren, `dist/` aus Stufe 1 nach `web-gateway/src/main/resources/static`, dann `mvn -q -pl web-gateway -am package -DskipTests` (Tests laufen vorher mit `mvn test`, wie bei den anderen Diensten) |
 | 3. Laufen | `eclipse-temurin:21-jre` | nur das JAR, `EXPOSE 8080`, `ENTRYPOINT ["java", "-jar", "app.jar"]` |
 
-  Erst `package.json` und `npm ci`, dann der Quelltext: So nimmt Docker die installierten Pakete aus
+- Erst `package.json` und `npm ci`, dann der Quelltext: So nimmt Docker die installierten Pakete aus
   dem Zwischenspeicher, solange sich nur Quelltext ändert.
+- **Einzeln kopieren statt `.dockerignore`.** Ein lokales `web-ui/node_modules/` (von Windows) oder
+  `web-ui/dist/` darf nicht ins Image. Weil jede `COPY`-Zeile nur ihre eigenen Pfade nennt, kommen sie
+  gar nicht hinein. BuildKit überträgt ohnehin nur die Pfade, die in einem `COPY` stehen: Beim Bauen
+  des `chat-service` war der Build-Kontext am 02.10.2026 nur 78 kB gross, obwohl im Wurzelordner mehr
+  liegt.
 
-**Web-UI** (Ordner `web-gateway/ui/`, `node_modules/` steht schon in `.gitignore`):
+**Web-UI** (Ordner `web-ui/` im Wurzelordner, wie in PLANUNG.md 5 und der Vorarbeit;
+`node_modules/` steht schon in `.gitignore`):
 
 | Werkzeug | Version | Wofür | Warum |
 |---|---|---|---|
@@ -1201,14 +1211,19 @@ Diese Werte ändern sich nicht pro Umgebung. Deshalb sind sie keine Umgebungsvar
 
 ### 4.6 Clientregistrierung und Prüfung der Tokens
 
-Das Gateway trägt die Adressen von Keycloak von Hand ein (3.1). Öffentlich ist, was der Browser
-aufruft, intern alles andere:
+Das Gateway trägt die Adressen von Keycloak von Hand ein (3.1), und zwar **im Java-Code**
+(`ClientRegistration.withRegistrationId("keycloak")…`, wie `KeycloakClientConfig` der Vorarbeit),
+nicht als Property in `application.yml`. Zwei Gründe: Mit `issuer-uri` in den Properties holte
+Spring Boot die Discovery schon beim Start, über die öffentliche Adresse, die im Container das
+Gateway selbst ist. Und `end_session_endpoint` lässt sich in den Properties gar nicht eintragen.
+Öffentlich ist, was der Browser aufruft, intern alles andere:
 
 | Eintrag | Wert | |
 |---|---|---|
 | `registrationId` / `clientId` | `keycloak` / `web-gateway` | |
 | `clientSecret` | `KEYCLOAK_CLIENT_SECRET` | |
 | Scopes | `openid`, `profile`, `email` | |
+| `redirectUri` | `${PUBLIC_URL}/login/oauth2/code/keycloak`, fest | öffentlich |
 | `authorizationUri` | `${PUBLIC_URL}/auth/realms/chat/protocol/openid-connect/auth` | öffentlich |
 | `tokenUri` | `${KEYCLOAK_INTERNAL_URL}/realms/chat/protocol/openid-connect/token` | intern |
 | `jwkSetUri` | `${KEYCLOAK_INTERNAL_URL}/realms/chat/protocol/openid-connect/certs` | intern |
@@ -1218,6 +1233,12 @@ aufruft, intern alles andere:
 | `userNameAttribute` | `preferred_username` | |
 | PKCE | verlangt, `S256` | |
 
+- **`redirectUri` fest statt `{baseUrl}/login/oauth2/code/{registrationId}`.** Der feste Wert ist
+  genau die Adresse, die der Realm registriert (2.6), und hängt nicht vom `Host`-Header der Anfrage
+  ab. Mit `{baseUrl}` baute ein Aufruf über `127.0.0.1` eine Redirect-URI, die Keycloak ablehnt
+  («Invalid parameter: redirect_uri», E1). Mit dem festen Wert kommt der Browser auf `localhost`
+  zurück, wo ihm das Session-Cookie von `127.0.0.1` fehlt. Unterstützt ist `127.0.0.1` so oder so
+  nicht (2.1).
 - **Ohne `issuerUri` prüfte Spring `iss` im ID-Token nicht.** Deshalb steht er da, obwohl ihn keine
   Anfrage braucht.
 - **`end_session_endpoint`** muss in den Metadaten der Registrierung stehen. Ohne Discovery kennt
@@ -1360,7 +1381,7 @@ Aufräumen dazwischen und gibt wie `scripts/abnahme.sh` eine Tabelle «gemessen 
 |---|---|---|
 | W1 | Höchstens 180 s nach `up`: 6 Dienste `running` (batch-writer, chat-service, keycloak, postgres, rabbitmq, web-gateway), `keycloak` und `rabbitmq` `healthy`. **Genau eine** Zeile mit `->`, und zwar `web-gateway 127.0.0.1:8080->8080/tcp` | `docker compose down -v --remove-orphans`; `docker compose up -d --build`; `wait_until 180 system_up` (Exit-Code 0); zur Anzeige `docker compose ps --status running --services \| sort` und `docker compose ps --format '{{.Service}} {{.Health}}'`; `docker compose ps --format '{{.Service}} {{.Ports}}' \| grep -- '->'` → genau diese eine Zeile |
 | W2 | Ohne Anmeldung: `/` → `302 http://localhost:8080/oauth2/authorization/keycloak`; diese → `302` auf `http://localhost:8080/auth/realms/chat/protocol/openid-connect/auth?…` mit `code_challenge_method=S256`; `/api/me` → `401`; Discovery → `"issuer":"http://localhost:8080/auth/realms/chat"` | `status /`; `status /oauth2/authorization/keycloak`; `status /api/me`; `curl -s $G/auth/realms/chat/.well-known/openid-configuration \| grep -o '"issuer":"[^"]*"'` |
-| W3 | Login: `login` gibt `200 http://localhost:8080/` aus. `/api/me` → `{"username":"alice","displayName":"Alice Muster","admin":false} 200`, für admin `{"username":"admin","displayName":"Ada Admin","admin":true} 200`. Für den Pfad `/` steht im Cookie-Jar nur `JSESSIONID`; keine Antwort des Gateways auf `/` oder `/api/me` enthält `eyJ` (so beginnt jedes JWT) | `login alice "$PW_ALICE"`; `me alice`; `login admin "$PW_ADMIN"`; `me admin`; `awk '$3 == "/" {print $6}' $T/alice.jar` → `JSESSIONID`; `curl -s -b $T/alice.jar $G/ $G/api/me \| grep -c eyJ` → `0` |
+| W3 | Login: `login` gibt `200 http://localhost:8080/` aus (oder `…/?continue`, falls Spring das anhängt, P14). Das Session-Cookie trägt `HttpOnly` und `SameSite=Lax`. `/api/me` → `{"username":"alice","displayName":"Alice Muster","admin":false} 200`, für admin `{"username":"admin","displayName":"Ada Admin","admin":true} 200`. Für den Pfad `/` steht im Cookie-Jar nur `JSESSIONID`; keine Antwort des Gateways auf `/` oder `/api/me` enthält `eyJ` (so beginnt jedes JWT) | `login alice "$PW_ALICE"`; `me alice`; `login admin "$PW_ADMIN"`; `me admin`; `awk '$3 == "/" {print $6}' $T/alice.jar` → `JSESSIONID`; `curl -s -b $T/alice.jar $G/ $G/api/me \| grep -c eyJ` → `0`; `curl -s -D - -o "$T/w3-x.txt" $G/oauth2/authorization/keycloak \| grep -i '^set-cookie: JSESSIONID'` → die Zeile enthält `HttpOnly` und `SameSite=Lax` |
 | W4 | bob in der Lobby bekommt die Nachricht von alice höchstens **5 s** nach `SENT` (`"senderName":"Alice Muster"`, `"content":"W4 <Marke>"`). alice bekommt `accepted` und ihr Echo. bob in einem anderen Raum bekommt **keine** `message` | `login bob "$PW_BOB"`; `probe --jar $T/bob.jar --room $LOBBY --wait 25 > $T/w4-bob.txt &`; `probe --jar $T/bob.jar --room 00000000-0000-0000-0000-000000000002 --wait 25 > $T/w4-anderer.txt &`; erst wenn beide offen sind, sendet alice: `wait_until 20 grep -q OPEN $T/w4-bob.txt`, `wait_until 20 grep -q OPEN $T/w4-anderer.txt`; `probe --jar $T/alice.jar --room $LOBBY --send "W4 $M" --wait 5 > $T/w4-alice.txt`; `wait`; je Datei `grep -c '"type":"message".*"content":"W4 '"$M"'"'` → bob `1`, anderer Raum `0`, alice `1` (ihr Echo; die Zeile `SENT` zählt so nicht mit); `grep -c '"type":"accepted"' $T/w4-alice.txt` → `1`; `echo $(( $(ms $T/w4-bob.txt '"type":"message"') - $(ms $T/w4-alice.txt ' SENT ') ))` → höchstens `5000` |
 | W5 | `chat-service` gestoppt: alice bekommt höchstens 10 s nach `SENT` ein `error` mit `"reason":"nicht gesendet"` und `"content":"W5 <Marke>"`, ohne `CLOSE` vor dem Ende von `--wait`. Nach dem Start kommt wieder `accepted` | `docker compose stop chat-service`; `probe --jar $T/alice.jar --room $LOBBY --send "W5 $M" --wait 10`; `docker compose start chat-service`; `wait_until 120 chat_service_answers` (wie S6 in `abnahme.sh`); `probe --jar $T/alice.jar --room $LOBBY --send "W5b $M" --wait 5` → `"type":"accepted"` |
 | W6 | Höchstens 60 s nach dem `SENT` von W4 (das Skript prüft W6 direkt nach W4): die Nachricht genau **einmal** in `message`, mit `sender_id` = `a11ce000-0000-4000-8000-000000000001` und `sender_name` = `Alice Muster`; `chat.persist` leer | `wait_until 60 stored_once "W4 $M"` (Exit-Code 0); `sql "SELECT count(*), min(sender_id), min(sender_name) FROM message WHERE content = 'W4 $M'"` → `1\|a11ce000-0000-4000-8000-000000000001\|Alice Muster`; `docker compose exec -T rabbitmq rabbitmqctl list_queues -q name messages` → `chat.persist 0` |
@@ -1408,9 +1429,9 @@ laufende System und gehört deshalb zur Abnahme (W12).
 |---|---|---|
 | `RealmImportIntegrationTest` | Keycloak-Container mit `keycloak/realm-chat.json`: Import, `sub` = feste `id`, Claim `roles` im ID- und Access-Token, `name` und E-Mail, PKCE Pflicht, Redirect-URI exakt, Loopback-Port, Platzhalter in der Post-Logout-URI, Password-Grant über `admin-cli` | W3, W7, P2, P3, P4, P7 |
 | `KeycloakProxyIntegrationTest` | Gateway mit einem Mini-Server als Keycloak: nur zwei Präfixe werden durchgereicht, alles andere unter `/auth` gibt `404`; Cookies und `Set-Cookie` unverändert; was mit `X-Forwarded-*` geschieht; Status, wenn Keycloak nicht antwortet | W8, P10, P11 |
-| `SecurityConfigTest` | MockMvc: `/` → `302`, `/api/**` und `/ws/**` → `401`, `/auth/**` ohne CSRF, `/error` frei, `GET /logout`, Attribute des Session-Cookies | W2, W10 |
-| `LoginIntegrationTest` | ganzer Login mit dem echten Formular von Keycloak (Container), `/api/me`, Abmelden mit OIDC-Logout. Für P5 setzt der Test die Token-Lebensdauer über die Admin-API auf 10 s. Den Bootstrap-Admin dafür gibt es **nur** im Test-Container | W3, W10, P5 |
-| `BearerTokenTest` | mit `jwt()` aus spring-security-test: `azp` ausser `desktop-client` → `401`; fremder Issuer → `401`; abgelaufen → `401`; gültig → `200` mit denselben Feldern wie bei der Session | W7, F14 |
+| `SecurityConfigTest` | MockMvc: `/` → `302`, `/api/**` und `/ws/**` → `401`, `/auth/**` ohne CSRF, `/error` frei, `GET /logout`. Die Attribute des Session-Cookies prüft er **nicht**: MockMvc schreibt keinen echten Header `Set-Cookie: JSESSIONID` | W2, W10 |
+| `LoginIntegrationTest` | Gateway auf echtem Port, Keycloak im Container: ganzer Login mit dem echten Formular, `/api/me`, Abmelden mit OIDC-Logout, Header `Set-Cookie: JSESSIONID` mit `HttpOnly` und `SameSite=Lax`, Ziel der Umleitung nach dem Login (`/` oder `/?continue`). Für P5 setzt der Test die Token-Lebensdauer über die Admin-API auf 10 s. Den Bootstrap-Admin dafür gibt es **nur** im Test-Container | W3, W10, P5, P14 |
+| `BearerTokenTest` | Der Test signiert Tokens mit einem eigenen RSA-Schlüssel (`NimbusJwtEncoder`). Das Gateway prüft sie mit einem Decoder, der genau die Prüfungen aus 4.6 hat, nur mit diesem Schlüssel statt dem JWKS. Fälle: gültig → `200`; fremder Issuer → `401`; abgelaufen → `401`; `azp` ausser `desktop-client` → `401`; mit einem anderen Schlüssel signiert → `401`. `jwt()` aus spring-security-test umgeht Decoder und Prüfungen; es dient nur für «gültig → `200` mit denselben Feldern wie bei der Session» | W7, F14 |
 | `ChatServiceClientTest` | Mini-Server als `chat-service`: `202` → `accepted`; `400` → `abgelehnt`; `503`, `500`, Antwort nach 6 s und keine Verbindung → `nicht gesendet`; Felder der Anfrage wie 2.4 | W5, 2.4 |
 | `ChatSocketIntegrationTest` | Gateway auf zufälligem Port: Handshake (`401`, `403`, `1008`), 2000 und 2001 Zeichen, Puffergrenze und `1009`, Binärrahmen → `1003`, Reihenfolge `accepted`/`error`, Session-Ablauf trotz Rahmen, `1001` beim Stopp | W9, P1, P6, P8, P13 |
 | `DeliveryIntegrationTest` | RabbitMQ-Container: Eigenschaften der Gateway-Queue (2.5), Zustellung nur im Raum und an den Absender, unlesbare Nachricht verworfen (F13), Verhalten bei `NONE`, langsamer Client wird getrennt, die anderen bekommen ihre Nachrichten weiter | W4, P9, P12 |
@@ -1438,11 +1459,12 @@ aus 6.4.
 | P11 | Ist Keycloak nicht erreichbar, antwortet der Proxy innert 5 s mit einem Status `5xx` (F1) | `KeycloakProxyIntegrationTest` | Der Proxy bekommt ausdrückliche Zeitgrenzen für Verbindung und Antwort |
 | P12 | Ein Client, der nicht liest, wird nach 5 s bzw. 512 KB getrennt, die anderen bekommen ihre Nachrichten weiter rechtzeitig (3.2, F11) | `DeliveryIntegrationTest` (Client ohne `request(n)` in `java.net.http.WebSocket`) | Die Grenzen werden angepasst, oder jede Verbindung bekommt eine eigene Warteschlange mit einem Thread |
 | P13 | Beim geordneten Stopp schliesst das Gateway offene Verbindungen mit `1001` (2.3, F12) | `ChatSocketIntegrationTest` (Kontext schliessen) | 2.3 und F12 werden korrigiert. Die Web-UI behandelt jeden Code gleich, am Verhalten ändert sich nichts |
+| P14 | Nach dem Login leitet das Gateway auf die gespeicherte Anfrage zurück, und zwar ohne Zusatz (2.1, 3.1). Spring Security 6 kann `?continue` anhängen | `LoginIntegrationTest` | Die Web-UI ignoriert den Parameter, und W3 nimmt `/?continue` als bestanden. Wer ihn nicht will, schaltet ihn im Request-Cache von Spring ab (`setMatchingRequestParameterName(null)`) |
 
 ### 6.6 Abnahmeprotokoll
 
 Folgt nach der Umsetzung, im Format von spec-batch-writer.md 6: Lauf in GitHub Actions, dann je
-Kriterium W1 bis W12 und je offene Prüfung P1 bis P13 «bestanden» oder «nicht bestanden» mit dem
+Kriterium W1 bis W12 und je offene Prüfung P1 bis P14 «bestanden» oder «nicht bestanden» mit dem
 gemessenen Wert.
 
 ---
