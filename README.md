@@ -68,6 +68,8 @@ erreichbar.
   Umsetzungsreihenfolge. Das ist die Grundlage für alles Weitere.
 - [`docs/fahrplan.md`](docs/fahrplan.md) — was nach Bewertung 1 noch gebaut wird, in welcher
   Reihenfolge, wie gearbeitet wird und welche Entscheide schon gefallen sind.
+- [`docs/checkliste.md`](docs/checkliste.md) — jede Vorgabe des Lehrers und des Projekts mit
+  ihrem Stand und dem Nachweis dafür.
 - [`docs/design/2026-08-28-chat-app-planung.html`](docs/design/2026-08-28-chat-app-planung.html)
   — grafische Fassung der Planung, lokal im Browser öffnen.
 - [`docs/plan-chat-service.md`](docs/plan-chat-service.md) — Schritt-für-Schritt-Plan, nach dem
