@@ -5,8 +5,10 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /build
 COPY pom.xml .
 # Maven liest ALLE Module aus dem Eltern-POM, auch die, die hier nicht
-# gebaut werden. Deshalb muss auch das POM des chat-service da sein.
+# gebaut werden. Deshalb müssen auch die POMs von chat-service und
+# web-gateway da sein.
 COPY chat-service/pom.xml chat-service/pom.xml
+COPY web-gateway/pom.xml web-gateway/pom.xml
 COPY batch-writer/pom.xml batch-writer/pom.xml
 COPY batch-writer/src batch-writer/src
 # Tests werden hier übersprungen: Testcontainers bräuchte einen Docker-Daemon

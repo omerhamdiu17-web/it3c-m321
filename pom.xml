@@ -24,9 +24,26 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- Weitere Dienste kommen hier dazu: web-gateway, load-generator. -->
+    <!-- Weitere Dienste kommen hier dazu: load-generator. -->
     <modules>
         <module>chat-service</module>
         <module>batch-writer</module>
+        <module>web-gateway</module>
     </modules>
+
+    <!-- Spring Cloud gehört nicht zum Eltern-POM von Spring Boot. Diese
+         Stückliste (BOM) legt die Versionen aller Spring-Cloud-Bausteine fest,
+         passend zu Spring Boot 3.5. Nur das web-gateway benutzt Spring Cloud,
+         für den Proxy unter /auth. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>2025.0.3</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

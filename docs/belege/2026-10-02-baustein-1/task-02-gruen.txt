@@ -1,0 +1,140 @@
+Beleg Task 2, grün (nach dem Code, vor dem Commit)
+Datum/Uhrzeit: 2026-10-02 15:34:12
+Branch: baustein/web-gateway
+Commit (HEAD): 000280a für fast alle Läufe (15:24 bis 15:34). Um 15:33:41, kurz vor dem letzten
+  Lauf mit -Ddebug=true, kam darüber 96c103e dazu (docs: Spezifikation des Gateways ..., nur
+  docs/spec-web-gateway.md, vom Agenten, der den Plan schreibt; ändert nichts an Code, Tests oder
+  Build). Dazu im Arbeitsbaum die Änderungen dieser Aufgabe:
+   M batch-writer/Dockerfile
+   M chat-service/Dockerfile
+   M pom.xml
+  ?? web-gateway/
+  (web-gateway/: pom.xml, Dockerfile, src/main/java/.../WebGatewayApplication.java,
+   src/main/resources/application.yml, src/test/java/.../WebGatewayApplicationTest.java,
+   src/test/resources/gateway-test.properties)
+Rechner: Windows 11, Git Bash, MSYS_NO_PATHCONV=1, openjdk version "21.0.11" 2026-04-21 LTS, Maven 3.9.16, Docker 29.3.1
+
+== Teil A: Modultest (Plan Task 2, Schritt 7)
+$ mvn -q -pl web-gateway test; echo "Exit: $?"
+2026-10-02T15:33:33.105+02:00  INFO 38428 --- [web-gateway] [           main] c.b.m.w.WebGatewayApplicationTest        : Started WebGatewayApplicationTest in 5.912 seconds (process running for 7.64)
+Exit: 0
+$ cat web-gateway/target/surefire-reports/ch.benedict.m321.webgateway.WebGatewayApplicationTest.txt
+-------------------------------------------------------------------------------
+Test set: ch.benedict.m321.webgateway.WebGatewayApplicationTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.505 s -- in ch.benedict.m321.webgateway.WebGatewayApplicationTest
+
+Abweichung vom Plan: Er erwartet im Protokoll "Using generated security password". Die Zeile fehlt:
+$ grep -c "Using generated security password" <Protokoll des Laufs oben>
+0
+Warum, laut Bedingungsbericht von Spring Boot:
+$ mvn -q -pl web-gateway test -Ddebug=true   (Ausschnitt)
+   UserDetailsServiceAutoConfiguration:
+      Did not match:
+         - AnyNestedCondition 0 matched 3 did not;
+           NestedCondition on UserDetailsServiceAutoConfiguration.MissingAlternativeOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password';
+           NestedCondition on UserDetailsServiceAutoConfiguration.MissingAlternativeOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name';
+           NestedCondition on UserDetailsServiceAutoConfiguration.MissingAlternativeOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass found unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector' (UserDetailsServiceAutoConfiguration.MissingAlternativeOrUserPropertiesConfigured)
+   SpringBootWebSecurityConfiguration.SecurityFilterChainConfiguration matched:
+      - AllNestedConditions 2 matched 0 did not;
+        NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) did not find any beans;
+        NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+-> Mit spring-boot-starter-oauth2-client und -resource-server legt Spring Boot keinen Benutzer mit
+   generiertem Passwort an. Die Standard-Filterkette (alles verlangt Anmeldung) gilt trotzdem, bis
+   Task 5 eigene Regeln bringt.
+
+== Teil B: alle Module (Auftrag; CI-Job maven)
+$ mvn -B clean test; echo "Exit: $?"
+start: 2026-10-02 15:26:40
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.833 s -- in ch.benedict.m321.chatservice.ChatServiceApplicationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 14.62 s -- in ch.benedict.m321.chatservice.config.RabbitConfigIntegrationTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 12.93 s -- in ch.benedict.m321.chatservice.controller.MessageControllerIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.035 s -- in ch.benedict.m321.chatservice.controller.MessageExceptionHandlerTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.046 s -- in ch.benedict.m321.chatservice.dto.SendMessageRequestTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 12.92 s -- in ch.benedict.m321.chatservice.service.MessagePublisherIntegrationTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.018 s -- in ch.benedict.m321.chatservice.service.MessageServiceTest
+[INFO] Tests run: 14, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.723 s -- in ch.benedict.m321.batchwriter.BatchWriterApplicationTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 13.74 s -- in ch.benedict.m321.batchwriter.config.RabbitConfigIntegrationTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.286 s -- in ch.benedict.m321.batchwriter.repository.MessageRepositoryIntegrationTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.457 s -- in ch.benedict.m321.batchwriter.SchemaIntegrationTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.111 s -- in ch.benedict.m321.batchwriter.service.ChatMessageReaderTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 52.42 s -- in ch.benedict.m321.batchwriter.service.DatabaseOutageIntegrationTest
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 20.52 s -- in ch.benedict.m321.batchwriter.service.MessageBatchListenerIntegrationTest
+[INFO] Tests run: 29, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 7.849 s -- in ch.benedict.m321.webgateway.WebGatewayApplicationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Reactor Summary for M321 Chat-App 0.1.0-SNAPSHOT:
+[INFO] M321 Chat-App ...................................... SUCCESS [  0.222 s]
+[INFO] chat-service ....................................... SUCCESS [ 51.597 s]
+[INFO] batch-writer ....................................... SUCCESS [01:40 min]
+[INFO] web-gateway ........................................ SUCCESS [ 12.391 s]
+[INFO] BUILD SUCCESS
+Exit: 0
+ende: 2026-10-02 15:29:28
+-> 14 (chat-service) + 29 (batch-writer) + 1 (web-gateway) = 44 Tests, 0 Failures, 0 Errors.
+
+== Teil C: Images aus docker-compose.yml (Plan Task 2, Schritt 9; CI-Job images)
+$ docker compose build; echo "Exit: $?"
+start: 2026-10-02 15:30:39
+#12 [chat-service build 4/8] COPY chat-service/pom.xml chat-service/pom.xml
+#13 [chat-service build 4/8] COPY chat-service/pom.xml chat-service/pom.xml
+#16 [chat-service build 5/8] COPY batch-writer/pom.xml batch-writer/pom.xml
+#17 [batch-writer build 5/8] COPY web-gateway/pom.xml web-gateway/pom.xml
+#18 [chat-service build 6/8] COPY web-gateway/pom.xml web-gateway/pom.xml
+#19 [batch-writer build 6/8] COPY batch-writer/pom.xml batch-writer/pom.xml
+#21 [chat-service build 8/8] RUN mvn -q -pl chat-service -am package -DskipTests
+#23 [batch-writer build 8/8] RUN mvn -q -pl batch-writer -am package -DskipTests
+#21 DONE 46.6s
+#23 DONE 47.1s
+ Image it3c-m321-batch-writer Built 
+ Image it3c-m321-chat-service Built 
+Exit: 0
+ende: 2026-10-02 15:31:30
+
+== Teil D: Image des Gateways (Auftrag: Dockerfile mit Maven- und JRE-Stufe, kopiert alle Modul-POMs)
+Der Dienst steht noch nicht in docker-compose.yml (kommt mit Task 8), deshalb direkt mit docker build:
+$ docker build --progress=plain -f web-gateway/Dockerfile -t it3c-m321-web-gateway:task-02 .; echo "Exit: $?"
+start: 2026-10-02 15:31:38
+#8 transferring context: 4.33kB 0.0s done
+#10 [build 3/8] COPY pom.xml .
+#11 [build 4/8] COPY chat-service/pom.xml chat-service/pom.xml
+#12 [build 5/8] COPY batch-writer/pom.xml batch-writer/pom.xml
+#13 [build 6/8] COPY web-gateway/pom.xml web-gateway/pom.xml
+#14 [build 7/8] COPY web-gateway/src web-gateway/src
+#15 [build 8/8] RUN mvn -q -pl web-gateway -am package -DskipTests
+#15 DONE 36.5s
+#16 [stage-1 3/3] COPY --from=build /build/web-gateway/target/web-gateway-0.1.0-SNAPSHOT.jar app.jar
+#17 naming to docker.io/library/it3c-m321-web-gateway:task-02 done
+Exit: 0
+ende: 2026-10-02 15:32:19
+
+Kurzer Start des Images, um zu zeigen, dass das JAR wirklich hochfährt:
+$ docker run -d --name t2-web-gateway-probe it3c-m321-web-gateway:task-02   (ohne -p: kein Port nach aussen)
+$ docker ps --filter name=t2-web-gateway-probe --format '{{.Image}} {{.Status}} Ports=[{{.Ports}}]'
+it3c-m321-web-gateway:task-02 Up 5 seconds Ports=[8080/tcp]
+$ docker logs t2-web-gateway-probe | grep -E 'Starting|Tomcat started|Started'
+2026-10-02T13:32:31.806Z  INFO 1 --- [web-gateway] [           main] c.b.m.webgateway.WebGatewayApplication   : Starting WebGatewayApplication v0.1.0-SNAPSHOT using Java 21.0.12.1 with PID 1 (/app/app.jar started by root in /app)
+2026-10-02T13:32:34.585Z  INFO 1 --- [web-gateway] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-10-02T13:32:34.605Z  INFO 1 --- [web-gateway] [           main] c.b.m.webgateway.WebGatewayApplication   : Started WebGatewayApplication in 3.424 seconds (process running for 4.136)
+$ docker rm -f t2-web-gateway-probe
+t2-web-gateway-probe
+Zweiter Start, nur um die Meldungen zu zählen: 0 Zeilen mit " WARN ", " ERROR " oder "Exception".
+
+== Teil E: Code-Regeln (Auftrag und Globale Vorgaben)
+$ bash scripts/kommentare.sh web-gateway/src; echo "Exit: $?"
+Exit: 0
+
+Gegenprobe: Kopie von web-gateway/src im Scratchpad, dort der Javadoc über main entfernt:
+$ bash scripts/kommentare.sh <kopie>/src; echo "Exit: $?"
+<kopie>/src/main/java/ch/benedict/m321/webgateway/WebGatewayApplication.java:19:     public static void main(String[] args) {
+Exit: 1
+
+$ grep -rn "stream" web-gateway/src; echo "Treffer: $(grep -rn stream web-gateway/src | wc -l)"
+Treffer: 0
+$ grep -rin --exclude-dir=target --exclude-dir=node_modules --exclude-dir=dist stream web-gateway/   (Form von W11, ganzer Ordner, auch pom.xml und Dockerfile)
+Treffer: 0
+$ grep -rln -- '->' web-gateway/src   (Lambdas: noch keine SecurityConfig, also nichts)
+Treffer: 0
+$ grep -rn '::' web-gateway/src
+Treffer: 0

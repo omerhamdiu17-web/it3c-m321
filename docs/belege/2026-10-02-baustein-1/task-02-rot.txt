@@ -1,0 +1,82 @@
+Beleg Task 2, rot (Test zuerst, vor dem Code)
+Datum/Uhrzeit: 2026-10-02 15:23:50
+Branch: baustein/web-gateway
+Commit (HEAD): 000280a
+Rechner: Windows 11, Git Bash, MSYS_NO_PATHCONV=1, openjdk version "21.0.11" 2026-04-21 LTS, Maven 3.9.16, Docker 29.3.1
+
+== Teil A: WebGatewayApplicationTest ohne Modul (Plan Task 2, Schritt 1 und 2)
+Im Arbeitsbaum liegen nur die zwei Testdateien aus dem Plan, sonst nichts unter web-gateway/:
+$ find web-gateway -type f | sort
+web-gateway/src/test/java/ch/benedict/m321/webgateway/WebGatewayApplicationTest.java
+web-gateway/src/test/resources/gateway-test.properties
+$ mvn -q -pl web-gateway test; echo "Exit: $?"
+[ERROR] [ERROR] Could not find the selected project in the reactor: web-gateway @ 
+[ERROR] Could not find the selected project in the reactor: web-gateway -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MavenExecutionException
+Exit: 1
+
+Ergebnis: rot wie im Plan erwartet. Maven kennt das Modul web-gateway noch nicht.
+
+== Teil B: Image-Bau ohne die COPY-Zeilen (Plan Task 2, Schritt 8, lokal statt probe-t2)
+Datum/Uhrzeit: 2026-10-02 15:25:08, Commit (HEAD): 000280a
+Stand im Arbeitsbaum: Eltern-POM mit Modul web-gateway und Stückliste Spring Cloud 2025.0.3,
+web-gateway/pom.xml, web-gateway/src (Test, Hauptklasse, application.yml) und web-gateway/Dockerfile
+sind da. chat-service/Dockerfile und batch-writer/Dockerfile sind NOCH unverändert:
+$ git status --short -- pom.xml web-gateway chat-service/Dockerfile batch-writer/Dockerfile
+ M pom.xml
+?? web-gateway/
+$ cp .env.example .env  (entfällt lokal: .env ist da und hat alle Schlüssel, siehe task-01-gruen.txt)
+$ docker compose build; echo "Exit: $?"
+Ausgabe (Ausschnitt: die zwei Maven-Schritte und die Zusammenfassung; davor nur Laden der Images und COPY-Schritte):
+#20 [batch-writer build 7/7] RUN mvn -q -pl batch-writer -am package -DskipTests
+#20 7.028 [ERROR] [ERROR] Some problems were encountered while processing the POMs:
+#20 7.028 [ERROR] Child module /build/web-gateway of /build/pom.xml does not exist @ 
+#20 7.028  @ 
+#20 7.028 [ERROR] The build could not read 1 project -> [Help 1]
+#20 7.028 [ERROR]   
+#20 7.028 [ERROR]   The project ch.benedict.m321:it3c-m321:0.1.0-SNAPSHOT (/build/pom.xml) has 1 error
+#20 7.028 [ERROR]     Child module /build/web-gateway of /build/pom.xml does not exist
+#20 7.028 [ERROR] 
+#20 7.028 [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+#20 7.028 [ERROR] Re-run Maven using the -X switch to enable full debug logging.
+#20 7.028 [ERROR] 
+#20 7.028 [ERROR] For more information about the errors and possible solutions, please read the following articles:
+#20 7.028 [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/ProjectBuildingException
+#20 ERROR: process "/bin/sh -c mvn -q -pl batch-writer -am package -DskipTests" did not complete successfully: exit code: 1
+
+#21 [chat-service build 7/7] RUN mvn -q -pl chat-service -am package -DskipTests
+#21 7.031 [ERROR] [ERROR] Some problems were encountered while processing the POMs:
+#21 7.031 [ERROR] Child module /build/web-gateway of /build/pom.xml does not exist @ 
+#21 7.031  @ 
+#21 7.032 [ERROR] The build could not read 1 project -> [Help 1]
+#21 7.034 [ERROR]   
+#21 7.034 [ERROR]   The project ch.benedict.m321:it3c-m321:0.1.0-SNAPSHOT (/build/pom.xml) has 1 error
+#21 7.034 [ERROR]     Child module /build/web-gateway of /build/pom.xml does not exist
+#21 7.034 [ERROR] 
+#21 7.035 [ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+#21 7.035 [ERROR] Re-run Maven using the -X switch to enable full debug logging.
+#21 7.035 [ERROR] 
+#21 7.035 [ERROR] For more information about the errors and possible solutions, please read the following articles:
+#21 7.035 [ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/ProjectBuildingException
+#21 ERROR: process "/bin/sh -c mvn -q -pl chat-service -am package -DskipTests" did not complete successfully: exit code: 1
+   [...]
+Dockerfile:14
+--------------------
+  12 |     # Tests werden hier übersprungen: Testcontainers bräuchte einen Docker-Daemon
+  13 |     # INNERHALB des Builds. Getestet wird vorher mit "mvn test".
+  14 | >>> RUN mvn -q -pl chat-service -am package -DskipTests
+  15 |     
+  16 |     # Stufe 2: laufen
+--------------------
+target chat-service: failed to solve: process "/bin/sh -c mvn -q -pl chat-service -am package -DskipTests" did not complete successfully: exit code: 1
+View build details: docker-desktop://dashboard/build/default/default/mmajr2kf4lexrzrtaxqg7n2my
+Exit: 1
+
+Ergebnis: rot wie im Plan erwartet. Am chat-service und am batch-writer hat sich nichts geändert,
+trotzdem baut ihr Image nicht mehr: "mvn -pl ... -am" liest das Eltern-POM, und das nennt jetzt
+das Modul web-gateway, dessen POM im Build-Kontext des Images fehlt.
