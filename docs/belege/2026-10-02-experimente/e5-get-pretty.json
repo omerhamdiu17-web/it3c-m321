@@ -1,0 +1,20 @@
+[
+  {
+    "exchange": "chat.delivery",
+    "message_count": 0,
+    "payload": "{\"id\":\"4540758d-7829-4471-954b-ebcda55e389b\",\"roomId\":\"00000000-0000-0000-0000-000000000001\",\"senderId\":\"exp-sub\",\"senderName\":\"Exp Sender\",\"content\":\"Grüezi Exp\",\"sentAt\":\"2026-10-02T09:24:42.222080578Z\"}",
+    "payload_bytes": 206,
+    "payload_encoding": "string",
+    "properties": {
+      "content_encoding": "UTF-8",
+      "content_type": "application/json",
+      "delivery_mode": 2,
+      "headers": {
+        "__TypeId__": "ch.benedict.m321.chatservice.dto.ChatMessage"
+      },
+      "priority": 0
+    },
+    "redelivered": false,
+    "routing_key": ""
+  }
+]

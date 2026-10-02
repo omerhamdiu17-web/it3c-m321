@@ -1,0 +1,23 @@
+Updating the configuration and installing your custom providers, if any. Please wait.
+2026-10-02 09:16:32,087 WARN  [org.keycloak.common.Profile] (build-3) Deprecated features identity-brokering-api:v1, twitter-broker:v1 enabled by default. Check the upgrading guide for steps to use later versions if available.
+2026-10-02 09:16:37,879 INFO  [io.quarkus.deployment.QuarkusAugmentor] (main) Quarkus augmentation completed in 9155ms
+Running the server in development mode. DO NOT use this configuration in production.
+2026-10-02 09:16:40,714 INFO  [org.keycloak.url.HostnameV2ProviderFactory] (main) If hostname is specified, hostname-strict is effectively ignored
+2026-10-02 09:16:42,290 INFO  [org.infinispan.CONTAINER] (main) ISPN000974: Virtual threads support: enabled
+2026-10-02 09:16:43,899 INFO  [org.hibernate.orm.jdbc.batch] (JPA Startup Thread) HHH100501: Automatic JDBC statement batching enabled (maximum batch size 32)
+2026-10-02 09:16:43,936 WARN  [org.keycloak.common.Profile] (main) Deprecated features identity-brokering-api:v1, twitter-broker:v1 enabled by default. Check the upgrading guide for steps to use later versions if available.
+2026-10-02 09:16:45,073 INFO  [org.keycloak.quarkus.runtime.storage.database.liquibase.QuarkusJpaUpdaterProvider] (main) Initializing database schema. Using changelog META-INF/jpa-changelog-master.xml
+2026-10-02 09:16:50,809 INFO  [org.infinispan.CONTAINER] (main) ISPN000556: Starting user marshaller 'org.infinispan.commons.marshall.ImmutableProtoStreamMarshaller'
+2026-10-02 09:16:51,186 INFO  [org.keycloak.connections.infinispan.DefaultInfinispanConnectionProviderFactory] (main) Node name: node_580939, Site name: null, Cluster name: ISPN
+2026-10-02 09:16:51,334 INFO  [org.keycloak.quarkus.runtime.storage.database.jpa.DatabaseIndexChecker] (db-index-checker) Running database index checker
+2026-10-02 09:16:51,371 INFO  [org.keycloak.models.workflow.WorkflowsEventListenerFactory] (main) Workflow runner task scheduled: next execution at 21:16:51, then every PT12H
+2026-10-02 09:16:51,502 INFO  [org.keycloak.exportimport.dir.DirImportProvider] (main) Importing from directory /opt/keycloak/bin/../data/import
+2026-10-02 09:16:51,681 INFO  [org.keycloak.services] (main) KC-SERVICES0050: Initializing master realm
+2026-10-02 09:16:53,336 INFO  [org.keycloak.exportimport.singlefile.SingleFileImportProvider] (main) Full importing from file /opt/keycloak/bin/../data/import/realm-chat.json
+2026-10-02 09:16:54,840 INFO  [org.keycloak.exportimport.util.ImportUtils] (main) Realm 'chat' imported
+2026-10-02 09:16:54,841 INFO  [org.keycloak.services] (main) KC-SERVICES0030: Full model import requested. Strategy: IGNORE_EXISTING
+2026-10-02 09:16:54,841 INFO  [org.keycloak.services] (main) KC-SERVICES0032: Import finished successfully
+2026-10-02 09:16:55,147 INFO  [org.keycloak.services.resources.KeycloakApplication] (main) Bootstrap completed in 11.211000 seconds
+2026-10-02 09:16:55,345 INFO  [io.quarkus] (main) Keycloak 26.7.3 on JVM (powered by Quarkus 3.33.3.1) started in 17.330s. Listening on: http://0.0.0.0:8080. Management interface listening on http://0.0.0.0:9000.
+2026-10-02 09:16:55,345 INFO  [io.quarkus] (main) Profile dev activated. 
+2026-10-02 09:16:55,346 INFO  [io.quarkus] (main) Installed features: [agroal, cdi, hibernate-orm, jdbc-h2, keycloak, narayana-jta, opentelemetry, rest, rest-jackson, smallrye-context-propagation, smallrye-health, vertx]

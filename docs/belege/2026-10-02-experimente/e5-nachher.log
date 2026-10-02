@@ -1,0 +1,15 @@
+### Payload dekodiert (Bytes aus base64)
+{"id":"4540758d-7829-4471-954b-ebcda55e389b","roomId":"00000000-0000-0000-0000-000000000001","senderId":"exp-sub","senderName":"Exp Sender","content":"Grüezi Exp","sentAt":"2026-10-02T09:24:42.222080578Z"}
+Laenge: 206 Bytes; Bytes von "Gr..ezi": 4772c3bc65
+### batch-writer: Zeile in message
+                  id                  |               room_id                | sender_id | sender_name |  content   |            sent_at            
+--------------------------------------+--------------------------------------+-----------+-------------+------------+-------------------------------
+ 4540758d-7829-4471-954b-ebcda55e389b | 00000000-0000-0000-0000-000000000001 | exp-sub   | Exp Sender  | Grüezi Exp | 2026-10-02 09:24:42.222081+00
+(1 row)
+
+### delete queue exp.delivery
+queue deleted
+name	messages_ready	consumers
+chat.dlq	0	0
+chat.persist	0	2
+source_name	destination_name

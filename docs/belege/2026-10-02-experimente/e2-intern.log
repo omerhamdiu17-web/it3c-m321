@@ -1,0 +1,14 @@
+### command -v curl / wget / bash
+exit=1
+exit=1
+/usr/bin/bash
+exit=0
+GNU bash, version 5.1.8(1)-release (x86_64-redhat-linux-gnu)
+### Healthcheck richtiger Pfad
+exit=0
+### Healthcheck falscher Pfad /falsch/health/ready
+exit=1
+### Zusatz: Port ohne Listener (9001) = wie "noch nicht gestartet"
+bash: connect: Connection refused
+bash: line 1: /dev/tcp/localhost/9001: Connection refused
+exit=1

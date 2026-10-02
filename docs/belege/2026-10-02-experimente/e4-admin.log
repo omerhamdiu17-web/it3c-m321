@@ -1,0 +1,21 @@
+### GET http://exp-kc:8080/auth/admin/
+HTTP/1.1 302 Found
+Location: http://localhost:8080/auth/admin/master/console/
+Body-Bytes: 0  <title>: 
+### GET http://exp-kc:8080/auth/realms/master/.well-known/openid-configuration
+HTTP/1.1 200 OK
+Body-Bytes: 6670  <title>: 
+### GET http://exp-kc:8080/auth/
+HTTP/1.1 200 OK
+Body-Bytes: 2401  <title>: <title>Welcome to Keycloak</title>
+### GET http://exp-kc:8080/auth
+HTTP/1.1 303 See Other
+Location: http://exp-kc:8080/auth/
+Body-Bytes: 0  <title>: 
+### GET http://exp-kc:8080/
+HTTP/1.1 302 Found
+location: /auth
+Body-Bytes: 21  <title>: 
+### GET http://exp-kc:8080/auth/admin/master/console/
+HTTP/1.1 200 OK
+Body-Bytes: 3900  <title>: <title>Keycloak Administration Console</title>

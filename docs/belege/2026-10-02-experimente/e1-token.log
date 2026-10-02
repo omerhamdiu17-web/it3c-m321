@@ -1,0 +1,21 @@
+### 1a client_credentials, secret=geheim-aus-env
+{"access_token":"<JWT gekürzt>","expires_in":300,"refresh_expires_in":0,"token_type":"Bearer","not-before-policy":0,"scope":"email profile"}
+HTTP 200
+### 1b client_credentials, secret=${EXP_CLIENT_SECRET} (woertlich)
+{"error":"unauthorized_client","error_description":"Invalid client or Invalid client credentials"}
+HTTP 401
+### 2a password alice/pw-aus-env
+{"access_token":"<JWT gekürzt>","expires_in":300,"refresh_expires_in":1800,"refresh_token":"<JWT gekürzt>","token_type":"Bearer","not-before-policy":0,"session_state":"yQNT55d_diuNPe6rxqWN0Zq5","scope":"email profile"}
+HTTP 200
+### 2b password alice/${EXP_DEMO_PASSWORD} (woertlich)
+{"error":"invalid_grant","error_description":"Invalid user credentials"}
+HTTP 400
+### 3a password bob/bob-vorgabe
+{"access_token":"<JWT gekürzt>","expires_in":300,"refresh_expires_in":1800,"refresh_token":"<JWT gekürzt>","token_type":"Bearer","not-before-policy":0,"session_state":"2K_gZSG0lZrVKnhjaBBH8bhu","scope":"email profile"}
+HTTP 200
+### 3b password bob/${EXP_UNSET:bob-vorgabe} (woertlich)
+{"error":"invalid_grant","error_description":"Invalid user credentials"}
+HTTP 400
+### 4 password carol (ohne email)/pw-aus-env
+{"error":"invalid_grant","error_description":"Account is not fully set up"}
+HTTP 400

@@ -1,0 +1,4 @@
+### alice (Token-Laenge 1074)
+aud=undefined | realm_access=undefined | resource_access=undefined | scope=profile email
+### dave (Token-Laenge 1346)
+aud="account" | realm_access={"roles":["default-roles-chat","offline_access","uma_authorization"]} | resource_access={"account":{"roles":["manage-account","manage-account-links","view-profile"]}} | scope=profile email

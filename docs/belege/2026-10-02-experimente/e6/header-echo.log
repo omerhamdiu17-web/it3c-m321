@@ -1,0 +1,13 @@
+### Cookie, Origin, Authorization
+  Server sah: Origin = [http://evil.example]
+  Server sah: Cookie = [JSESSIONID=abc]
+  Server sah: Connection = [Upgrade]
+  Server sah: Host = [127.0.0.1:49725]
+  Server sah: Sec-websocket-version = [13]
+  Server sah: Upgrade = [websocket]
+  Server sah: User-agent = [Java-http-client/21.0.11]
+  Server sah: Authorization = [Bearer xyz]
+  Server sah: Sec-websocket-key = [wM+2h99CyBVh1w+1bWj9Ag==]
+  Client: CompletionException: java.net.http.WebSocketHandshakeException
+### Sec-WebSocket-Key (Gegenprobe)
+  Client: CompletionException: java.lang.IllegalArgumentException: Illegal header: Sec-WebSocket-Key

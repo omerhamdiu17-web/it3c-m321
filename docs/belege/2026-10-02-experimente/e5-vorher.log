@@ -1,0 +1,16 @@
+### rabbitmqctl list_vhosts
+name
+/
+### rabbitmqctl list_exchanges name type durable auto_delete internal arguments (ohne amq.*)
+name	type	durable	auto_delete	internal	arguments
+chat.delivery	fanout	true	false	false	[]
+	direct	true	false	false	[]
+### rabbitmqctl list_bindings source_name source_kind destination_name destination_kind routing_key (Quelle chat.delivery)
+source_name	source_kind	destination_name	destination_kind	routing_key
+### rabbitmqctl list_queues name durable auto_delete messages_ready consumers
+name	durable	auto_delete	messages_ready	consumers
+chat.dlq	true	false	0	0
+chat.persist	true	false	0	2
+### rabbitmqadmin vorhanden?
+/usr/local/bin/rabbitmqadmin
+rabbitmqadmin 3.13.7

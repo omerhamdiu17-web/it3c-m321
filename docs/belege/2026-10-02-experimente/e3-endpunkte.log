@@ -1,0 +1,7 @@
+issuer: http://localhost:8080/auth/realms/chat
+authorization_endpoint: http://localhost:8080/auth/realms/chat/protocol/openid-connect/auth
+token_endpoint: http://localhost:8080/auth/realms/chat/protocol/openid-connect/token
+userinfo_endpoint: http://localhost:8080/auth/realms/chat/protocol/openid-connect/userinfo
+jwks_uri: http://localhost:8080/auth/realms/chat/protocol/openid-connect/certs
+end_session_endpoint: http://localhost:8080/auth/realms/chat/protocol/openid-connect/logout
+introspection_endpoint: http://localhost:8080/auth/realms/chat/protocol/openid-connect/token/introspect

@@ -1,0 +1,27 @@
+### Antwort richtiger Pfad (cat -A: ^M = \r, $ = Zeilenende)
+HTTP/1.0 200 OK^M$
+content-type: application/json; charset=UTF-8^M$
+cache-control: no-store^M$
+content-length: 225^M$
+^M$
+{$
+    "status": "UP",$
+    "checks": [$
+        {$
+            "name": "Graceful Shutdown",$
+            "status": "UP"$
+        },$
+        {$
+            "name": "Keycloak Initialized",$
+            "status": "UP"$
+        }$
+    ]$
+}
+### Antwort falscher Pfad
+HTTP/1.0 404 Not Found^M$
+content-type: text/html; charset=utf-8^M$
+content-length: 53^M$
+^M$
+<html><body><h1>Resource not found</h1></body></html>
+### Inhalt von $status nach read -r (richtiger Pfad)
+$'HTTP/1.0 200 OK\r'

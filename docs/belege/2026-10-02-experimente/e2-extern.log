@@ -1,0 +1,44 @@
+### http://exp-kc:9000/auth/health/ready
+HTTP/1.1 200 OK
+content-type: application/json; charset=UTF-8
+cache-control: no-store
+content-length: 225
+
+{
+    "status": "UP",
+    "checks": [
+        {
+            "name": "Graceful Shutdown",
+            "status": "UP"
+        },
+        {
+            "name": "Keycloak Initialized",
+            "status": "UP"
+        }
+    ]
+}
+curl-exit=0
+### http://exp-kc:9000/health/ready
+HTTP/1.1 404 Not Found
+content-type: text/html; charset=utf-8
+content-length: 53
+
+<html><body><h1>Resource not found</h1></body></html>
+curl-exit=0
+### Zusatz: http://exp-kc:8080/auth/health/ready (Hauptport)
+HTTP 404
+### Zusatz: http://exp-kc:9000/auth/health (alle Checks)
+{
+    "status": "UP",
+    "checks": [
+        {
+            "name": "Graceful Shutdown",
+            "status": "UP"
+        },
+        {
+            "name": "Keycloak Initialized",
+            "status": "UP"
+        }
+    ]
+}
+HTTP 200

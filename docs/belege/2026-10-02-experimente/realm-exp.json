@@ -1,0 +1,52 @@
+{
+  "realm": "chat",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "web-gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${EXP_CLIENT_SECRET}",
+      "redirectUris": ["${EXP_PUBLIC_URL}/login/oauth2/code/keycloak"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "enabled": true,
+      "email": "alice@example.org",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Exp",
+      "credentials": [
+        { "type": "password", "value": "${EXP_DEMO_PASSWORD}", "temporary": false }
+      ]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@example.org",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Exp",
+      "credentials": [
+        { "type": "password", "value": "${EXP_UNSET:bob-vorgabe}", "temporary": false }
+      ]
+    },
+    {
+      "username": "carol",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Carol",
+      "lastName": "OhneMail",
+      "credentials": [
+        { "type": "password", "value": "${EXP_DEMO_PASSWORD}", "temporary": false }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+### alle href=/src=/action= (Reihenfolge wie im HTML)
+href="/auth/resources/j6b6d/login/keycloak.v2/img/favicon.ico"
+href="/auth/resources/j6b6d/common/keycloak/vendor/patternfly-v5/patternfly.min.css"
+href="/auth/resources/j6b6d/common/keycloak/vendor/patternfly-v5/patternfly-addons.css"
+href="/auth/resources/j6b6d/login/keycloak.v2/css/styles.css"
+src="/auth/resources/j6b6d/login/keycloak.v2/js/passwordVisibility.js"
+action="http://localhost:8080/auth/realms/chat/login-actions/authenticate?session_code=QFr75R_S-7K-b9UjZtwjHW15PeucVm-GUf3UMVb3ATc&amp;execution=74363516-f3c1-437d-ae76-61dbd80bdba3&amp;client_id=web-gateway&amp;tab_id=BNtUDHe5wxM&amp;client_data=eyJydSI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC9sb2dpbi9vYXV0aDIvY29kZS9rZXljbG9hayIsInJ0IjoiY29kZSJ9"
+
+### Einordnung
+beginnt mit /auth/resources/: 5
+beginnt mit /auth/realms/chat/: 0
+absolut http://localhost:8080/auth/realms/chat/: 1
+andere: 0
+
+### weitere Pfade in Skripten/Attributen (alle "…" die mit / oder http beginnen, ohne href/src/action)
+      1 "/auth/realms/chat/login-actions/restart?client_id=web-gateway&tab_id=BNtUDHe5wxM&client_data=eyJydSI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC9sb2dpbi9vYXV0aDIvY29kZS9rZXljbG9hayIsInJ0IjoiY29kZSJ9&skip_logout=true"
+      1 "/auth/resources/j6b6d/common/keycloak/vendor/rfc4648/rfc4648.js"
+      2 "/auth/resources/j6b6d/login/keycloak.v2/js/authChecker.js"

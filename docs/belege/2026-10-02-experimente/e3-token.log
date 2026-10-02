@@ -1,0 +1,63 @@
+### Access-Token alice (Password-Grant), Laenge 1074
+header: {"alg":"RS256","typ":"JWT","kid":"JFtdxiakSF-jpbvUq61cPnoK4Yhfj-eigNGeRaRCGsA"}
+payload: {
+ "exp": 1790933129,
+ "iat": 1790932829,
+ "jti": "onrtro:4f474355-d7f6-13b4-2f55-e237b8807b36",
+ "iss": "http://localhost:8080/auth/realms/chat",
+ "sub": "c76ac19a-3aaa-4a31-97f3-bbb370477279",
+ "typ": "Bearer",
+ "azp": "web-gateway",
+ "sid": "SLtb9IyLmK4YH8dW8COM_eCK",
+ "acr": "1",
+ "allowed-origins": [
+  "http://localhost:8080"
+ ],
+ "scope": "email profile",
+ "email_verified": true,
+ "name": "Alice Exp",
+ "preferred_username": "alice",
+ "given_name": "Alice",
+ "family_name": "Exp",
+ "email": "alice@example.org"
+}
+=> iss=http://localhost:8080/auth/realms/chat | aud=undefined | azp=web-gateway | typ=Bearer | exp-iat=300 s
+### Access-Token Service-Account (Client-Credentials), Laenge 1315
+header: {"alg":"RS256","typ":"JWT","kid":"JFtdxiakSF-jpbvUq61cPnoK4Yhfj-eigNGeRaRCGsA"}
+payload: {
+ "exp": 1790933130,
+ "iat": 1790932830,
+ "jti": "trrtcc:d3b29354-06e9-fa31-c82e-540bdf87c737",
+ "iss": "http://localhost:8080/auth/realms/chat",
+ "aud": "account",
+ "sub": "42aa3074-48d1-47a4-8150-bd5ecd545044",
+ "typ": "Bearer",
+ "azp": "web-gateway",
+ "acr": "1",
+ "allowed-origins": [
+  "http://localhost:8080"
+ ],
+ "realm_access": {
+  "roles": [
+   "offline_access",
+   "default-roles-chat",
+   "uma_authorization"
+  ]
+ },
+ "resource_access": {
+  "account": {
+   "roles": [
+    "manage-account",
+    "manage-account-links",
+    "view-profile"
+   ]
+  }
+ },
+ "scope": "email profile",
+ "clientHost": "172.18.0.8",
+ "email_verified": false,
+ "preferred_username": "service-account-web-gateway",
+ "clientAddress": "172.18.0.8",
+ "client_id": "web-gateway"
+}
+=> iss=http://localhost:8080/auth/realms/chat | aud="account" | azp=web-gateway | typ=Bearer | exp-iat=300 s

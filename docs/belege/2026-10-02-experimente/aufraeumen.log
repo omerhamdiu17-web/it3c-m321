@@ -1,0 +1,14 @@
+### docker rm -f exp-kc2
+exp-kc2
+### docker ps -a --filter name=exp- (soll leer sein)
+Anzahl: 0
+### Queues (soll kein exp.* enthalten)
+name	messages_ready	consumers
+chat.dlq	0	0
+chat.persist	0	2
+### Stack
+it3c-m321-batch-writer-2 Up 2 hours
+it3c-m321-batch-writer-1 Up 2 hours
+it3c-m321-chat-service-1 Up 2 hours
+it3c-m321-postgres-1 Up 2 hours (healthy)
+it3c-m321-rabbitmq-1 Up 2 hours (healthy)

@@ -1,0 +1,8 @@
+HTTP/1.1 302 Found
+Location: http://localhost:8080/auth/admin/master/console/
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-Robots-Tag: none
+content-length: 0
+
