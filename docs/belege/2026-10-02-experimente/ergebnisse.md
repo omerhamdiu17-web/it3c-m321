@@ -763,3 +763,55 @@ it3c-m321-rabbitmq-1 Up 2 hours (healthy)
 ```
 
 Alle `exp-*`-Container entfernt (`exp-kc` vor E3b, `exp-kc2` hier; die Hilfscontainer liefen mit `--rm`), Queue `exp.delivery` in E5 gelöscht, Stack läuft unverändert. Im Arbeitsordner liegen ausserdem die Rohdateien (`exp-kc.log`, `e1-*.txt/log`, `e2-*.log`, `e3-discovery.json`, `e4-*.txt`, `e5-get-*.json` usw.).
+
+---
+
+## E6 – Eigene Header beim WebSocket-Handshake mit `java.net.http.WebSocket` (nachgetragen)
+
+Frage: Kann ein Java-Programm (Abnahmewerkzeug `scripts/WebSocketProbe.java`, später der Desktop-Client)
+beim Handshake `Cookie`, `Origin` und `Authorization` mitschicken? Der Browser-WebSocket und der
+WebSocket von Node können keine eigenen Header setzen.
+
+Umgebung: OpenJDK 21.0.11 (Temurin), Windows 11, Git Bash. Beide Programme liegen in `e6/` und
+laufen ohne Build als Single-File-Programm.
+
+**E6a – `HeaderEcho.java`:** startet einen Mini-HTTP-Server auf `127.0.0.1` (freier Port), der die
+Header jedes Handshakes ausgibt und mit `403` antwortet, und baut dagegen einen WebSocket mit drei
+eigenen Headern sowie eine Gegenprobe mit `Sec-WebSocket-Key`.
+
+```
+$ java e6/HeaderEcho.java
+### Cookie, Origin, Authorization
+  Server sah: Origin = [http://evil.example]
+  Server sah: Cookie = [JSESSIONID=abc]
+  Server sah: Connection = [Upgrade]
+  Server sah: Host = [127.0.0.1:49725]
+  Server sah: Sec-websocket-version = [13]
+  Server sah: Upgrade = [websocket]
+  Server sah: User-agent = [Java-http-client/21.0.11]
+  Server sah: Authorization = [Bearer xyz]
+  Server sah: Sec-websocket-key = [wM+2h99CyBVh1w+1bWj9Ag==]
+  Client: CompletionException: java.net.http.WebSocketHandshakeException
+### Sec-WebSocket-Key (Gegenprobe)
+  Client: CompletionException: java.lang.IllegalArgumentException: Illegal header: Sec-WebSocket-Key
+```
+
+(Gleiche Ausgabe in `e6/header-echo.log`. Die `WebSocketHandshakeException` ist erwartet: der
+Mini-Server antwortet absichtlich mit `403`.)
+
+**E6b – `HeaderCheck.java`:** ruft nur `WebSocket.Builder.header(name, "x")` auf, ohne Verbindung
+(am 02.10.2026 nachträglich ausgeführt):
+
+```
+$ java e6/HeaderCheck.java
+Cookie: angenommen
+Origin: angenommen
+Authorization: angenommen
+Host: angenommen
+Sec-WebSocket-Key: angenommen
+```
+
+*Befund:* Der JDK-WebSocket schickt `Cookie`, `Origin` und `Authorization` beim Handshake wirklich mit
+(E6a, der Server sah alle drei). Einen `Sec-WebSocket-*`-Header lehnt das JDK ab, aber erst beim Aufbau
+der Verbindung (`buildAsync` → `IllegalArgumentException: Illegal header`), nicht schon bei
+`header(...)` (E6b).
