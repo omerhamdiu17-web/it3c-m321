@@ -1157,12 +1157,18 @@ Schritten dazu», «KEIN ports:-Eintrag in dieser Datei») werden an den neuen S
   `spring-boot-starter-oauth2-client`, `spring-boot-starter-oauth2-resource-server`,
   `spring-boot-starter-websocket`, `spring-boot-starter-amqp`,
   `spring-cloud-starter-gateway-server-webmvc` (Proxy für `/auth`), `lombok`.
-- Tests: `spring-boot-starter-test`, `spring-security-test` (z. B. `jwt()` für ein Token mit fremdem
-  `azp`), `spring-boot-testcontainers` und die Testcontainers-Module `junit-jupiter` und `rabbitmq`.
+- Tests: `spring-boot-starter-test`, `spring-security-test` (`oidcLogin()` für eine Session, `jwt()`
+  nur für «gültiges Token», denn `jwt()` umgeht Decoder und Prüfungen, 6.4), `spring-boot-testcontainers`
+  und die Testcontainers-Module `junit-jupiter` und `rabbitmq`.
   Keycloak läuft im Test als `GenericContainer` mit demselben Image und derselben Realm-Datei, ohne
   Zusatzbibliothek. Den `chat-service` spielt im Test ein Mini-Server aus dem JDK
   (`com.sun.net.httpserver.HttpServer`, wie in E6). So lassen sich auch Zeitüberschreitungen echt
   prüfen.
+- Code-Regeln wie in CLAUDE.md und im `batch-writer`, mit **einer** Ausnahme: In der Konfiguration von
+  Spring Security stehen Lambdas (`http.authorizeHttpRequests(requests -> …)`). Die Schreibweise ohne
+  Lambda, mit `.and()`, ist seit Spring Security 6.1 als veraltet markiert und fällt in Version 7 weg
+  (Spring Security, Migrationshinweis «Use the Lambda DSL»). Überall sonst gibt es keine Lambdas,
+  keine anonymen Klassen und keine Stream-API.
 
 **Docker.**
 - **Alle drei Dockerfiles kopieren alle Modul-POMs** (`chat-service`, `batch-writer`,
@@ -1446,7 +1452,8 @@ laufende System und gehört deshalb zur Abnahme (W12).
 | Testklasse | Was sie prüft | Belegt |
 |---|---|---|
 | `RealmImportIntegrationTest` | Keycloak-Container mit `keycloak/realm-chat.json`: Import, `sub` = feste `id`, Claim `roles` im ID- und Access-Token, `name` und E-Mail, PKCE Pflicht, Redirect-URI exakt, Loopback-Port, Platzhalter in der Post-Logout-URI, Password-Grant über `admin-cli`, Ablehnung ohne `code_challenge`, Claims `preferred_username`, `name` und `roles` in ID-Token, Access-Token und Userinfo (Login mit Scope `openid` über das Formular) | W3, W7, P2, P3, P4, P7, P15, P16 |
-| `KeycloakProxyIntegrationTest` | Gateway mit einem Mini-Server als Keycloak: nur zwei Präfixe werden durchgereicht, alles andere unter `/auth` gibt `404`; Cookies und `Set-Cookie` unverändert; was mit `X-Forwarded-*` geschieht; Status, wenn Keycloak nicht antwortet | W8, P10, P11 |
+| `KeycloakProxyIntegrationTest` | Gateway mit einem Mini-Server als Keycloak: nur zwei Präfixe werden durchgereicht, alles andere unter `/auth` gibt `404`; Cookies und `Set-Cookie` unverändert; was mit `X-Forwarded-*` geschieht | W8, P10 |
+| `KeycloakProxyDownIntegrationTest` | eigener Spring-Kontext mit einer Keycloak-Adresse, an der niemand zuhört: Status, wenn Keycloak nicht erreichbar ist. Eigene Klasse, damit die übrigen Proxy-Tests nicht von der Reihenfolge abhängen. Ein Keycloak, der die Verbindung annimmt, aber nie antwortet, ist nicht Teil der Prüfung | P11 |
 | `SecurityConfigTest` | MockMvc: `/` → `302`, `/api/**` und `/ws/**` → `401`, `/auth/**` ohne CSRF, `/error` frei, `GET /logout`. Die Attribute des Session-Cookies prüft er **nicht**: MockMvc schreibt keinen echten Header `Set-Cookie: JSESSIONID`. Dazu PKCE: Die Umleitung von `/oauth2/authorization/keycloak` enthält `code_challenge_method=S256`; mit einer Registrierung ohne `requireProofKey` fehlt `code_challenge` | W2, W10, P20 |
 | `ClientRegistrationTest` | Unit-Test der Registrierung aus 4.6: Werte der Tabelle; `OidcIdTokenValidator` lehnt ein ID-Token mit fremdem `iss` ab, wenn `issuerUri` gesetzt ist, und nimmt es ohne `issuerUri` an | P19 |
 | `ComposeFileTest` | ruft mit einer `.env` ohne `KEYCLOAK_CLIENT_SECRET` und einem eigenen Projektnamen `docker compose config` und `docker compose down --dry-run` auf; beide brechen mit einer Meldung ab, die `KEYCLOAK_CLIENT_SECRET` nennt | P17 |
@@ -1476,7 +1483,7 @@ aus 6.4.
 | P8 | `accepted` und `error` kommen je Verbindung in der Reihenfolge der gesendeten Rahmen (2.3) | `ChatSocketIntegrationTest` (erste Antwort des Mini-Servers langsam, zweite schnell) | Der Vertrag bekommt ein Feld `ref`: Der Client schickt es mit, `accepted` und `error` geben es zurück |
 | P9 | Spring AMQP setzt bei `NONE` kein `prefetch`; der interne Puffer des Verbrauchers begrenzt, wie viele Nachrichten im Gateway warten (4.5) | `DeliveryIntegrationTest` (Prefetch des Verbrauchers über die Management-API) | Das Gateway setzt den Puffer ausdrücklich, oder es wechselt zu `AUTO` ohne requeue. 3.3 wird angepasst |
 | P10 | Was der Proxy mit `X-Forwarded-*`-Headern aus dem Browser macht (2.1, 5) | `KeycloakProxyIntegrationTest` | Reicht er gefälschte Header durch, bleibt das harmlos, solange `KC_PROXY_HEADERS` fehlt. Ein Filter entfernt sie dann trotzdem, bevor weitergereicht wird, und 5 hält fest: `KC_PROXY_HEADERS` nie ohne diesen Filter setzen |
-| P11 | Ist Keycloak nicht erreichbar, antwortet der Proxy innert 5 s mit einem Status `5xx` (F1) | `KeycloakProxyIntegrationTest` | Der Proxy bekommt ausdrückliche Zeitgrenzen für Verbindung und Antwort |
+| P11 | Ist Keycloak nicht erreichbar, antwortet der Proxy innert 5 s mit einem Status `5xx` (F1) | `KeycloakProxyDownIntegrationTest` | Der Proxy bekommt ausdrückliche Zeitgrenzen für Verbindung und Antwort |
 | P12 | Ein Client, der nicht liest, wird nach 5 s bzw. 512 KB getrennt, die anderen bekommen ihre Nachrichten weiter rechtzeitig (3.2, F11) | `DeliveryIntegrationTest` (Client ohne `request(n)` in `java.net.http.WebSocket`) | Die Grenzen werden angepasst, oder jede Verbindung bekommt eine eigene Warteschlange mit einem Thread |
 | P13 | Beim geordneten Stopp schliesst das Gateway offene Verbindungen mit `1001` (2.3, F12) | `ChatSocketIntegrationTest` (Kontext schliessen) | 2.3 und F12 werden korrigiert. Die Web-UI behandelt jeden Code gleich, am Verhalten ändert sich nichts |
 | P14 | Nach dem Login leitet das Gateway auf die gespeicherte Anfrage zurück, und zwar ohne Zusatz (2.1, 3.1). Spring Security 6 kann `?continue` anhängen | `LoginIntegrationTest` | Die Web-UI ignoriert den Parameter, und W3 nimmt `/?continue` als bestanden. Wer ihn nicht will, schaltet ihn im Request-Cache von Spring ab (`setMatchingRequestParameterName(null)`) |
@@ -1595,8 +1602,9 @@ steht jeweils an der Stelle im Text.
   sondern dass er jetzt begründet, gegen PLANUNG.md 3.3 abgegrenzt und mit Kriterien versehen ist.
 
 **Review der Spezifikation (02.10.2026).** Ein unabhängiges Review (KI, frischer Kontext) prüfte
-den Stand `05d8bab`. Es fand 34 Befunde: 4 hoch, 12 mittel, 18 niedrig; seine Gesamtschätzung war
-«A 6/8». Alle Befunde sind eingearbeitet, in drei Commits:
+den Stand `05d8bab`. Es fand 34 Befunde: 4 hoch, 12 mittel, 18 niedrig. Nach dem Raster von
+Bewertung 1 schätzte es für Kategorie A (Spezifikation, höchstens 8 Punkte) 6 von 8 Punkten, nach dem
+Einarbeiten der Befunde 1 bis 15 realistisch 8 von 8. Alle Befunde sind eingearbeitet, in drei Commits:
 - `docs: Spezifikation des Gateways, Abnahmekriterien nach dem Review messbar`
 - `docs: Spezifikation des Gateways, Tests und Konfiguration nach dem Review präzisiert`
 - `docs: Spezifikation des Gateways, Belege, Abweichungen und Verlauf nach dem Review`
