@@ -2,6 +2,7 @@ package ch.benedict.m321.webgateway;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 /**
  * Startpunkt des web-gateway.
@@ -12,8 +13,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Keycloak im Docker-Netz durch und liefert die Web-UI aus. Später nimmt es
  * Nachrichten über WebSocket an, schickt sie an den chat-service und stellt
  * jede zugestellte Nachricht den verbundenen Browsern zu (Spezifikation 1.2).
+ *
+ * @ConfigurationPropertiesScan lässt Spring die records mit
+ * @ConfigurationProperties selbst finden, zum Beispiel GatewayProperties.
  */
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class WebGatewayApplication {
 
     /**

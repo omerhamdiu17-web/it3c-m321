@@ -1,0 +1,32 @@
+Beleg Task 5, rot (Tests zuerst, vor Route und Sicherheitsregeln)
+Datum/Uhrzeit: 2026-10-30 16:00:47
+Branch: baustein/web-gateway
+Commit (HEAD): 88650fa
+Im Arbeitsbaum: nur die vier Testdateien aus dem Plan (Task 5, Schritt 1 bis 3), wörtlich:
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/FixedValue.java
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/TestHttpServer.java
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/config/KeycloakProxyIntegrationTest.java
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/config/KeycloakProxyDownIntegrationTest.java
+Rechner: macOS 27.2 (arm64), OrbStack 2.2.5 mit Docker 29.8.2, openjdk 21.0.13 (Homebrew), Maven 3.10.0
+
+== Schritt 4: Tests laufen lassen und Fehlschlag bestätigen
+$ mvn -q -pl web-gateway test -Dtest='KeycloakProxy*'; echo "Exit: $?"
+[ERROR] Failures: 
+[ERROR]   KeycloakProxyDownIntegrationTest.answersServerErrorWithinFiveSeconds:41 P11: Status 401 ==> expected: <true> but was: <false>
+[ERROR]   KeycloakProxyIntegrationTest.answersNotFoundForEverythingElseUnderAuth:175 /auth/admin/ ==> expected: <404> but was: <401>
+[ERROR]   KeycloakProxyIntegrationTest.dotSegmentsNeverReachKeycloak:195 expected: <400> but was: <401>
+[ERROR]   KeycloakProxyIntegrationTest.forgedForwardedHeadersNeverReachKeycloak:218->onlyRequestAtKeycloak:236 Anfragen bei Keycloak: [] ==> expected: <1> but was: <0>
+[ERROR]   KeycloakProxyIntegrationTest.passesCookiesBothWaysUnchanged:156->onlyRequestAtKeycloak:236 Anfragen bei Keycloak: [] ==> expected: <1> but was: <0>
+[ERROR]   KeycloakProxyIntegrationTest.passesDiscoveryOfRealmChatThrough:100->onlyRequestAtKeycloak:236 Anfragen bei Keycloak: [] ==> expected: <1> but was: <0>
+[ERROR]   KeycloakProxyIntegrationTest.passesLoginFormPostWithoutCsrfToken:134->onlyRequestAtKeycloak:236 Anfragen bei Keycloak: [] ==> expected: <1> but was: <0>
+[ERROR]   KeycloakProxyIntegrationTest.passesLoginPageResourcesThrough:114->onlyRequestAtKeycloak:236 Anfragen bei Keycloak: [] ==> expected: <1> but was: <0>
+[ERROR] Tests run: 8, Failures: 8, Errors: 0, Skipped: 0
+[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 1.600 s <<< FAILURE! -- in ch.benedict.m321.webgateway.config.KeycloakProxyDownIntegrationTest
+[ERROR] Tests run: 7, Failures: 7, Errors: 0, Skipped: 0, Time elapsed: 0.227 s <<< FAILURE! -- in ch.benedict.m321.webgateway.config.KeycloakProxyIntegrationTest
+Exit: 1
+
+Ergebnis: rot wie erwartet. Ohne Route und eigene Regeln verlangt die Standard-Filterkette von
+Spring Security für jede Anfrage eine Anmeldung und antwortet 401; bei Keycloak kommt nichts an.
+Abweichung vom Plan: Auch dotSegmentsNeverReachKeycloak ist rot (401 statt 400). Der Plan hielt
+es für möglich, dass dieser Test schon grün ist, weil die Firewall von Spring Security auch ohne
+eigene Regeln greift. Mit der Standard-Filterkette kommt hier aber zuerst das 401.

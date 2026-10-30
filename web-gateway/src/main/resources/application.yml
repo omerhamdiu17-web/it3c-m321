@@ -16,3 +16,10 @@ logging:
   level:
     # Im Unterricht wollen wir jeden Schritt sehen.
     ch.benedict.m321: DEBUG
+
+# Adressen kommen aus docker-compose.yml (spec-web-gateway.md 4.1). Bewusst
+# ohne Vorgabewert: Fehlt eine Variable, startet das Gateway nicht, statt mit
+# einer falschen Adresse zu laufen.
+gateway:
+  # Keycloak im Docker-Netz, mit /auth am Ende: Ziel des Proxys.
+  keycloak-internal-url: ${KEYCLOAK_INTERNAL_URL}

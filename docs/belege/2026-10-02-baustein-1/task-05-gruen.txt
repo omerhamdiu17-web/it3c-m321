@@ -1,0 +1,73 @@
+Beleg Task 5, grün (nach Route und Sicherheitsregeln, vor dem Commit)
+Datum/Uhrzeit: 2026-10-30 16:01 bis 16:04
+Branch: baustein/web-gateway
+Commit (HEAD): 88650fa, dazu im Arbeitsbaum:
+    M web-gateway/src/main/java/ch/benedict/m321/webgateway/WebGatewayApplication.java  (@ConfigurationPropertiesScan)
+    M web-gateway/src/main/resources/application.yml                                    (Abschnitt gateway, wörtlich)
+   ?? web-gateway/src/main/java/ch/benedict/m321/webgateway/config/GatewayProperties.java
+   ?? web-gateway/src/main/java/ch/benedict/m321/webgateway/config/KeycloakProxyConfig.java
+   ?? web-gateway/src/main/java/ch/benedict/m321/webgateway/config/SecurityConfig.java
+   ?? die vier Testdateien aus task-05-rot.txt
+Rechner: macOS 27.2 (arm64), OrbStack 2.2.5 mit Docker 29.8.2, openjdk 21.0.13 (Homebrew), Maven 3.10.0
+
+== Teil A: Tests des Proxys (Plan Task 5, Schritt 6)
+$ mvn -q -pl web-gateway test -Dtest='KeycloakProxy*'; echo "Exit: $?"
+Exit: 0
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.480 s -- in ch.benedict.m321.webgateway.config.KeycloakProxyDownIntegrationTest
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.242 s -- in ch.benedict.m321.webgateway.config.KeycloakProxyIntegrationTest
+
+Im ersten Lauf grün, auch forgedForwardedHeadersNeverReachKeycloak (P10) und
+dotSegmentsNeverReachKeycloak (jetzt 400 von der Firewall statt 401).
+
+== Teil B: P10 und P11 von Hand nachgemessen, mit dem gebauten Jar
+Die Tests prüfen nur, dass nichts Gefälschtes ankommt und dass ein 5xx innert 5 s kommt. Was genau
+ankommt und welcher Status, zeigt ein Lauf des Jars (mvn -q -pl web-gateway -am package -DskipTests)
+auf Port 18090. Als Keycloak dient ein kleiner Server auf Port 18099, der die Header der Anfrage
+zurückgibt (python3 -I, nur für diese Messung, nicht im Repository).
+
+P10:
+$ curl -s -H 'X-Forwarded-Host: evil.example' -H 'X-Forwarded-Proto: https' -H 'X-Forwarded-Port: 65000' \
+    -H 'X-Forwarded-For: 203.0.113.7' -H 'X-Forwarded-Prefix: /evil' \
+    -H 'Forwarded: for=203.0.113.7;host=evil.example;proto=https' http://localhost:18090/auth/realms/chat/x
+Connection: Upgrade, HTTP2-Settings
+Host: localhost:18099
+HTTP2-Settings: AAEAAEAAAAIAAAAAAAMAAAAAAAQBAAAAAAUAAEAAAAYABgAA
+Upgrade: h2c
+accept: */*
+user-agent: curl/8.7.1
+=> Alle sechs Header fehlen ganz, der Proxy setzt auch keine eigenen. Host ist der des Ziels
+   (im Stack also keycloak:8080). Grund: Spring Cloud Gateway 4.3.5 reicht X-Forwarded-* und
+   Forwarded nur weiter, wenn "trusted proxies" eingestellt sind (Klassen TrustedProxies,
+   RemoveXForwardedRequestHeadersFilter, RemoveForwardedRequestHeadersFilter im Jar
+   spring-cloud-gateway-server-mvc-4.3.5). Ein eigener Filter ist nicht nötig.
+   Nebenbefund: Der HTTP-Client des Proxys bietet ein Upgrade auf HTTP/2 an (h2c).
+
+P11 (KEYCLOAK_INTERNAL_URL=http://localhost:9/auth, dort hört niemand zu):
+$ curl -s -o p11-body.txt -w 'Status %{http_code} nach %{time_total} s\n' http://localhost:18090/auth/realms/chat/.well-known/openid-configuration
+Status 500 nach 0.024507 s
+{"timestamp":"2026-10-30T15:01:55.006+00:00","status":500,"error":"Internal Server Error","path":"/auth/realms/chat/.well-known/openid-configuration"}
+Protokoll des Gateways: ERROR ... Servlet.service() for servlet [dispatcherServlet] ... threw exception
+  [Request processing failed: org.springf...]  ... at java.base/sun.nio.ch.SocketChannelImpl.beginConnect
+=> P11 bestanden: 500 nach 25 ms, keine hängende Seite.
+
+Punkt-Segmente von aussen:
+$ curl -s -o /dev/null -w 'Status %{http_code}\n' --path-as-is 'http://localhost:18090/auth/realms/chat/%2e%2e/%2e%2e/admin/'
+Status 400
+
+== Teil C: Alle Tests des Moduls (Plan Task 5, Schritt 7)
+$ mvn -q -pl web-gateway test; echo "Exit: $?"
+Exit: 0
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.83 s -- in ch.benedict.m321.webgateway.RealmImportIntegrationTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.166 s -- in ch.benedict.m321.webgateway.WebGatewayApplicationTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.331 s -- in ch.benedict.m321.webgateway.config.KeycloakProxyDownIntegrationTest
+Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.219 s -- in ch.benedict.m321.webgateway.config.KeycloakProxyIntegrationTest
+
+== Teil D: Code-Regeln
+$ bash scripts/kommentare.sh web-gateway/src; echo "Exit: $?"
+Exit: 0
+$ grep -rin --exclude-dir=target stream web-gateway/; echo "Exit: $?"
+Exit: 1   (nichts gefunden)
+$ grep -rln -- '->' web-gateway/src
+web-gateway/src/main/java/ch/benedict/m321/webgateway/config/SecurityConfig.java
+$ grep -rn '::' web-gateway/src
+(keine Ausgabe)
