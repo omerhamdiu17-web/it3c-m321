@@ -1,0 +1,90 @@
+Beleg Task 4, grün (nach dem Dienst keycloak, vor dem Commit)
+Datum/Uhrzeit: 2026-10-30 15:56 bis 16:01
+Branch: baustein/web-gateway
+Commit (HEAD): 9e270d8, dazu im Arbeitsbaum:
+    M .env.example         (Plan Task 4, Schritt 4, ganze Datei wörtlich)
+    M docker-compose.yml   (Plan Task 4, Schritt 3: Kommentar am Anfang, Dienst keycloak wörtlich)
+Rechner: macOS 27.2 (arm64), OrbStack 2.2.5 mit Docker 29.8.2 (linux/arm64), Compose v5.5.0
+
+== Teil A: Ältere .env (Plan Task 4, Schritt 4)
+Die lokale .env war eine Kopie des alten .env.example, ohne die neuen Schlüssel:
+$ docker compose config --quiet; echo "Exit: $?"
+error while interpolating services.keycloak.environment.KEYCLOAK_CLIENT_SECRET: required variable KEYCLOAK_CLIENT_SECRET is missing a value: KEYCLOAK_CLIENT_SECRET fehlt in .env
+Exit: 1
+$ bash scripts/env-pruefen.sh; echo "Exit: $?"
+In .env fehlen Schlüssel aus .env.example: KEYCLOAK_CLIENT_SECRET DEMO_PASSWORD_ALICE DEMO_PASSWORD_BOB DEMO_PASSWORD_ADMIN
+Die Zeilen aus .env.example übernehmen und einen Wert setzen.
+Exit: 1
+$ grep -E '^(KEYCLOAK_CLIENT_SECRET|DEMO_PASSWORD_)' .env.example >> .env
+$ bash scripts/env-pruefen.sh; echo "Exit: $?"
+Exit: 0
+$ docker compose config --quiet; echo "Exit: $?"
+Exit: 0
+
+== Teil B: Keycloak im Stack (Plan Task 4, Schritt 1 und 5)
+Vorher lief nur rabbitmq (aus task-04-rot.txt).
+$ docker compose up -d --wait --wait-timeout 180 keycloak; echo "Exit: $?"
+ Container it3c-m321-keycloak-1 Started
+ Container it3c-m321-keycloak-1 Waiting
+ Container it3c-m321-keycloak-1 Healthy
+Exit: 0     (gesund nach rund 10 s)
+$ docker compose ps --format '{{.Service}} {{.Health}}'
+keycloak healthy
+rabbitmq healthy
+$ docker compose ps --format '{{.Service}} {{.Ports}}' | grep -c -- '->'
+0
+$ docker run --rm --network chat-net curlimages/curl -s http://keycloak:8080/auth/realms/chat/.well-known/openid-configuration | grep -o '"issuer":"[^"]*"'
+"issuer":"http://localhost:8080/auth/realms/chat"
+$ docker compose logs keycloak | grep -i import
+... DirImportProvider] (main) Importing from directory /opt/keycloak/bin/../data/import
+... SingleFileImportProvider] (main) Full importing from file /opt/keycloak/bin/../data/import/realm-chat.json
+... ImportUtils] (main) Realm 'chat' imported
+... KC-SERVICES0030: Full model import requested. Strategy: IGNORE_EXISTING
+$ docker inspect --format '{{json .Config.Healthcheck.Test}}' $(docker compose ps -q keycloak)
+["CMD","bash","-c","exec 3<>/dev/tcp/localhost/9000 && printf 'GET /auth/health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && read -r status <&3 && [[ \"$status\" == *' 200 '* ]]"]
+(Aus $$status in docker-compose.yml wird im Container $status, wie im Plan beschrieben.)
+
+== Teil C: Abnahme von Bewertung 1 (Plan Task 4, Schritt 5)
+$ bash scripts/abnahme.sh; echo "Exit: $?"
+== S2: frischer Start, .env aus .env.example, docker compose up -d --build rabbitmq chat-service postgres batch-writer
+================================ Ergebnis ================================
+S2  PASS gemessen: laufend: batch-writer chat-service postgres rabbitmq | veröffentlichte Ports: 0 | erwartet: 4 Dienste laufen, 0 veröffentlichte Ports
+S3  PASS gemessen: 202: 1000, Zeilen: 1000, chat.persist: 0, nach 0 s | erwartet: 1000 Zeilen, Queue leer, höchstens 60 s
+S4  PASS gemessen: 202: 1000, wartend: 1000, Zeilen: 1000, Transaktionen: 12 (schreibend: 2) | erwartet: 1000 Zeilen, höchstens 100 Transaktionen
+S5  PASS gemessen: Zeilen mit dieser id: 1, chat.dlq: 0 | erwartet: 1 Zeile, chat.dlq 0
+S6  PASS gemessen: 202: 1000, Verbraucher: 2, Instanzen mit Stapeln: 2, Zeilen: 1000, verschiedene ids: 1000 | erwartet: 2 Verbraucher, beide schreiben Stapel, 1000 Zeilen, keine doppelt
+S7  PASS gemessen: 202: 300, Zeilen: 300 nach 11 s, chat.dlq: 0, Neustarts: 0 , Zustand: running  | erwartet: 300 Zeilen in höchstens 90 s, chat.dlq 0, kein Neustart
+S8  PASS gemessen: Treffer 'stream': 0, ohne Kommentar: 0, .env im Repo: 0, .env im Verlauf: 0 (geprüft: 122 Commits) | erwartet: alles 0, ganzer Verlauf
+Alle Szenarien bestanden.
+Exit: 0
+
+== Teil D: Offene Prüfung P17 (Spezifikation 4.1, 6.3, 6.5)
+Eine Kopie von .env.example ohne die Zeile KEYCLOAK_CLIENT_SECRET in target/p17/ohne-secret.env.
+Mit dem Projekt aus dem Ordner, wie man Compose sonst aufruft:
+$ docker compose --env-file target/p17/ohne-secret.env down --dry-run; echo "Exit: $?"
+error while interpolating services.keycloak.environment.KEYCLOAK_CLIENT_SECRET: required variable KEYCLOAK_CLIENT_SECRET is missing a value: KEYCLOAK_CLIENT_SECRET fehlt in .env
+Exit: 1
+$ docker compose --env-file target/p17/ohne-secret.env ps; echo "Exit: $?"
+error while interpolating ... KEYCLOAK_CLIENT_SECRET fehlt in .env
+Exit: 1
+$ docker compose --env-file target/p17/ohne-secret.env up --dry-run -d rabbitmq
+error while interpolating ... KEYCLOAK_CLIENT_SECRET fehlt in .env
+$ docker compose --env-file target/p17/ohne-secret.env build --dry-run chat-service
+error while interpolating ... KEYCLOAK_CLIENT_SECRET fehlt in .env
+(config --quiet: siehe Teil A, ebenso Exit 1)
+
+Mit einem eigenen Projektnamen, wie es Spezifikation 6.4 für ComposeFileTest vorsieht:
+$ docker compose --env-file target/p17/ohne-secret.env -p p17 config --quiet; echo "Exit: $?"
+error while interpolating ... KEYCLOAK_CLIENT_SECRET fehlt in .env
+Exit: 1
+$ docker compose --env-file target/p17/ohne-secret.env -p p17 down --dry-run; echo "Exit: $?"
+time="2026-10-30T15:59:27+01:00" level=warning msg="Warning: No resource found to remove for project \"p17\"."
+Exit: 0
+$ docker compose --env-file target/p17/ohne-secret.env -p p17 ps; echo "Exit: $?"
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
+Exit: 0
+
+Ergebnis P17: bestätigt für den üblichen Aufruf. Jeder docker-compose-Befehl bricht ohne
+KEYCLOAK_CLIENT_SECRET ab, auch down und ps. Nur mit ausdrücklichem -p lesen down und ps
+(Compose v5.5.0) die Datei nicht und laufen durch. Ein ComposeFileTest mit eigenem
+Projektnamen, wie Spezifikation 6.4 ihn beschreibt, mässe also den falschen Fall.

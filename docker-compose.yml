@@ -1,5 +1,5 @@
-# Ausbaustufe 2: Broker, chat-service, Datenbank und batch-writer.
-# Keycloak und web-gateway kommen in späteren Schritten dazu.
+# Baustein 1: Broker, chat-service, Datenbank, batch-writer und Keycloak.
+# Das web-gateway mit dem einzigen Port kommt in einem späteren Schritt dazu.
 services:
 
   rabbitmq:
@@ -77,6 +77,36 @@ services:
     restart: unless-stopped
     networks:
       - chat-net
+
+  # Login-Dienst (spec-web-gateway.md 1.2). Importiert den Realm chat beim
+  # ersten Start aus keycloak/realm-chat.json, Secret und Passwörter kommen aus
+  # .env. Kein Port nach aussen: Der Browser erreicht Keycloak nur über das
+  # Gateway. Kein depends_on auf postgres: Keycloak hat seine eigene Datenhaltung.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.3
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HOSTNAME: http://localhost:8080/auth
+      KC_HEALTH_ENABLED: "true"
+      PUBLIC_URL: http://localhost:8080
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET fehlt in .env}
+      DEMO_PASSWORD_ALICE: ${DEMO_PASSWORD_ALICE:-alice-demo}
+      DEMO_PASSWORD_BOB: ${DEMO_PASSWORD_BOB:-bob-demo}
+      DEMO_PASSWORD_ADMIN: ${DEMO_PASSWORD_ADMIN:-admin-demo}
+    volumes:
+      - ./keycloak/realm-chat.json:/opt/keycloak/data/import/realm-chat.json:ro
+    networks:
+      - chat-net
+    healthcheck:
+      # Im Image gibt es weder curl noch wget, aber bash: bash öffnet selbst eine
+      # Verbindung zum Management-Port 9000 und prüft die Statuszeile (E2).
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /auth/health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && read -r status <&3 && [[ \"$$status\" == *' 200 '* ]]"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      # Erste Antwort in E1 nach 32 s, auf einem Runner von GitHub langsamer.
+      start_period: 90s
 
 # KEIN ports:-Eintrag in dieser Datei. Der einzige offene Port des
 # Gesamtsystems gehört später dem web-gateway.

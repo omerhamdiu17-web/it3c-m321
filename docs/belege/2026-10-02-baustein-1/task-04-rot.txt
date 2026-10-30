@@ -1,0 +1,35 @@
+Beleg Task 4, rot (vor dem Dienst keycloak)
+Datum/Uhrzeit: 2026-10-30 15:55:14
+Branch: baustein/web-gateway
+Commit (HEAD): 9e270d8, docker-compose.yml und .env.example unverändert
+Rechner: macOS 27.2 (arm64), OrbStack 2.2.5 mit Docker 29.8.2 (linux/arm64), Compose v5.5.0
+Lokale .env: Kopie des alten .env.example (ohne KEYCLOAK_CLIENT_SECRET und DEMO_PASSWORD_*)
+
+== Die Befehle aus Plan Task 4, Schritt 1
+$ docker compose up -d --wait --wait-timeout 180 keycloak; echo "Exit: $?"
+no such service: keycloak
+Exit: 1
+$ docker compose ps --format '{{.Service}} {{.Health}}'
+(keine Ausgabe: auf diesem Rechner lief noch kein Dienst)
+$ docker compose ps --format '{{.Service}} {{.Ports}}' | grep -c -- '->'
+0
+$ docker run --rm --network chat-net curlimages/curl -s http://keycloak:8080/auth/realms/chat/.well-known/openid-configuration | grep -o '"issuer":"[^"]*"'
+docker: Error response from daemon: failed to set up container networking: network chat-net not found
+Exit der Pipeline: 1
+
+Das Netz chat-net gab es noch nicht, denn auf diesem Rechner war noch nie ein Dienst gestartet.
+Damit curl am Namen keycloak scheitert und nicht am Netz, zuerst RabbitMQ (legt chat-net an):
+$ docker compose up -d --wait rabbitmq
+ Container it3c-m321-rabbitmq-1 Healthy
+$ docker run --rm --network chat-net curlimages/curl -s http://keycloak:8080/auth/realms/chat/.well-known/openid-configuration | grep -o '"issuer":"[^"]*"'
+(keine Ausgabe)
+Exit der Pipeline: 1
+Gegenprobe mit Fehlermeldung:
+$ docker run --rm --network chat-net curlimages/curl -sS -o /dev/null http://keycloak:8080/auth/
+curl: (6) Could not resolve host: keycloak
+curl Exit: 6
+$ docker compose ps --format '{{.Service}} {{.Health}}'
+rabbitmq healthy
+
+Ergebnis: rot wie im Plan erwartet. Compose kennt den Dienst keycloak nicht, in der Liste fehlt
+er, und im Netz chat-net gibt es den Namen keycloak nicht.
