@@ -1,0 +1,47 @@
+Beleg Task 3, rot (Test zuerst, vor der Realm-Datei)
+Datum/Uhrzeit: 2026-10-30 15:38:28
+Branch: baustein/web-gateway
+Commit (HEAD): 9665250
+Im Arbeitsbaum: nur die vier Testdateien aus dem Plan (Task 3, Schritt 1 und 2), keine Realm-Datei:
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/KeycloakFlow.java
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/RealmImportIntegrationTest.java
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/TestBrowser.java
+   ?? web-gateway/src/test/java/ch/benedict/m321/webgateway/TestKeycloak.java
+   $ ls keycloak
+   ls: keycloak: No such file or directory
+Rechner: macOS 27.2 (arm64), OrbStack 2.2.5 mit Docker 29.8.2 (linux/arm64), Compose v5.5.0,
+  openjdk version "21.0.13.0.3" 2026-10-24 (Homebrew), Maven 3.10.0
+
+== Schritt 3a: Übersetzen
+$ mvn -q -pl web-gateway test-compile; echo "Exit: $?"
+Exit: 0
+
+== Schritt 3b: Rot lokal
+$ mvn -q -pl web-gateway test -Dtest=RealmImportIntegrationTest; echo "Exit: $?"
+Ausschnitt (Login-Adressen gekürzt):
+[ERROR] Failures:
+[ERROR]   RealmImportIntegrationTest.adminCliPasswordGrantGivesTokenForAdminCli:239 P7: {"error":"Realm does not exist"} ==> expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.adminHasRolesAdminAndUser:126->logInAsWebGateway:250->logInAndGetCode:261->submitLoginForm:278 Login-Formular erwartet: <Login-Adresse> ==> expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.aliceGetsFixedIdNameEmailAndRoles:90->logInAsWebGateway:250->logInAndGetCode:261->submitLoginForm:278 Login-Formular erwartet: <Login-Adresse> ==> expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.bobUsesPasswordFromEnvironment:108->logInAsWebGateway:250->logInAndGetCode:261->submitLoginForm:278 Login-Formular erwartet: <Login-Adresse> ==> expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.desktopClientAcceptsAnyLoopbackPort:172->assertLoginForm:297 http://127.0.0.1:53682/callback ==> expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.desktopClientGetsTokenForItself:182->logInAndGetCode:261->submitLoginForm:278 Login-Formular erwartet: <Login-Adresse> ==> expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.discoveryNamesPublicIssuer:79 expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.loginWithoutPkceIsRejected:156->assertNoLoginForm:316 web-gateway: Status 404, Ziel  ==> expected: <true> but was: <false>
+[ERROR]   RealmImportIntegrationTest.onlyRegisteredRedirectUrisAreAccepted:165->assertNoLoginForm:316 web-gateway: Status 404, Ziel  ==> expected: <true> but was: <false>
+[ERROR]   RealmImportIntegrationTest.ourClientsHaveNoPasswordGrant:226 {"error":"Realm does not exist"} ==> expected: <400> but was: <404>
+[ERROR]   RealmImportIntegrationTest.placeholderIsNotTheSecret:142->logInAndGetCode:261->submitLoginForm:278 Login-Formular erwartet: <Login-Adresse> ==> expected: <200> but was: <404>
+[ERROR]   RealmImportIntegrationTest.postLogoutRedirectUsesPublicUrl:205->logInAsWebGateway:250->logInAndGetCode:261->submitLoginForm:278 Login-Formular erwartet: <Login-Adresse> ==> expected: <200> but was: <404>
+[ERROR] Tests run: 12, Failures: 12, Errors: 0, Skipped: 0
+Exit: 1
+
+Ergebnis: rot, aber anders als im Plan erwartet. Der Plan rechnete mit einem Fehler beim Start
+des Containers, weil ../keycloak/realm-chat.json fehlt. Tatsächlich startet der Container
+(Protokoll: "Container quay.io/keycloak/keycloak:26.7.3 started in PT8.191805S", keine
+Warnung): Testcontainers kopiert eine fehlende Datei stillschweigend nicht. Keycloak läuft dann
+ohne Realm chat, und jede Anfrage an /auth/realms/chat/... endet mit 404, beim Token-Endpunkt
+mit {"error":"Realm does not exist"}. Alle 12 Tests scheitern damit am fehlenden Realm, also am
+richtigen Grund. Siehe notizen.md, Task 3.
+
+Dasselbe Rot zeigte schon der Grundlinien-Lauf "mvn -B clean test" (15:35 bis 15:38), weil die
+Testdateien während dieses Laufs angelegt wurden (notizen.md, Fortsetzung am 30.10.2026).

@@ -1,0 +1,110 @@
+{
+  "realm": "chat",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Darf chatten" },
+      { "name": "admin", "description": "Darf zusätzlich verwalten (ab Baustein 3)" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "web-gateway",
+      "name": "web-gateway: Login im Browser, Authorization Code mit PKCE",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["${PUBLIC_URL}/login/oauth2/code/keycloak"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${PUBLIC_URL}/"
+      },
+      "protocolMappers": [
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "desktop-client",
+      "name": "desktop-client: JavaFX und Abnahme, Authorization Code mit PKCE, ohne Secret",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://127.0.0.1/callback"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "a11ce000-0000-4000-8000-000000000001",
+      "username": "alice",
+      "enabled": true,
+      "email": "alice@example.org",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Muster",
+      "credentials": [{ "type": "password", "value": "${DEMO_PASSWORD_ALICE:alice-demo}", "temporary": false }],
+      "realmRoles": ["user"]
+    },
+    {
+      "id": "b0b00000-0000-4000-8000-000000000002",
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@example.org",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Muster",
+      "credentials": [{ "type": "password", "value": "${DEMO_PASSWORD_BOB:bob-demo}", "temporary": false }],
+      "realmRoles": ["user"]
+    },
+    {
+      "id": "ad000000-0000-4000-8000-000000000003",
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@example.org",
+      "emailVerified": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "${DEMO_PASSWORD_ADMIN:admin-demo}", "temporary": false }],
+      "realmRoles": ["user", "admin"]
+    }
+  ]
+}

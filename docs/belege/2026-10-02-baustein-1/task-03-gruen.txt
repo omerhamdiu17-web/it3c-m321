@@ -1,0 +1,90 @@
+Beleg Task 3, grün (nach der Realm-Datei, vor dem Commit)
+Datum/Uhrzeit: 2026-10-30 15:41 bis 15:58
+Branch: baustein/web-gateway
+Commit (HEAD): 9665250, dazu im Arbeitsbaum:
+   ?? keycloak/realm-chat.json                       (Plan Task 3, Schritt 4, wörtlich)
+   ?? web-gateway/src/test/java/.../KeycloakFlow.java, RealmImportIntegrationTest.java,
+      TestKeycloak.java                              (wörtlich aus dem Plan)
+   ?? web-gateway/src/test/java/.../TestBrowser.java (aus dem Plan, ergänzt um
+      LocalhostCookieHandler, siehe Teil B)
+Rechner: macOS 27.2 (arm64), OrbStack 2.2.5 mit Docker 29.8.2 (linux/arm64), Compose v5.5.0,
+  openjdk version "21.0.13.0.3" 2026-10-24 (Homebrew), Maven 3.10.0
+
+== Teil A: Erster Lauf mit der Realm-Datei, TestBrowser noch genau wie im Plan
+$ mvn -q -pl web-gateway test -Dtest=RealmImportIntegrationTest; echo "Exit: $?"
+[ERROR] Tests run: 12, Failures: 6, Errors: 0, Skipped: 0
+[ERROR]   RealmImportIntegrationTest.adminHasRolesAdminAndUser:126->logInAsWebGateway:250->logInAndGetCode:262 Anmeldung von admin abgelehnt ==> expected: <302> but was: <400>
+[ERROR]   RealmImportIntegrationTest.aliceGetsFixedIdNameEmailAndRoles:90->logInAsWebGateway:250->logInAndGetCode:262 Anmeldung von alice abgelehnt ==> expected: <302> but was: <400>
+[ERROR]   RealmImportIntegrationTest.bobUsesPasswordFromEnvironment:108->logInAsWebGateway:250->logInAndGetCode:262 Anmeldung von bob abgelehnt ==> expected: <302> but was: <400>
+[ERROR]   RealmImportIntegrationTest.desktopClientGetsTokenForItself:182->logInAndGetCode:262 Anmeldung von alice abgelehnt ==> expected: <302> but was: <400>
+[ERROR]   RealmImportIntegrationTest.placeholderIsNotTheSecret:142->logInAndGetCode:262 Anmeldung von alice abgelehnt ==> expected: <302> but was: <400>
+[ERROR]   RealmImportIntegrationTest.postLogoutRedirectUsesPublicUrl:205->logInAsWebGateway:250->logInAndGetCode:262 Anmeldung von alice abgelehnt ==> expected: <302> but was: <400>
+Exit: 1
+
+Grün waren schon: discoveryNamesPublicIssuer, loginWithoutPkceIsRejected,
+onlyRegisteredRedirectUrisAreAccepted, desktopClientAcceptsAnyLoopbackPort,
+ourClientsHaveNoPasswordGrant, adminCliPasswordGrantGivesTokenForAdminCli.
+Gescheitert sind genau die sechs Tests, die das Login-Formular abschicken.
+
+== Teil B: Ursache, nachgestellt mit curl gegen einen Keycloak mit derselben Realm-Datei
+Container von Hand, Einstellungen wie TestKeycloak (KC_HTTP_RELATIVE_PATH=/auth,
+KC_HOSTNAME=http://localhost:8080/auth, PUBLIC_URL, KEYCLOAK_CLIENT_SECRET=test-secret),
+Port 8080 auf 127.0.0.1:18081. Login-Anfrage für web-gateway mit PKCE, je mit anderem Host:
+
+Host localhost:
+Set-Cookie: AUTH_SESSION_ID=…;Version=1;Path=/auth/realms/chat/;Secure;HttpOnly;SameSite=None
+Host 127.0.0.1:
+Set-Cookie: AUTH_SESSION_ID=…;Version=1;Path=/auth/realms/chat/;Secure;HttpOnly;SameSite=None
+Host keycloak:8080 (wie hinter dem Gateway):
+Set-Cookie: AUTH_SESSION_ID=…;Version=1;Path=/auth/realms/chat/;HttpOnly;SameSite=Lax
+
+Dasselbe gilt für KC_AUTH_SESSION_HASH und KC_RESTART. Mit curl (Cookie-Datei) gelingt der Login
+unter localhost trotzdem: Das Formular-POST antwortet
+HTTP/1.1 302 Found
+Location: http://localhost:8080/login/oauth2/code/keycloak?state=s&session_state=…&iss=http%3A%2F…
+denn curl schickt Secure-Cookies auch an http://localhost, wie Browser es tun. Der CookieManager
+des JDK schickt sie nur über https. Ohne seine Cookies antwortet Keycloak auf das Formular mit 400.
+
+Folge: TestBrowser bekommt die verschachtelte Klasse LocalhostCookieHandler. Sie fragt den
+CookieManager für http://localhost mit der https-Adresse, damit Secure-Cookies mitgehen;
+gespeichert wird unverändert. Sonst ist TestBrowser wie im Plan.
+
+== Teil C: Grün lokal (Plan Task 3, Schritt 5)
+$ mvn -q -pl web-gateway test -Dtest=RealmImportIntegrationTest; echo "Exit: $?"
+Exit: 0
+$ cat web-gateway/target/surefire-reports/ch.benedict.m321.webgateway.RealmImportIntegrationTest.txt
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.946 s -- in ch.benedict.m321.webgateway.RealmImportIntegrationTest
+Einzelne Tests (aus TEST-…RealmImportIntegrationTest.xml):
+  discoveryNamesPublicIssuer, bobUsesPasswordFromEnvironment, postLogoutRedirectUsesPublicUrl,
+  adminHasRolesAdminAndUser, adminCliPasswordGrantGivesTokenForAdminCli,
+  onlyRegisteredRedirectUrisAreAccepted, desktopClientAcceptsAnyLoopbackPort,
+  loginWithoutPkceIsRejected, ourClientsHaveNoPasswordGrant, aliceGetsFixedIdNameEmailAndRoles,
+  desktopClientGetsTokenForItself, placeholderIsNotTheSecret: alle bestanden
+
+$ mvn -q -pl web-gateway test; echo "Exit: $?"
+Exit: 0
+Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 10.64 s -- in ch.benedict.m321.webgateway.RealmImportIntegrationTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.272 s -- in ch.benedict.m321.webgateway.WebGatewayApplicationTest
+
+== Teil D: Offene Prüfungen (Spezifikation 6.5)
+P2 bestanden: desktopClientAcceptsAnyLoopbackPort, Login-Formular für http://127.0.0.1:53682/callback
+   und http://127.0.0.1:61234/callback. Keycloak ignoriert bei Loopback den Port (RFC 8252, 7.3).
+P3 bestanden: postLogoutRedirectUsesPublicUrl, mit ${PUBLIC_URL}/ 302 auf http://localhost:8080/,
+   mit http://localhost:9999/ 400.
+P4 bestanden: aliceGetsFixedIdNameEmailAndRoles, sub = a11ce000-0000-4000-8000-000000000001 im
+   ID- und im Access-Token, dazu alice, Alice Muster, alice@example.org, [user].
+P7 entschieden: adminCliPasswordGrantGivesTokenForAdminCli, Keycloak 26.7.3 gibt über admin-cli
+   im Realm chat ein Token heraus (HTTP 200, azp=admin-cli). Das Gateway muss es an azp ablehnen
+   (Task 7: BearerTokenTest.tokenFromAdminCliIsRejected, LoginIntegrationTest.adminCliTokenIsRejected).
+
+== Teil E: Code-Regeln und Geheimnisse
+$ bash scripts/kommentare.sh web-gateway/src; echo "Exit: $?"
+Exit: 0
+$ grep -rin --exclude-dir=target stream web-gateway/; echo "Exit: $?"
+Exit: 1   (keine Ausgabe, nichts gefunden)
+$ grep -rln -- '->' web-gateway/src; grep -rn '::' web-gateway/src
+(keine Ausgabe)
+$ grep -o '"secret": "[^"]*"' keycloak/realm-chat.json
+"secret": "${KEYCLOAK_CLIENT_SECRET}"
+$ grep -c '"value": "\${DEMO_PASSWORD_' keycloak/realm-chat.json
+3
