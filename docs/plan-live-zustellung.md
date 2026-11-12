@@ -205,7 +205,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > der Code neue Umgebungsvariablen braucht; wenn ja, mit Beispielwert in `.env.example`.
 - **Test:** Befehle aus der README einmal von Hand ausführen.
 - **Commit:** `docs: README mit Live-Zustellung`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Befehle aus der README von Hand ausgeführt: `curl -sN …/stream` zeigt `:verbunden`, nach einem POST `id:` und `data:`; `list_bindings` zeigt die eigene Queue `chat.delivery.…` am Fanout. Neue Umgebungsvariablen braucht der Code keine (Grenzen stehen als Konstanten in `RabbitConfig` und `RoomSubscribers`, Heartbeat und Shutdown in `application.yml`), darum bleibt `.env.example` unverändert.
 
 ## Schritt 10: Abnahme und Protokoll
 

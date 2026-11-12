@@ -27,7 +27,8 @@ Alle Aufgaben werden in **deinem Fork** gelöst. Das Original-Repository bleibt 
 mvn clean test                   # alle Tests, RabbitMQ und PostgreSQL kommen per Testcontainers
 docker compose up -d --build     # RabbitMQ, chat-service, PostgreSQL und batch-writer im Netz chat-net
 docker compose down -v           # alles stoppen UND die Datenbank löschen (frischer Start)
-bash scripts/abnahme.sh          # Szenarien S2 bis S8 nachstellen (beginnt mit "down -v"!)
+bash scripts/abnahme.sh          # Bewertung 1: Szenarien S2 bis S8 nachstellen (beginnt mit "down -v"!)
+bash scripts/abnahme-live.sh     # Bewertung 2: Live-Zustellung S2 bis S8 (beginnt mit "down -v"!)
 ```
 
 Kein Dienst veröffentlicht einen Port auf den Host. Der einzige offene Port des Gesamtsystems
@@ -41,6 +42,18 @@ docker compose exec postgres psql -U chat -P pager=off -c "SELECT sender_name, c
 docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
 ```
 
+Einen Raum live mitlesen (Server-Sent Events). Jede Nachricht kommt als `id:` und `data:`; die
+erste Zeile `:verbunden` ist nur ein Kommentar, damit der Client sofort weiss, dass er verbunden ist:
+
+```bash
+docker run --rm --network chat-net curlimages/curl -sN \
+  "http://chat-service:8080/stream?roomId=3f2b1c4e-0000-0000-0000-000000000001"
+```
+
+Nach einem Abbruch holt `-H "Last-Event-ID: <letzte id>"` genau die verpassten Nachrichten nach.
+Mehrere Instanzen: `docker compose up -d --scale chat-service=2`. Jede hängt eine eigene Queue
+`chat.delivery.<zufällig>` an den Fanout (`rabbitmqctl list_bindings source_name destination_name`).
+
 Das Schema der Datenbank (`postgres/init/01-schema.sql`) läuft nur beim ersten Start mit leerem
 Volume. Nach einer Änderung daran: `docker compose down -v`.
 
@@ -51,7 +64,7 @@ Jeder Push läuft in GitHub Actions durch `mvn clean test`, den Bau aller Images
 
 | Baustein | Technologie | Aufgabe | Stand |
 |---|---|---|---|
-| chat-service | Spring Boot 3, Java 21 | Nimmt Nachrichten per `POST /messages` an, legt sie auf Queue und Fanout-Exchange | vorhanden |
+| chat-service | Spring Boot 3, Java 21 | Nimmt Nachrichten per `POST /messages` an, legt sie auf Queue und Fanout-Exchange. Live-Zustellung: holt jede Nachricht über eine eigene Queue vom Fanout `chat.delivery` und schiebt sie per Server-Sent Events unter `GET /stream?roomId=…` an die Clients des Raums, mit Nachholen über `Last-Event-ID` | vorhanden |
 | rabbitmq | RabbitMQ 3.13 | Message Queue zwischen den Services | vorhanden |
 | batch-writer | Spring Boot 3, Java 21 | Einziger Schreiber in die Datenbank: liest `chat.persist` in Stapeln bis 500, eine Transaktion pro Stapel, ACK nach dem COMMIT | vorhanden |
 | postgres | PostgreSQL 16 | Speichert den Chat-Verlauf in der Tabelle `message` | vorhanden |
@@ -78,6 +91,10 @@ erreichbar.
   Vertrag, Verhalten in jedem Fehlerfall, Datenmodell, Abnahmekriterien.
 - [`docs/plan-batch-writer.md`](docs/plan-batch-writer.md) — Umsetzungsplan des `batch-writer`,
   Schritt für Schritt mit Test.
+- [`docs/spec-live-zustellung.md`](docs/spec-live-zustellung.md) — Spezifikation der Live-Zustellung
+  (Bewertung 2): Vertrag, Verhalten, Queues, Abnahmekriterien.
+- [`docs/plan-live-zustellung.md`](docs/plan-live-zustellung.md) — Umsetzungsplan der Live-Zustellung,
+  Schritt für Schritt mit KI-Auftrag, Test und Prüfnotiz.
 - [`CLAUDE.md`](CLAUDE.md) — Codestil-Regeln für dieses Projekt. Gelten auch für dich.
 - [`docs/flipchart-chat-app.png`](docs/flipchart-chat-app.png) — das Flipchart aus der Lektion,
   von dem die Planung ausgeht.
