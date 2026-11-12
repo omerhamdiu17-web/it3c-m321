@@ -104,7 +104,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > in Raum A bekommen die Nachricht, eine in Raum B nicht, eine kaputte Verbindung wird entfernt.
 - **Test:** `RoomSubscribersTest` (neu).
 - **Commit:** `feat: Nachricht nur an die Verbindungen ihres Raums`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Test zuerst rot (Klasse fehlt), danach 3 von 3 grün. Der Test vergleicht das ganze Ereignis Zeichen für Zeichen (`id:…\ndata:…\n\n`). Korrigiert: zwei verschachtelte Aufrufe im Test (`deliver(createMessage(…))`) in eigene Zeilen geteilt (CLAUDE.md). Dazu: Das JSON geht unverändert als `data:` weiter (Record `DeliveredMessage`), so ist das Format sicher dasselbe wie in `chat.persist`. Gesendet wird an eine Kopie der Liste, weil sich die Liste beim Abmelden ändern kann.
 
 ## Schritt 4: Listener an der eigenen Queue
 
