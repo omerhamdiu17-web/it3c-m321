@@ -217,7 +217,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > trag die Messwerte mit Datum und Link auf den grünen CI-Lauf in den Plan ein.
 - **Test:** S1 bis S8 bestanden.
 - **Commit:** `docs: Abnahmeprotokoll der Live-Zustellung`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: frischer Klon von GitHub (Stand `3f46d26`), `.env` aus `.env.example`, S1 bis S8 bestanden, Werte unten. Nichts korrigiert.
 
 ---
 
@@ -255,4 +255,22 @@ einem eigenen Commit. Der Text der Schritte oben bleibt stehen.
 
 ## Abnahmeprotokoll
 
-_Nach Schritt 10._
+**12.11.2026, 14:04, auf meinem Rechner** (macOS, OrbStack mit Docker Engine 29.8.2, Java 21.0.13),
+frischer Klon von `https://github.com/omerhamdiu17-web/it3c-m321` im Stand `3f46d26`, `.env` aus
+`.env.example`, die Szenarien in der Reihenfolge des Auftrags auf demselben Stack:
+
+| Nr | Ergebnis | Gemessen |
+|---|---|---|
+| S1 | bestanden | `mvn -B clean test`: BUILD SUCCESS, chat-service 30 Tests, batch-writer 29 Tests, 0 Fehler |
+| S2 | bestanden | alle 4 Dienste `running`, 0 Dienste mit Port nach aussen |
+| S3 | bestanden | je 200 über jede Instanz angenommen; Client A1 und A2 je 400, alle verschieden, Reihenfolge je Absender stimmt; Client B 0 |
+| S4 | bestanden | vorher 2 Queues am Fanout mit je 1 Consumer, nach 2 s nur noch 1; `chat.persist` und `chat.dlq` da |
+| S5 | bestanden | 100 angenommen, beim Client alle 100 nach 0 s (Messung in ganzen Sekunden); nach dem Neustart 100 in der Tabelle |
+| S6 | bestanden | 5000 angenommen; grösster Füllstand einer Queue 1000 (42 Messungen); Client an der anderen Instanz 5000; nach dem Fortsetzen neue Nachricht zugestellt |
+| S7 | bestanden | 50 angenommen; nach der Neuverbindung mit `Last-Event-ID` genau 50 + 1 live, alle verschieden, die 50 in Reihenfolge |
+| S8 | bestanden | 0 Java-Streams, 0 fehlende Kommentare, `.env` weder im Repo noch in einem der 138 Commits |
+
+**GitHub Actions**, gleicher Stand `3f46d26`: Lauf
+[43223290639](https://github.com/omerhamdiu17-web/it3c-m321/actions/runs/43223290639), alle vier
+Jobs grün: `maven` (S1), `images`, `abnahme` (Bewertung 1, S2 bis S8) und `abnahme-live` (Bewertung 2,
+S2 bis S8, alle PASS; S4 dort nach 9 s).
