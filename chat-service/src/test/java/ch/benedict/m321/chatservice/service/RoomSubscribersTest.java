@@ -24,7 +24,7 @@ class RoomSubscribersTest {
 
     /** Zwei Clients in Raum A bekommen die Nachricht für Raum A, der Client in Raum B nicht. */
     @Test
-    void deliversOnlyToSubscribersOfTheMessagesRoom() {
+    void deliversOnlyToSubscribersOfTheMessagesRoom() throws InterruptedException {
         RoomSubscribers roomSubscribers = new RoomSubscribers();
         RecordingEmitter clientOneInRoomA = new RecordingEmitter();
         RecordingEmitter clientTwoInRoomA = new RecordingEmitter();
@@ -35,6 +35,8 @@ class RoomSubscribersTest {
         DeliveredMessage message = createMessage(ROOM_A, "Hallo Raum A");
 
         roomSubscribers.deliver(message);
+        clientOneInRoomA.waitForEvents(1);
+        clientTwoInRoomA.waitForEvents(1);
 
         String expectedEvent = "id:" + message.id() + "\ndata:" + message.json() + "\n\n";
         assertEquals(List.of(expectedEvent), clientOneInRoomA.events);
@@ -44,7 +46,7 @@ class RoomSubscribersTest {
 
     /** Ein Client, an den das Senden scheitert, fliegt raus; die anderen merken nichts. */
     @Test
-    void removesSubscriberWhoseConnectionBroke() {
+    void removesSubscriberWhoseConnectionBroke() throws InterruptedException {
         RoomSubscribers roomSubscribers = new RoomSubscribers();
         RecordingEmitter brokenClient = new RecordingEmitter();
         brokenClient.broken = true;
@@ -56,7 +58,10 @@ class RoomSubscribersTest {
         DeliveredMessage second = createMessage(ROOM_A, "zweite");
 
         roomSubscribers.deliver(first);
+        brokenClient.waitForSendAttempts(1);
+        workingClient.waitForEvents(1);
         roomSubscribers.deliver(second);
+        workingClient.waitForEvents(2);
 
         assertEquals(1, brokenClient.sendAttempts);
         assertEquals(2, workingClient.events.size());
@@ -64,7 +69,7 @@ class RoomSubscribersTest {
 
     /** Nach dem Abmelden kommt nichts mehr an. */
     @Test
-    void unsubscribedClientGetsNothing() {
+    void unsubscribedClientGetsNothing() throws InterruptedException {
         RoomSubscribers roomSubscribers = new RoomSubscribers();
         RecordingEmitter client = new RecordingEmitter();
         roomSubscribers.subscribe(ROOM_A, null, client);
@@ -72,6 +77,7 @@ class RoomSubscribersTest {
 
         roomSubscribers.unsubscribe(ROOM_A, client);
         roomSubscribers.deliver(message);
+        Thread.sleep(200);
 
         assertTrue(client.events.isEmpty());
     }
@@ -81,7 +87,7 @@ class RoomSubscribersTest {
      * bekommt 3, 4 und 5 in dieser Reihenfolge und danach live weiter.
      */
     @Test
-    void catchUpSendsOnlyMessagesAfterLastEventIdInOrder() {
+    void catchUpSendsOnlyMessagesAfterLastEventIdInOrder() throws InterruptedException {
         RoomSubscribers roomSubscribers = new RoomSubscribers();
         List<DeliveredMessage> sentBefore = deliverMessages(roomSubscribers, 5);
         String lastEventId = sentBefore.get(1).id().toString();
@@ -90,6 +96,7 @@ class RoomSubscribersTest {
         roomSubscribers.subscribe(ROOM_A, lastEventId, client);
         DeliveredMessage liveMessage = createMessage(ROOM_A, "live");
         roomSubscribers.deliver(liveMessage);
+        client.waitForEvents(4);
 
         List<String> expectedIds = new ArrayList<>();
         expectedIds.add(sentBefore.get(2).id().toString());
@@ -101,7 +108,7 @@ class RoomSubscribersTest {
 
     /** Unbekannte ID (Spezifikation 2.6): nichts nachholen, aber live geht es weiter. */
     @Test
-    void unknownLastEventIdCatchesUpNothing() {
+    void unknownLastEventIdCatchesUpNothing() throws InterruptedException {
         RoomSubscribers roomSubscribers = new RoomSubscribers();
         deliverMessages(roomSubscribers, 3);
         RecordingEmitter client = new RecordingEmitter();
@@ -110,6 +117,8 @@ class RoomSubscribersTest {
         roomSubscribers.subscribe(ROOM_A, unknownId, client);
         DeliveredMessage liveMessage = createMessage(ROOM_A, "live");
         roomSubscribers.deliver(liveMessage);
+        client.waitForEvents(1);
+        Thread.sleep(200);
 
         String liveId = liveMessage.id().toString();
         assertEquals(List.of(liveId), client.receivedIds());
@@ -120,7 +129,7 @@ class RoomSubscribersTest {
      * vergessen, also unbekannt. Ab der zweiten fehlen 999.
      */
     @Test
-    void remembersOnlyTheLast1000MessagesPerRoom() {
+    void remembersOnlyTheLast1000MessagesPerRoom() throws InterruptedException {
         RoomSubscribers roomSubscribers = new RoomSubscribers();
         List<DeliveredMessage> sentBefore = deliverMessages(roomSubscribers, 1001);
         String forgottenId = sentBefore.get(0).id().toString();
@@ -130,9 +139,37 @@ class RoomSubscribersTest {
 
         roomSubscribers.subscribe(ROOM_A, forgottenId, clientWithForgottenId);
         roomSubscribers.subscribe(ROOM_A, rememberedId, clientWithRememberedId);
+        clientWithRememberedId.waitForEvents(999);
+        Thread.sleep(200);
 
         assertEquals(0, clientWithForgottenId.events.size());
         assertEquals(999, clientWithRememberedId.events.size());
+    }
+
+    /**
+     * Plan, Änderung 1: Ein Client, der beim Senden 3 s hängt, darf einen
+     * zweiten Client im selben Raum nicht aufhalten. Der zweite bekommt alle
+     * 1500 in weniger als 1 s. Der hängende hat danach mehr als 1000 im
+     * Postausgang und wird getrennt.
+     */
+    @Test
+    void hangingClientDoesNotHoldUpOtherClients() throws InterruptedException {
+        RoomSubscribers roomSubscribers = new RoomSubscribers();
+        RecordingEmitter hangingClient = new RecordingEmitter();
+        hangingClient.hangOnFirstSendMilliseconds = 3000;
+        RecordingEmitter workingClient = new RecordingEmitter();
+        roomSubscribers.subscribe(ROOM_A, null, hangingClient);
+        roomSubscribers.subscribe(ROOM_A, null, workingClient);
+        long start = System.currentTimeMillis();
+
+        deliverMessages(roomSubscribers, 1500);
+        workingClient.waitForEvents(1500);
+        long elapsedMilliseconds = System.currentTimeMillis() - start;
+        hangingClient.waitForCompleted();
+
+        assertEquals(1500, workingClient.events.size());
+        assertTrue(elapsedMilliseconds < 1000, "dauerte " + elapsedMilliseconds + " ms");
+        assertTrue(hangingClient.completed);
     }
 
     /** Liefert count Nachrichten in Raum A aus, noch ohne Client, und gibt sie zurück. */

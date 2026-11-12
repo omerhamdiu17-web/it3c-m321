@@ -251,7 +251,7 @@ einem eigenen Commit. Der Text der Schritte oben bleibt stehen.
 - **Test:** `RoomSubscribersTest` (neuer Test für den hängenden Client), alle bisherigen Tests
   bleiben grün, danach das Abnahmeskript mit S6.
 - **Commit:** `fix: hängender Client hält die Zustellung nicht mehr auf`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Neuer Test zuerst rot, genau mit dem Fehler aus S6: Der gesunde Client wartete `3021 ms` auf den hängenden. Danach 30 Tests grün; die bisherigen Unit-Tests warten jetzt kurz, weil jeder Client in seinem eigenen Thread sendet. Abnahmeskript danach S2 bis S8 alle PASS. S6 im Detail: angehaltene Queue höchstens 1000, Queue der laufenden Instanz höchstens 3 (vorher 1000), 5000 von 5000 beim Client.
 
 ## Abnahmeprotokoll
 

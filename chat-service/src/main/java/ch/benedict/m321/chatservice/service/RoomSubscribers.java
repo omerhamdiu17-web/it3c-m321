@@ -4,9 +4,7 @@ import ch.benedict.m321.chatservice.dto.DeliveredMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter.SseEventBuilder;
 
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -22,9 +20,13 @@ import java.util.UUID;
  * Nachrichten, damit ein Client nach einem Abbruch nachholen kann
  * (Spezifikation 2.4).
  *
+ * "Weitergeben" heisst: in den Postausgang des Clients legen (Subscriber).
+ * Gesendet wird dort, im eigenen Thread des Clients. So hält ein hängender
+ * Client den Leser der Queue nicht auf (Plan, Änderung 1).
+ *
  * Alle Methoden sind synchronized, es gibt also EINE Sperre für alles. Dadurch
- * läuft nie ein Senden gleichzeitig mit einem An- oder Abmelden:
- * - Jede Verbindung bekommt die Nachrichten in der Reihenfolge, in der sie
+ * läuft nie ein Weitergeben gleichzeitig mit einem An- oder Abmelden:
+ * - Jeder Postausgang bekommt die Nachrichten in der Reihenfolge, in der sie
  *   aus der Queue kamen (Spezifikation 2.2).
  * - Zwischen Nachholen und Anmelden kann keine neue Nachricht durchrutschen.
  *   Darum fehlt beim Nachholen nichts, und nichts kommt doppelt (S7).
@@ -37,7 +39,7 @@ public class RoomSubscribers {
     static final int RECENT_MESSAGES_PER_ROOM = 1000;
 
     /** Raum → offene Verbindungen in diesem Raum. */
-    private final Map<UUID, List<SseEmitter>> subscribersByRoom = new HashMap<>();
+    private final Map<UUID, List<Subscriber>> subscribersByRoom = new HashMap<>();
 
     /** Raum → die letzten Nachrichten, die älteste vorne, die neuste hinten. */
     private final Map<UUID, Deque<DeliveredMessage>> recentMessagesByRoom = new HashMap<>();
@@ -46,24 +48,23 @@ public class RoomSubscribers {
      * Meldet eine Verbindung für einen Raum an. Ab jetzt bekommt sie dessen
      * Nachrichten.
      *
-     * Kommt der Client mit einer lastEventId zurück, bekommt er VOR dem
-     * Anmelden alles, was danach kam. Kennen wir die ID nicht (zu alt oder die
-     * Instanz ist neu), holen wir nichts nach, warnen im Log und melden ihn nur
-     * für live an (Spezifikation 2.6).
+     * Kommt der Client mit einer lastEventId zurück, kommt VOR dem Anmelden
+     * alles, was danach kam, in seinen Postausgang. Kennen wir die ID nicht
+     * (zu alt oder die Instanz ist neu), holen wir nichts nach, warnen im Log
+     * und melden ihn nur für live an (Spezifikation 2.6).
      */
     public synchronized void subscribe(UUID roomId, String lastEventId, SseEmitter emitter) {
+        Subscriber subscriber = new Subscriber(emitter);
         if (lastEventId != null) {
-            boolean caughtUp = sendMissedMessages(roomId, lastEventId, emitter);
-            if (!caughtUp) {
-                return;
-            }
+            queueMissedMessages(roomId, lastEventId, subscriber);
         }
-        List<SseEmitter> subscribers = subscribersByRoom.get(roomId);
+        subscriber.start();
+        List<Subscriber> subscribers = subscribersByRoom.get(roomId);
         if (subscribers == null) {
             subscribers = new ArrayList<>();
             subscribersByRoom.put(roomId, subscribers);
         }
-        subscribers.add(emitter);
+        subscribers.add(subscriber);
         log.debug("Subscriber added to room {}, now {}", roomId, subscribers.size());
     }
 
@@ -72,39 +73,54 @@ public class RoomSubscribers {
      * Raum wird ganz entfernt, damit die Liste nicht endlos wächst.
      */
     public synchronized void unsubscribe(UUID roomId, SseEmitter emitter) {
-        List<SseEmitter> subscribers = subscribersByRoom.get(roomId);
+        List<Subscriber> subscribers = subscribersByRoom.get(roomId);
         if (subscribers == null) {
             return;
         }
-        subscribers.remove(emitter);
-        if (subscribers.isEmpty()) {
-            subscribersByRoom.remove(roomId);
+        Subscriber found = null;
+        for (Subscriber subscriber : subscribers) {
+            if (subscriber.isFor(emitter)) {
+                found = subscriber;
+            }
         }
-        log.debug("Subscriber removed from room {}", roomId);
+        if (found != null) {
+            remove(roomId, found);
+        }
     }
 
     /**
-     * Merkt sich die Nachricht und schickt sie an alle Verbindungen ihres
-     * Raums. Wohin das Senden scheitert, der Client ist weg: diese Verbindung
-     * fliegt raus.
+     * Merkt sich die Nachricht und legt sie in den Postausgang jeder
+     * Verbindung ihres Raums. Nimmt ein Postausgang nichts mehr an (Verbindung
+     * zu oder Client kommt nicht mehr mit), wird nur diese Verbindung getrennt.
      *
-     * Wir senden an eine Kopie der Liste. So darf sich die echte Liste
-     * ändern, während wir senden.
+     * Wir gehen durch eine Kopie der Liste. So dürfen wir unterwegs entfernen.
      */
     public synchronized void deliver(DeliveredMessage message) {
         UUID roomId = message.roomId();
         remember(message);
-        List<SseEmitter> subscribers = subscribersByRoom.get(roomId);
+        List<Subscriber> subscribers = subscribersByRoom.get(roomId);
         if (subscribers == null) {
             return;
         }
-        List<SseEmitter> receivers = new ArrayList<>(subscribers);
-        for (SseEmitter emitter : receivers) {
-            boolean sent = send(emitter, message);
-            if (!sent) {
-                unsubscribe(roomId, emitter);
+        List<Subscriber> receivers = new ArrayList<>(subscribers);
+        for (Subscriber subscriber : receivers) {
+            boolean accepted = subscriber.offer(message);
+            if (!accepted) {
+                log.warn("Subscriber in room {} is closed or too slow, disconnecting it", roomId);
+                remove(roomId, subscriber);
             }
         }
+    }
+
+    /** Entfernt eine Verbindung aus ihrem Raum und schliesst sie. */
+    private void remove(UUID roomId, Subscriber subscriber) {
+        List<Subscriber> subscribers = subscribersByRoom.get(roomId);
+        subscribers.remove(subscriber);
+        if (subscribers.isEmpty()) {
+            subscribersByRoom.remove(roomId);
+        }
+        subscriber.close();
+        log.debug("Subscriber removed from room {}", roomId);
     }
 
     /**
@@ -125,23 +141,19 @@ public class RoomSubscribers {
     }
 
     /**
-     * Schickt alles, was nach lastEventId kam. Gibt false zurück, wenn die
-     * Verbindung dabei abbricht; dann wird sie gar nicht erst angemeldet.
+     * Legt alles, was nach lastEventId kam, in den Postausgang. Es sind
+     * höchstens 999, der Postausgang fasst 1000, es passt also immer.
      */
-    private boolean sendMissedMessages(UUID roomId, String lastEventId, SseEmitter emitter) {
+    private void queueMissedMessages(UUID roomId, String lastEventId, Subscriber subscriber) {
         List<DeliveredMessage> missedMessages = messagesAfter(roomId, lastEventId);
         if (missedMessages == null) {
             log.warn("Unknown Last-Event-ID {} for room {}, nothing to catch up", lastEventId, roomId);
-            return true;
+            return;
         }
         log.info("Catching up {} messages after {} in room {}", missedMessages.size(), lastEventId, roomId);
         for (DeliveredMessage missedMessage : missedMessages) {
-            boolean sent = send(emitter, missedMessage);
-            if (!sent) {
-                return false;
-            }
+            subscriber.offer(missedMessage);
         }
-        return true;
     }
 
     /**
@@ -168,24 +180,5 @@ public class RoomSubscribers {
             return null;
         }
         return messagesAfter;
-    }
-
-    /**
-     * Schickt ein SSE-Ereignis: "id:" ist die Nachrichten-ID, "data:" das
-     * JSON. Gibt false zurück, wenn die Verbindung nicht mehr offen ist.
-     */
-    private boolean send(SseEmitter emitter, DeliveredMessage message) {
-        String eventId = message.id().toString();
-        String json = message.json();
-        SseEventBuilder event = SseEmitter.event()
-                .id(eventId)
-                .data(json);
-        try {
-            emitter.send(event);
-            return true;
-        } catch (IOException | IllegalStateException exception) {
-            log.debug("Could not send message {}, removing subscriber: {}", eventId, exception.getMessage());
-            return false;
-        }
     }
 }

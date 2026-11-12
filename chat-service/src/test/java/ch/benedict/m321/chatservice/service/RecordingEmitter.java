@@ -29,7 +29,16 @@ class RecordingEmitter extends SseEmitter {
     volatile int sendAttempts;
 
     /** true: jedes Senden scheitert wie bei einem Client, der weg ist. */
-    boolean broken;
+    volatile boolean broken;
+
+    /**
+     * So viele Millisekunden hängt das ERSTE Senden, wie bei einem Client, der
+     * nicht mehr liest. 0 heisst: nie hängen.
+     */
+    volatile long hangOnFirstSendMilliseconds;
+
+    /** true, sobald jemand die Verbindung beendet hat (complete). */
+    volatile boolean completed;
 
     /**
      * Statt zu senden, setzt sie die Teile des Ereignisses zu Text zusammen,
@@ -38,6 +47,9 @@ class RecordingEmitter extends SseEmitter {
     @Override
     public void send(SseEventBuilder builder) throws IOException {
         sendAttempts = sendAttempts + 1;
+        if (sendAttempts == 1 && hangOnFirstSendMilliseconds > 0) {
+            hang();
+        }
         if (broken) {
             throw new IOException("Client ist weg");
         }
@@ -50,10 +62,41 @@ class RecordingEmitter extends SseEmitter {
         events.add(text.toString());
     }
 
+    /** Merkt sich nur, dass die Verbindung beendet wurde. Es gibt nichts zu schliessen. */
+    @Override
+    public void complete() {
+        completed = true;
+    }
+
+    /** Hängt so lange wie verlangt, wie ein Schreiben in eine volle Leitung. */
+    private void hang() throws IOException {
+        try {
+            Thread.sleep(hangOnFirstSendMilliseconds);
+        } catch (InterruptedException exception) {
+            throw new IOException("Hängen unterbrochen", exception);
+        }
+    }
+
+    /** Wartet höchstens 5 Sekunden, bis mindestens so viele Sendeversuche gezählt sind. */
+    void waitForSendAttempts(int expectedCount) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5000;
+        while (sendAttempts < expectedCount && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10);
+        }
+    }
+
+    /** Wartet höchstens 5 Sekunden, bis die Verbindung beendet wurde. */
+    void waitForCompleted() throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 5000;
+        while (!completed && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10);
+        }
+    }
+
     /**
      * Wartet höchstens 5 Sekunden, bis mindestens so viele Ereignisse da sind.
-     * Nötig, weil die Nachricht im Integrationstest über RabbitMQ kommt, also
-     * nicht sofort.
+     * Nötig, weil die Nachricht nicht sofort ankommt: im Integrationstest
+     * über RabbitMQ, und jeder Client hat einen eigenen Sende-Thread.
      */
     void waitForEvents(int expectedCount) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 5000;
