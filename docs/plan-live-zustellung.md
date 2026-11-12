@@ -176,7 +176,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > scheitert der Test, melde es mir.
 - **Test:** `TwoInstancesIntegrationTest` (neu).
 - **Commit:** `test: Verteilung an zwei Instanzen`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Der Test war sofort grün, weil der Code aus Schritt 2 bis 6 schon da ist. Damit er trotzdem etwas beweist, wurde der Fehler absichtlich eingebaut: alle Instanzen an einer gemeinsamen Queue `chat.delivery.gemeinsam`. Ergebnis rot, `expected: <100> but was: <5…>`, jeder Client bekam etwa die Hälfte, genau wie in Spezifikation 3.1 beschrieben. Danach `RabbitConfig.java` zurückgesetzt (`git status` ohne Änderung). Produktionscode nicht geändert.
 
 ## Schritt 8: Abnahmeskript S2 bis S8 und CI
 
