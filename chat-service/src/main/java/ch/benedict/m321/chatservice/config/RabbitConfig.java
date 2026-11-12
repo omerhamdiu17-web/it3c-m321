@@ -1,11 +1,15 @@
 package ch.benedict.m321.chatservice.config;
 
+import ch.benedict.m321.chatservice.service.DeliveryListener;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +28,9 @@ public class RabbitConfig {
 
     /** So viele Nachrichten warten höchstens in der eigenen Queue (Spezifikation 3.3). */
     private static final int DELIVERY_QUEUE_MAX_LENGTH = 900;
+
+    /** So viele Nachrichten schickt RabbitMQ der Instanz höchstens auf Vorrat. 900 + 100 = 1000. */
+    private static final int DELIVERY_PREFETCH = 100;
 
     /**
      * Der Schreibweg. "durable" heisst: die Queue überlebt einen Neustart
@@ -90,6 +97,34 @@ public class RabbitConfig {
     @Bean
     public Binding deliveryBinding(Queue deliveryQueue, FanoutExchange deliveryExchange) {
         return BindingBuilder.bind(deliveryQueue).to(deliveryExchange);
+    }
+
+    /**
+     * Der Leser der eigenen Queue, von Hand eingerichtet, damit alles an einer
+     * Stelle steht (Spezifikation 2.2 und 3.3):
+     *
+     * - setQueues: nur die eigene Queue dieser Instanz.
+     * - setConcurrentConsumers(1): EIN Leser. Er nimmt eine Nachricht nach der
+     *   anderen, darum bleibt die Reihenfolge. Zwei Leser könnten sich überholen.
+     * - setPrefetchCount(100): RabbitMQ schickt höchstens 100 auf Vorrat. Mit
+     *   den höchstens 900 wartenden in der Queue sind es nie mehr als 1000.
+     * - AUTO: Spring bestätigt jede Nachricht, wenn der Listener fertig ist.
+     * - setDefaultRequeueRejected(false): Wirft der Listener doch einmal einen
+     *   Fehler, kommt die Nachricht nicht zurück in die Queue. Sonst käme sie
+     *   immer wieder.
+     */
+    @Bean
+    public SimpleMessageListenerContainer deliveryListenerContainer(ConnectionFactory connectionFactory,
+                                                                     Queue deliveryQueue,
+                                                                     DeliveryListener deliveryListener) {
+        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer(connectionFactory);
+        container.setQueues(deliveryQueue);
+        container.setConcurrentConsumers(1);
+        container.setPrefetchCount(DELIVERY_PREFETCH);
+        container.setAcknowledgeMode(AcknowledgeMode.AUTO);
+        container.setDefaultRequeueRejected(false);
+        container.setMessageListener(deliveryListener);
+        return container;
     }
 
     /**

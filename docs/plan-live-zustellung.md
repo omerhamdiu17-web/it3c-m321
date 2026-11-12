@@ -123,7 +123,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > `POST /messages` genau ein Ereignis mit der ID aus der Antwort und dem JSON aus `chat.persist`.
 - **Test:** `DeliveryListenerIntegrationTest` (neu).
 - **Commit:** `feat: Kopie vom Fanout lesen und an den Raum geben`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Test zuerst rot (`expected: <1> but was: <0>`, niemand liest die Queue), danach grün, 21 Tests. Der Test vergleicht `data:` mit dem Body, der wirklich in `chat.persist` liegt. Korrigiert: Im ersten Entwurf schickte der Test den Müll mit `convertAndSend`; das macht daraus den gültigen JSON-Text `"kein JSON"`. Jetzt gehen rohe Bytes raus. Die Testhilfe `RecordingEmitter` brauchte eine Liste für mehrere Threads, weil der Listener in einem eigenen Thread schreibt. Der Kommentar in `ChatServiceApplicationTest` stimmte nicht mehr (die Verbindung entsteht jetzt beim Start) und ist nachgeführt.
 
 ## Schritt 5: Endpunkt GET /stream
 

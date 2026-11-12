@@ -5,8 +5,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 /**
  * Prüft, dass der Spring-Kontext überhaupt hochfährt.
- * Ein RabbitMQ wird dafür nicht gebraucht: die Verbindung wird erst
- * beim ersten Senden aufgebaut, nicht beim Start.
+ * Ein RabbitMQ wird dafür nicht gebraucht: Der Leser der eigenen Queue
+ * versucht die Verbindung im Hintergrund immer wieder, der Start wartet
+ * nicht darauf.
  */
 @SpringBootTest
 class ChatServiceApplicationTest {
