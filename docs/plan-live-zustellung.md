@@ -223,8 +223,35 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
 
 ## Änderungen am Plan
 
-Noch keine. Jede Änderung kommt hier als eigener Eintrag mit Datum, was sich ändert und
-Änderungsgrund, in einem eigenen Commit.
+Jede Änderung kommt hier als eigener Eintrag mit Datum, was sich ändert und Änderungsgrund, in
+einem eigenen Commit. Der Text der Schritte oben bleibt stehen.
+
+### Änderung 1 (12.11.2026): neuer Schritt 6b, jeder Client bekommt einen eigenen Postausgang
+
+- **Was sich ändert:** Zwischen Schritt 7 und 8 kommt Schritt 6b. `RoomSubscribers` schickt nicht
+  mehr selbst an die Verbindungen, sondern legt jede Nachricht in den Postausgang des Clients
+  (höchstens 1000). Jeder Client hat einen eigenen Thread, der seinen Postausgang leert. Läuft ein
+  Postausgang über, wird nur dieser Client getrennt; er verbindet sich neu und holt mit
+  `Last-Event-ID` nach. Schritt 3 und 6 bleiben, wie sie sind; 6b baut darauf auf.
+- **Änderungsgrund:** Der erste Lauf des Abnahmeskripts (Schritt 8) war in S6 zweimal rot: Der
+  Client an der laufenden Instanz bekam nur 1161 und 3180 von 5000. Gemessen: Auch die Queue der
+  laufenden Instanz stand bei 1000. Im Protokoll von `chat-service-1` sieht man, warum: Der eine
+  Leser hing um 12:53:49.035 und 12:53:50.224 je beim Schreiben an einen Client aus S3 und S5, den
+  es nicht mehr gab (Container mit `docker rm -f` entfernt). In dieser Zeit lief die Queue über
+  900 voll, und die ältesten fielen raus. Ohne die toten Clients kamen in 5 Proben alle 5000 an.
+  Das heisst: Ein einziger hängender Client bremst die Zustellung für alle Clients der Instanz.
+  Das darf nicht sein, auch ausserhalb der Abnahme (z. B. ein Handy im Funkloch).
+- **Auftrag an die KI:**
+  > Ein toter oder langsamer Client darf den Leser der Queue nicht aufhalten. Gib jedem Client in
+  > `RoomSubscribers` einen eigenen Postausgang (höchstens 1000 Nachrichten) und einen eigenen
+  > virtuellen Thread, der ihn der Reihe nach leert. `deliver` legt nur noch hinein. Ist ein
+  > Postausgang voll, trenne nur diesen Client. Nachholen mit `Last-Event-ID` legt die verpassten
+  > Nachrichten zuerst in den Postausgang, in derselben Sperre wie bisher. Test zuerst: Ein Client,
+  > der beim Senden hängt, darf einen zweiten Client im selben Raum nicht aufhalten.
+- **Test:** `RoomSubscribersTest` (neuer Test für den hängenden Client), alle bisherigen Tests
+  bleiben grün, danach das Abnahmeskript mit S6.
+- **Commit:** `fix: hängender Client hält die Zustellung nicht mehr auf`
+- **Geprüft und korrigiert:** _nach dem Schritt_
 
 ## Abnahmeprotokoll
 
