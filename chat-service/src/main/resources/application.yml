@@ -15,6 +15,10 @@ spring:
 
 server:
   port: 8080
+  # Beim Stoppen offene SSE-Verbindungen sofort schliessen. Spring Boot würde
+  # sonst bis zu 30 s warten, bis sie von selbst enden, und das tun sie nie.
+  # Die Clients verbinden sich neu und holen mit Last-Event-ID nach.
+  shutdown: immediate
 
 logging:
   level:

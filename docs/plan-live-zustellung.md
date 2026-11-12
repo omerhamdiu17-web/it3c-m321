@@ -142,7 +142,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > bekommt nichts, ein ungültiger Raum gibt 400.
 - **Test:** `StreamEndpointIntegrationTest` (neu), Testhilfe `SseTestClient` (neu).
 - **Commit:** `feat: Server-Sent Events unter GET /stream`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Test zuerst rot (404), danach 1 von 3 grün: Der Client bekam keine Header. Mit `curl -v` im Netz `chat-net` nachgeprüft: 4 s lang 0 Bytes, Spring schickt die Header erst mit dem ersten Ereignis. **Korrigiert:** Beim Verbinden geht sofort die SSE-Kommentarzeile `:verbunden` raus. Sie ist laut SSE-Standard kein Ereignis und hat keine `id:`. Danach 24 Tests grün; `curl` zeigt sofort `200` und `Content-Type: text/event-stream`. Kein Zeitlimit von Hand geprüft: Verbindung 35 s offen, danach kam eine Nachricht mit `id:` und `data:` an. Verschachtelte Aufrufe in den Testhilfen in eigene Zeilen geteilt.
 
 ## Schritt 6: Nachholen mit Last-Event-ID
 
