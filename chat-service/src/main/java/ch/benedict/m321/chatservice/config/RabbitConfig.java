@@ -1,6 +1,8 @@
 package ch.benedict.m321.chatservice.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
@@ -8,6 +10,8 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.UUID;
 
 /**
  * Legt beim Start alles an, was der Broker braucht.
@@ -17,6 +21,9 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class RabbitConfig {
+
+    /** So viele Nachrichten warten höchstens in der eigenen Queue (Spezifikation 3.3). */
+    private static final int DELIVERY_QUEUE_MAX_LENGTH = 900;
 
     /**
      * Der Schreibweg. "durable" heisst: die Queue überlebt einen Neustart
@@ -46,6 +53,43 @@ public class RabbitConfig {
     @Bean
     public FanoutExchange deliveryExchange() {
         return new FanoutExchange(QueueNames.DELIVERY_EXCHANGE, true, false);
+    }
+
+    /**
+     * Die eigene Queue DIESER Instanz am Zustellweg (Spezifikation 3).
+     *
+     * - Eigene Queue statt einer gemeinsamen: an einer gemeinsamen Queue würden
+     *   sich die Instanzen die Nachrichten teilen, und jeder Client sähe nur
+     *   einen Teil. So bekommt jede Instanz eine Kopie von jeder Nachricht.
+     * - Zufälliger Name: jede Instanz braucht einen anderen.
+     * - nonDurable, exclusive, autoDelete: die Queue gehört nur der Verbindung
+     *   dieser Instanz. Ist die Verbindung zu, löscht RabbitMQ die Queue (S4).
+     * - maxLength 900 und dropHead: hängt die Instanz, warten höchstens 900
+     *   Nachrichten, bei der nächsten fliegt die älteste raus. Dazu kommen
+     *   höchstens 100, die schon unterwegs zur Instanz sind (prefetch). Zusammen
+     *   nie mehr als 1000 (S6).
+     */
+    @Bean
+    public Queue deliveryQueue() {
+        UUID instanceId = UUID.randomUUID();
+        String queueName = QueueNames.DELIVERY_QUEUE_PREFIX + instanceId;
+        return QueueBuilder.nonDurable(queueName)
+                .exclusive()
+                .autoDelete()
+                .maxLength(DELIVERY_QUEUE_MAX_LENGTH)
+                .overflow(QueueBuilder.Overflow.dropHead)
+                .build();
+    }
+
+    /**
+     * Hängt die eigene Queue an den Fanout. Erst ab jetzt legt RabbitMQ eine
+     * Kopie jeder Nachricht hinein. Ohne Binding verwirft der Fanout sie.
+     *
+     * Spring findet die beiden Beans über die Namen der Parameter.
+     */
+    @Bean
+    public Binding deliveryBinding(Queue deliveryQueue, FanoutExchange deliveryExchange) {
+        return BindingBuilder.bind(deliveryQueue).to(deliveryExchange);
     }
 
     /**

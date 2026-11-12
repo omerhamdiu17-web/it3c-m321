@@ -15,6 +15,12 @@ public final class QueueNames {
     /** Zustellweg: fanout an alle web-gateway-Instanzen. */
     public static final String DELIVERY_EXCHANGE = "chat.delivery";
 
+    /**
+     * Namensanfang der eigenen Queue jeder chat-service-Instanz am Zustellweg.
+     * Dahinter kommt eine zufällige UUID, damit jede Instanz ihre eigene hat.
+     */
+    public static final String DELIVERY_QUEUE_PREFIX = "chat.delivery.";
+
     /** Dead Letter: was der batch-writer endgültig nicht verarbeiten kann. */
     public static final String DEAD_LETTER_QUEUE = "chat.dlq";
 

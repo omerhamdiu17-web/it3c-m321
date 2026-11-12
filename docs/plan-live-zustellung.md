@@ -86,7 +86,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > Spring-Kontexts ist sie weg.
 - **Test:** `DeliveryQueueIntegrationTest` (neu), rot vor dem Code, grün danach. `mvn -pl chat-service test`.
 - **Commit:** `feat: eigene Queue pro Instanz am Fanout chat.delivery`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Test zuerst rot (`expected: <1> but was: <0>`, keine Queue am Fanout), nach dem Code grün, 16 Tests. Korrigiert: Die Testhilfe las die Argumente als JSON-Objekt, `rabbitmqctl` liefert sie aber als Liste `[Name, Typ, Wert]` (von Hand an einer Probe-Queue nachgeschaut). Dazu gekommen: zwei Testhilfen, `ChatServiceStarter` (startet eine Instanz mit eigenem Kontext, gebraucht auch in Schritt 7) und `BrokerInspector` (fragt `rabbitmqctl` wie die Abnahme).
 
 ## Schritt 3: Raum → offene Verbindungen
 

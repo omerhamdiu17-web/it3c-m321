@@ -8,6 +8,10 @@ spring:
     port: 5672
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    # Alle 10 s ein Lebenszeichen zwischen Instanz und Broker. Hängt die
+    # Instanz (S6), merkt RabbitMQ es nach etwa 20 s, trennt die Verbindung
+    # und löscht ihre eigene Queue. Die Vorgabe wären 60 s.
+    requested-heartbeat: 10s
 
 server:
   port: 8080
