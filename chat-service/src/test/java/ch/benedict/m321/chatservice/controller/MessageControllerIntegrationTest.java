@@ -40,6 +40,7 @@ class MessageControllerIntegrationTest {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    /** Der Normalfall von aussen: eine gültige Nachricht bekommt 202 und liegt danach in chat.persist. */
     @Test
     void acceptsMessageAndPutsItOnTheQueue() throws Exception {
         String requestBody = """
@@ -68,6 +69,7 @@ class MessageControllerIntegrationTest {
         assertEquals("Anna Muster", message.senderName());
     }
 
+    /** Eine leere Nachricht darf gar nicht erst in die Queue, darum 400. */
     @Test
     void rejectsEmptyContent() throws Exception {
         String requestBody = """

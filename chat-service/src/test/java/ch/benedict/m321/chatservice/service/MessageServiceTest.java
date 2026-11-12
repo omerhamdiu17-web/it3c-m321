@@ -39,6 +39,7 @@ class MessageServiceTest {
         }
     }
 
+    /** ID und Zeit vergibt der Server, nie der Client. */
     @Test
     void assignsIdAndTimestamp() {
         RecordingPublisher publisher = new RecordingPublisher();
@@ -53,6 +54,7 @@ class MessageServiceTest {
         assertNotNull(response.sentAt());
     }
 
+    /** Genau eine Veröffentlichung, und die Antwort nennt dieselbe ID wie die Nachricht. */
     @Test
     void publishesExactlyOnceWithTheSameId() {
         RecordingPublisher publisher = new RecordingPublisher();
@@ -70,6 +72,7 @@ class MessageServiceTest {
         assertEquals("Hallo", publisher.published.content());
     }
 
+    /** Zweimal derselbe Text ergibt zwei Nachrichten mit zwei verschiedenen IDs. */
     @Test
     void assignsADifferentIdEveryTime() {
         RecordingPublisher publisher = new RecordingPublisher();

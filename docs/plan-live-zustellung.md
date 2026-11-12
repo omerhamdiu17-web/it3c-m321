@@ -64,7 +64,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > keinen Code, nur Kommentare. Danach muss das Skript ohne Ausgabe enden und `mvn -pl chat-service test` grün sein.
 - **Test:** `bash scripts/kommentare.sh chat-service/src; echo $?` vorher 17 Zeilen und `1`, nachher keine Zeile und `0`.
 - **Commit:** `docs: Kommentare über allen Klassen und Methoden des chat-service`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: `kommentare.sh` vorher 17 Zeilen und Exit 1, nachher keine Zeile und Exit 0. `mvn -pl chat-service test`: 14 Tests grün. Nur Kommentare dazu, kein Code geändert (`git diff --stat`: 17 Zeilen eingefügt, 0 gelöscht). Nichts korrigiert.
 
 ## Schritt 2: Eigene Queue pro Instanz am Fanout
 

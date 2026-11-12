@@ -33,6 +33,7 @@ class RabbitConfigIntegrationTest {
     @Autowired
     private RabbitAdmin rabbitAdmin;
 
+    /** Ohne chat.persist hätte der batch-writer nichts zu lesen. */
     @Test
     void declaresPersistQueue() {
         Properties properties = rabbitAdmin.getQueueProperties(QueueNames.PERSIST_QUEUE);
@@ -40,6 +41,7 @@ class RabbitConfigIntegrationTest {
         assertNotNull(properties);
     }
 
+    /** Ohne chat.dlq würde RabbitMQ abgelehnte Nachrichten still verwerfen. */
     @Test
     void declaresDeadLetterQueue() {
         Properties properties = rabbitAdmin.getQueueProperties(QueueNames.DEAD_LETTER_QUEUE);

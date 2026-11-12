@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class ChatServiceApplicationTest {
 
+    /** Fährt der Kontext nicht hoch, sind alle anderen Tests wertlos. Darum gibt es diesen leeren Test. */
     @Test
     void contextLoads() {
         // Kein Assert nötig. Fährt der Kontext nicht hoch, wirft Spring

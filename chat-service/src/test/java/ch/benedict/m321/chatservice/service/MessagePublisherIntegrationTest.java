@@ -57,6 +57,7 @@ class MessagePublisherIntegrationTest {
         rabbitAdmin.purgeQueue(QueueNames.PERSIST_QUEUE);
     }
 
+    /** Der Schreibweg: die Nachricht liegt mit derselben ID in chat.persist. */
     @Test
     void publishesToPersistQueue() {
         ChatMessage message = createMessage("Hallo Schreibweg");
@@ -69,6 +70,7 @@ class MessagePublisherIntegrationTest {
         assertEquals("Hallo Schreibweg", persisted.content());
     }
 
+    /** Der Zustellweg: eine Queue am Fanout bekommt eine Kopie mit derselben ID. */
     @Test
     void publishesToDeliveryExchange() {
         // Wir spielen ein web-gateway: eigene Queue an den Fanout binden.

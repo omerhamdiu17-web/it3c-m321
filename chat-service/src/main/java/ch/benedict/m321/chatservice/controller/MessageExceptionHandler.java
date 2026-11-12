@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 public class MessageExceptionHandler {
 
+    /** Spring ruft diese Methode auf, wenn beim Senden an RabbitMQ eine AmqpException fliegt, und macht daraus eine 503. */
     @ExceptionHandler(AmqpException.class)
     public ResponseEntity<String> handleBrokerNotAvailable(AmqpException exception) {
         log.error("Broker not reachable, message rejected", exception);

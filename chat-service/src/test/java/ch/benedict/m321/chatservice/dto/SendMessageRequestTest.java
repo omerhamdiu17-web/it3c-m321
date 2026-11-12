@@ -22,12 +22,14 @@ class SendMessageRequestTest {
 
     private Validator validator;
 
+    /** Jeder Test bekommt einen frischen Validator, derselbe Mechanismus, den Spring beim POST benutzt. */
     @BeforeEach
     void setUp() {
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         this.validator = factory.getValidator();
     }
 
+    /** Eine vollständige Nachricht hat keinen einzigen Regelverstoss. */
     @Test
     void acceptsCompleteRequest() {
         SendMessageRequest request = new SendMessageRequest(
@@ -38,6 +40,7 @@ class SendMessageRequestTest {
         assertTrue(violations.isEmpty());
     }
 
+    /** Nur Leerzeichen gelten als leer: genau ein Verstoss. */
     @Test
     void rejectsBlankContent() {
         SendMessageRequest request = new SendMessageRequest(
@@ -48,6 +51,7 @@ class SendMessageRequestTest {
         assertEquals(1, violations.size());
     }
 
+    /** Ohne Raum weiss niemand, wohin die Nachricht gehört: genau ein Verstoss. */
     @Test
     void rejectsMissingRoomId() {
         SendMessageRequest request = new SendMessageRequest(
