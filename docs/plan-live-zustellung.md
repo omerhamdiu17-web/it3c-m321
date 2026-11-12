@@ -160,7 +160,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > `Last-Event-ID` bringt genau diese 50 in Reihenfolge ohne Doppelte, danach kommt eine neue live.
 - **Test:** `RoomSubscribersTest` (erweitert), `ReconnectIntegrationTest` (neu).
 - **Commit:** `feat: verpasste Nachrichten nach Last-Event-ID nachholen`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude: Für ein echtes Rot bekam `subscribe` zuerst nur den neuen Parameter, ohne Nachholen. Ergebnis rot: Der S7-Test bekam nach dem Neuverbinden nur die neue Nachricht statt 50 + 1, der Unit-Test nur 1 statt 4. Danach grün, 28 Tests; das Log zeigt `Catching up 50 messages`. Bewusst so gelöst: Nachholen und Anmelden passieren in derselben Sperre wie `deliver`, darum kann keine Nachricht dazwischenrutschen. Grenze des Ansatzes, wie in der Spezifikation 2.6: Die Instanz kennt nur, was sie selbst seit ihrem Start gesehen hat, höchstens 1000 pro Raum.
 
 ## Schritt 7: Test mit zwei Instanzen
 

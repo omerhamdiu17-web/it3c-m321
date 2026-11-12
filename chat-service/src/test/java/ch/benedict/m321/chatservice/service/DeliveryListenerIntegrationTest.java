@@ -67,7 +67,7 @@ class DeliveryListenerIntegrationTest {
     void subscribeClient() {
         rabbitAdmin.purgeQueue(QueueNames.PERSIST_QUEUE);
         client = new RecordingEmitter();
-        roomSubscribers.subscribe(ROOM_ID, client);
+        roomSubscribers.subscribe(ROOM_ID, null, client);
     }
 
     /** Der Client darf in den nächsten Test nicht mitgenommen werden. */

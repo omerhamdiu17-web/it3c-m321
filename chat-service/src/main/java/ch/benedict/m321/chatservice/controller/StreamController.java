@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -43,12 +44,18 @@ public class StreamController {
      * die mit ":" beginnt, ist laut SSE-Standard ein Kommentar: kein Ereignis,
      * keine id, jeder Client überliest sie.
      *
+     * Last-Event-ID schickt ein Client mit, der schon einmal verbunden war: die
+     * ID der letzten Nachricht, die er bekommen hat. Ein Browser (EventSource)
+     * macht das beim Neuverbinden von selbst. Fehlt der Header, ist er null.
+     *
      * Die drei Rückrufe melden die Verbindung wieder ab, egal wie sie endet:
      * normal, durch Zeitlimit oder durch einen Fehler (Client weg).
      * Fehlt roomId oder ist es keine UUID, antwortet Spring selbst mit 400.
      */
     @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@RequestParam UUID roomId) throws IOException {
+    public SseEmitter subscribe(@RequestParam UUID roomId,
+                                @RequestHeader(name = "Last-Event-ID", required = false) String lastEventId)
+            throws IOException {
         SseEmitter emitter = new SseEmitter(NO_TIMEOUT);
         emitter.onCompletion(() -> roomSubscribers.unsubscribe(roomId, emitter));
         emitter.onTimeout(() -> roomSubscribers.unsubscribe(roomId, emitter));
@@ -56,8 +63,8 @@ public class StreamController {
 
         SseEventBuilder connectedComment = SseEmitter.event().comment(CONNECTED_COMMENT);
         emitter.send(connectedComment);
-        roomSubscribers.subscribe(roomId, emitter);
-        log.info("Client subscribed to room {}", roomId);
+        roomSubscribers.subscribe(roomId, lastEventId, emitter);
+        log.info("Client subscribed to room {} with Last-Event-ID {}", roomId, lastEventId);
         return emitter;
     }
 }

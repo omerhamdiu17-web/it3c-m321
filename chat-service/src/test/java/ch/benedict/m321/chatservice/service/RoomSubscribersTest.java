@@ -3,6 +3,7 @@ package ch.benedict.m321.chatservice.service;
 import ch.benedict.m321.chatservice.dto.DeliveredMessage;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,9 +29,9 @@ class RoomSubscribersTest {
         RecordingEmitter clientOneInRoomA = new RecordingEmitter();
         RecordingEmitter clientTwoInRoomA = new RecordingEmitter();
         RecordingEmitter clientInRoomB = new RecordingEmitter();
-        roomSubscribers.subscribe(ROOM_A, clientOneInRoomA);
-        roomSubscribers.subscribe(ROOM_A, clientTwoInRoomA);
-        roomSubscribers.subscribe(ROOM_B, clientInRoomB);
+        roomSubscribers.subscribe(ROOM_A, null, clientOneInRoomA);
+        roomSubscribers.subscribe(ROOM_A, null, clientTwoInRoomA);
+        roomSubscribers.subscribe(ROOM_B, null, clientInRoomB);
         DeliveredMessage message = createMessage(ROOM_A, "Hallo Raum A");
 
         roomSubscribers.deliver(message);
@@ -48,8 +49,8 @@ class RoomSubscribersTest {
         RecordingEmitter brokenClient = new RecordingEmitter();
         brokenClient.broken = true;
         RecordingEmitter workingClient = new RecordingEmitter();
-        roomSubscribers.subscribe(ROOM_A, brokenClient);
-        roomSubscribers.subscribe(ROOM_A, workingClient);
+        roomSubscribers.subscribe(ROOM_A, null, brokenClient);
+        roomSubscribers.subscribe(ROOM_A, null, workingClient);
 
         DeliveredMessage first = createMessage(ROOM_A, "erste");
         DeliveredMessage second = createMessage(ROOM_A, "zweite");
@@ -66,13 +67,83 @@ class RoomSubscribersTest {
     void unsubscribedClientGetsNothing() {
         RoomSubscribers roomSubscribers = new RoomSubscribers();
         RecordingEmitter client = new RecordingEmitter();
-        roomSubscribers.subscribe(ROOM_A, client);
+        roomSubscribers.subscribe(ROOM_A, null, client);
         DeliveredMessage message = createMessage(ROOM_A, "zu spät");
 
         roomSubscribers.unsubscribe(ROOM_A, client);
         roomSubscribers.deliver(message);
 
         assertTrue(client.events.isEmpty());
+    }
+
+    /**
+     * Nachholen (Spezifikation 2.4): Wer mit der ID von Nachricht 2 kommt,
+     * bekommt 3, 4 und 5 in dieser Reihenfolge und danach live weiter.
+     */
+    @Test
+    void catchUpSendsOnlyMessagesAfterLastEventIdInOrder() {
+        RoomSubscribers roomSubscribers = new RoomSubscribers();
+        List<DeliveredMessage> sentBefore = deliverMessages(roomSubscribers, 5);
+        String lastEventId = sentBefore.get(1).id().toString();
+        RecordingEmitter client = new RecordingEmitter();
+
+        roomSubscribers.subscribe(ROOM_A, lastEventId, client);
+        DeliveredMessage liveMessage = createMessage(ROOM_A, "live");
+        roomSubscribers.deliver(liveMessage);
+
+        List<String> expectedIds = new ArrayList<>();
+        expectedIds.add(sentBefore.get(2).id().toString());
+        expectedIds.add(sentBefore.get(3).id().toString());
+        expectedIds.add(sentBefore.get(4).id().toString());
+        expectedIds.add(liveMessage.id().toString());
+        assertEquals(expectedIds, client.receivedIds());
+    }
+
+    /** Unbekannte ID (Spezifikation 2.6): nichts nachholen, aber live geht es weiter. */
+    @Test
+    void unknownLastEventIdCatchesUpNothing() {
+        RoomSubscribers roomSubscribers = new RoomSubscribers();
+        deliverMessages(roomSubscribers, 3);
+        RecordingEmitter client = new RecordingEmitter();
+        String unknownId = UUID.randomUUID().toString();
+
+        roomSubscribers.subscribe(ROOM_A, unknownId, client);
+        DeliveredMessage liveMessage = createMessage(ROOM_A, "live");
+        roomSubscribers.deliver(liveMessage);
+
+        String liveId = liveMessage.id().toString();
+        assertEquals(List.of(liveId), client.receivedIds());
+    }
+
+    /**
+     * Gemerkt werden nur die letzten 1000 pro Raum: die erste von 1001 ist
+     * vergessen, also unbekannt. Ab der zweiten fehlen 999.
+     */
+    @Test
+    void remembersOnlyTheLast1000MessagesPerRoom() {
+        RoomSubscribers roomSubscribers = new RoomSubscribers();
+        List<DeliveredMessage> sentBefore = deliverMessages(roomSubscribers, 1001);
+        String forgottenId = sentBefore.get(0).id().toString();
+        String rememberedId = sentBefore.get(1).id().toString();
+        RecordingEmitter clientWithForgottenId = new RecordingEmitter();
+        RecordingEmitter clientWithRememberedId = new RecordingEmitter();
+
+        roomSubscribers.subscribe(ROOM_A, forgottenId, clientWithForgottenId);
+        roomSubscribers.subscribe(ROOM_A, rememberedId, clientWithRememberedId);
+
+        assertEquals(0, clientWithForgottenId.events.size());
+        assertEquals(999, clientWithRememberedId.events.size());
+    }
+
+    /** Liefert count Nachrichten in Raum A aus, noch ohne Client, und gibt sie zurück. */
+    private List<DeliveredMessage> deliverMessages(RoomSubscribers roomSubscribers, int count) {
+        List<DeliveredMessage> messages = new ArrayList<>();
+        for (int i = 1; i <= count; i++) {
+            DeliveredMessage message = createMessage(ROOM_A, "Nachricht " + i);
+            roomSubscribers.deliver(message);
+            messages.add(message);
+        }
+        return messages;
     }
 
     /** Baut eine Nachricht mit neuer ID und dem JSON, wie es vom Fanout käme. */
