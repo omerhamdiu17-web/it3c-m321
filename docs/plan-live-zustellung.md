@@ -193,7 +193,7 @@ Verbindungen im Raum der Nachricht. Ein Client, der die Verbindung verloren hat,
   > zeig mir die Tabelle.
 - **Test:** das Skript selbst, lokal und in GitHub Actions, Exit-Code 0.
 - **Commits:** `test: Abnahmeskript für die Live-Zustellung`, danach `ci: Abnahme der Live-Zustellung bei jedem Push`
-- **Geprüft und korrigiert:** _nach dem Schritt_
+- **Geprüft und korrigiert:** 12.11.2026, geprüft von Claude. Erster Lauf: S2 bis S5, S7, S8 PASS, **S6 FAIL** (Client an der laufenden Instanz nur 1161 von 5000). Ursache gesucht statt geraten: 5 Proben ohne tote Clients alle grün, dann die Zeitstempel im Protokoll; der Leser hing beim Schreiben an Clients, die es nicht mehr gab. Daraus wurde Änderung 1 / Schritt 6b. Danach alle sieben PASS. Korrigiert am Skript: Hinter der letzten Nachricht stand ein überflüssiges `next` (curl meldete «no URL specified»); die Beschriftung «vor dem Fortsetzen» war falsch, gezählt wird nach dem Fortsetzen. «Mehrmals pro Sekunde» ist mit `rabbitmqctl` etwa viermal pro Sekunde (gemessen: 5 Aufrufe in 1,3 s).
 
 ## Schritt 9: README und .env.example
 
